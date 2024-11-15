@@ -1,6 +1,7 @@
 fine_tuned_personality_bot/
 results/
 
+.DS_Store
 
 
 # Byte-compiled / optimized / DLL files
