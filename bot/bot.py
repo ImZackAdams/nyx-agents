@@ -3,13 +3,14 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from .utilities import log_resource_usage
 from .hooks import generate_hook, add_emojis, add_hashtags, clean_response
-
+from nltk.sentiment import SentimentIntensityAnalyzer
 
 class PersonalityBot:
     def __init__(self, model_path, logger):
         self.model_path = model_path
         self.logger = logger
         self.model, self.tokenizer = self._setup_model()
+        self.sentiment_analyzer = SentimentIntensityAnalyzer()  # Initialize VADER
 
     def _setup_model(self):
         """Initialize and load the model and tokenizer."""
@@ -26,6 +27,18 @@ class PersonalityBot:
         ).eval()
 
         return model, tokenizer
+    
+    def _analyze_sentiment(self, text: str) -> str:
+        """Analyze the sentiment of a given text and return the dominant sentiment."""
+        sentiment_scores = self.sentiment_analyzer.polarity_scores(text)
+        self.logger.info(f"Sentiment scores: {sentiment_scores}")
+
+        if sentiment_scores["compound"] > 0.05:
+            return "positive"
+        elif sentiment_scores["compound"] < -0.05:
+            return "negative"
+        else:
+            return "neutral"
 
     def categorize_prompt(self, prompt: str) -> str:
         """Categorize the input prompt into predefined categories."""
@@ -69,14 +82,21 @@ class PersonalityBot:
 
         return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-    def _prepare_context(self, prompt: str) -> str:
-        """Combine the instruction, examples, and prompt into a context."""
-        instruction = (
+    def _prepare_context(self, prompt: str, sentiment: str = "neutral") -> str:
+        """Modify instructions based on sentiment to guide the model's tone."""
+        base_instruction = (
             "You are a woman named Athena and your twitter handle is @tballbothq. "
             "You are a crypto and finance expert with a sharp sense of humor, blending witty sarcasm with storytelling. "
             "Your goal is to create engaging, funny, and insightful tweets. "
-            "Each tweet should be coherent, logical, and provide a clear punchline or takeaway."
+            
         )
+
+        if sentiment == "positive":
+            tone_instruction = "Use an energetic and witty tone, with plenty of positivity."
+        elif sentiment == "negative":
+            tone_instruction = "Be empathetic but maintain humor in a less sarcastic manner."
+        else:  # Neutral
+            tone_instruction = "Use a balanced tone with clever humor."
 
         examples = (
             "Prompt: What's your take on Bitcoin as digital gold?\n"
@@ -85,7 +105,8 @@ class PersonalityBot:
             "Tweet: Staking in DeFi is like putting your money on a treadmill—you lock it up, it works out, and somehow you end up with more than just sweaty tokens. Gains on gains! 🏋️‍♂️ #DeFi #Staking\n\n"
         )
 
-        return f"{instruction}\n\n{examples}Prompt: {prompt}\nTweet:"
+        return f"{base_instruction}{tone_instruction}\n\n{examples}Prompt: {prompt}\nTweet:"
+
 
     def _enhance_response(self, response: str, category: str) -> str:
         """Post-process and enhance the response with hooks, emojis, and hashtags."""
@@ -103,14 +124,17 @@ class PersonalityBot:
         self.logger.info("Before inference:")
         log_resource_usage(self.logger)
 
+        # Prepare context for the model
         context = self._prepare_context(prompt)
         generated_text = self._generate_model_response(context)
 
+        # Extract relevant response
         response = self._extract_relevant_tweet(prompt, generated_text)
         if len(response) < 20:
             self.logger.warning("Generated response is too short. Falling back to default response.")
             response = self._get_fallback_response()
 
+        # Categorize prompt and enhance response based on sentiment
         category = self.categorize_prompt(prompt)
         response = self._enhance_response(response, category)
 
@@ -118,6 +142,7 @@ class PersonalityBot:
         log_resource_usage(self.logger)
 
         return response[:280]
+
 
     def _extract_relevant_tweet(self, prompt: str, text: str) -> str:
         """Extract the generated tweet corresponding to the input prompt."""
