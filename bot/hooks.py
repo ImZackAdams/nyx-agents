@@ -64,12 +64,12 @@ PHRASES = {
 def generate_hook(category: str) -> str:
     """Generate a category-specific hook."""
     category_hooks = HOOKS.get(category, HOOKS["general"])
-    return random.choice(category_hooks) if random.random() < 0.2 else ""
+    return random.choice(category_hooks) if random.random() < 0.1 else ""
 
 def add_emojis(text: str, category: str) -> str:
     """Add contextual emojis based on content category."""
     category_emojis = EMOJIS.get(category, EMOJIS["general"])
-    if random.random() > 0.2:
+    if random.random() > 0.1:
         return text  # 80% chance to skip adding emojis
     
     emoji_count = random.randint(1, 2)
@@ -79,7 +79,7 @@ def add_emojis(text: str, category: str) -> str:
 def add_hashtags(text: str, category: str) -> str:
     """Add relevant hashtags based on category."""
     category_hashtags = HASHTAGS.get(category, HASHTAGS["general"])
-    if random.random() > 0.2:
+    if random.random() > 0.1:
         return text  # 80% chance to skip adding hashtags
     
     remaining_chars = 280 - len(text)
