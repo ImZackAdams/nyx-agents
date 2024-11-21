@@ -10,16 +10,26 @@ project/
 ├── .env                  # Environment variables
 
 
+refactor bot personality class
+
+add fallbacks
+
+add sentiment analysis
+
+randomize frequency of decorators like hooks, emojis, hashtags
 
 
-Refactor!
 
 
-setup git properly
 
 optimize gpu
 
 reduce emojis and hashtags
+
+
+
+
+
 
 
 
