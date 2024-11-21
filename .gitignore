@@ -3,6 +3,8 @@ results/
 
 .DS_Store
 
+fine_tuned_personality_bot.tar.gz
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
