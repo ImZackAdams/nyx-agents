@@ -1,6 +1,8 @@
 fine_tuned_personality_bot/
 results/
 
+.env
+
 .DS_Store
 
 fine_tuned_personality_bot.tar.gz

@@ -1,0 +1,57 @@
+Refactor!
+
+your_project/
+├── personality_bot/
+│   ├── __init__.py
+│   ├── bot.py
+│   ├── utils.py
+│   └── resources.py
+├── main.py
+├── requirements.txt
+└── README.md
+
+setup git properly
+
+optimize gpu
+
+reduce emojis and hashtags
+
+
+
+Integrate twitter api for posts/replies
+
+check media upload endpoint in v1.1 
+
+setup system for deployment
+
+setup log file
+
+like users posts for engagement boosts
+
+post during peak engagement times (how?)
+
+awareness of real world events
+
+gamification features: Create engagement challenges or trivia for followers, rewarding participation with recognition or shoutouts.
+
+post GIFs, videos, memes, or charts(Seaborn) dynamically alongside tweets for added appeal.
+
+external data (stocks, sports, etc)
+
+respond to loyal followers: "Hey it's you again?"
+
+respond to users (by name)
+
+flywheel mechanism based on likes/engagement
+
+MAKE LOGS PUBLIC FOR TRANSPARENCY
+
+
+
+Other uses for twitter API:
+
+Collecting data from contest participants
+Sentiment analysis
+
+
+
