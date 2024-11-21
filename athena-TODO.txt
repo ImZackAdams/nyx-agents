@@ -1,14 +1,19 @@
+project/
+├── bot/
+│   ├── __init__.py
+│   ├── bot.py            # PersonalityBot implementation
+│   ├── utilities.py      # Utility functions like logging and resource tracking
+│   ├── twitter_client.py # Twitter API client setup and posting
+│   ├── hooks.py          # Hook, emoji, and hashtag logic
+├── main.py               # Entry point
+├── requirements.txt      # Dependencies
+├── .env                  # Environment variables
+
+
+
+
 Refactor!
 
-your_project/
-├── personality_bot/
-│   ├── __init__.py
-│   ├── bot.py
-│   ├── utils.py
-│   └── resources.py
-├── main.py
-├── requirements.txt
-└── README.md
 
 setup git properly
 
