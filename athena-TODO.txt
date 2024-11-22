@@ -25,6 +25,10 @@ time of day
 
 
 Integrate twitter api for posts/replies
+integrate markets,sports data
+
+
+use horoscope for mood, dynamic instructions
 
 check media upload endpoint in v1.1 
 
