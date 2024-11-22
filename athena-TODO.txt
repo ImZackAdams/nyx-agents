@@ -10,7 +10,7 @@ project/
 ├── .env                  # Environment variables
 
 
-refactor bot personality class
+
 
 add fallbacks
 
@@ -18,16 +18,7 @@ add prompt tone and response for abusive behavior towards bot, respond in sassy 
 
 
 
-
-
-
-
-optimize gpu
-
-reduce emojis and hashtags
-
-
-
+time of day
 
 
 
