@@ -14,9 +14,9 @@ refactor bot personality class
 
 add fallbacks
 
-add sentiment analysis
+add prompt tone and response for abusive behavior towards bot, respond in sassy dismissive way, perhaps insulting.
 
-randomize frequency of decorators like hooks, emojis, hashtags
+
 
 
 

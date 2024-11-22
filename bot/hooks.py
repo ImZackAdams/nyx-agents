@@ -29,25 +29,49 @@ HASHTAGS = {
 }
 
 
-def generate_hook(category: str) -> str:
-    return random.choice(HOOKS.get(category, HOOKS["general"]))
+def get_category_data(category: str, data_dict: dict) -> list:
+    """Fetch data for a category or default to general."""
+    return data_dict.get(category, data_dict["general"])
 
 
-def add_emojis(text: str, category: str) -> str:
-    if random.random() > 0.8:
-        return text
-    emojis = random.sample(EMOJIS.get(category, EMOJIS["general"]), random.randint(1, 2))
-    return f"{text} {' '.join(emojis)}"
+def generate_hook(category: str, prob: float = 0.1) -> str:
+    """Generate a hook with a specified probability."""
+    if random.random() > prob:
+        return ""
+    return random.choice(get_category_data(category, HOOKS))
 
 
-def add_hashtags(text: str, category: str) -> str:
-    if random.random() > 0.8:
-        return text
-    hashtags = random.sample(HASHTAGS.get(category, HASHTAGS["general"]), random.randint(1, 3))
-    return f"{text} {' '.join(hashtags)}"
+def add_emojis_and_hashtags(text: str, category: str) -> str:
+    """Add emojis and/or hashtags with a combined 20% probability."""
+    if random.random() <= 0.2:  # 20% chance for either emojis or hashtags
+        add_emoji = random.choice([True, False])  # Randomly decide whether to add an emoji
+        add_hashtag = not add_emoji or random.choice([True, False])  # Ensure at least one is added
+
+        if add_emoji:
+            emojis = random.sample(get_category_data(category, EMOJIS), random.randint(1, 2))
+            text = f"{text} {' '.join(emojis)}"
+
+        if add_hashtag:
+            hashtags = random.sample(get_category_data(category, HASHTAGS), random.randint(1, 3))
+            text = f"{text} {' '.join(hashtags)}"
+
+    return text
+
 
 
 def clean_response(text: str) -> str:
+    """Clean the generated response."""
     text = re.sub(r'http\S+', '', text)  # Remove URLs
     text = re.sub(r'\s+', ' ', text).strip()  # Remove extra whitespace
     return text.rstrip('"\'.,!?') + '.'
+
+
+def test_add_emojis_and_hashtags():
+    text = "This is a test."
+    category = "general"
+    results = [add_emojis_and_hashtags(text, category) for _ in range(1000)]
+    with_modifications = sum(1 for result in results if text != result)
+    print(f"Modification Frequency: {with_modifications / 1000:.2%}")
+
+test_add_emojis_and_hashtags()
+

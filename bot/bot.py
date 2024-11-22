@@ -2,8 +2,10 @@ import os
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from .utilities import log_resource_usage
-from .hooks import generate_hook, add_emojis, add_hashtags, clean_response
 from nltk.sentiment import SentimentIntensityAnalyzer
+import random
+from .hooks import generate_hook, add_emojis_and_hashtags, clean_response
+
 
 class PersonalityBot:
     def __init__(self, model_path, logger):
@@ -31,7 +33,7 @@ class PersonalityBot:
     def _analyze_sentiment(self, text: str) -> str:
         """Analyze the sentiment of a given text and return the dominant sentiment."""
         sentiment_scores = self.sentiment_analyzer.polarity_scores(text)
-        self.logger.info(f"Sentiment scores: {sentiment_scores}")
+       # self.logger.info(f"Sentiment scores: {sentiment_scores}")
 
         if sentiment_scores["compound"] > 0.05:
             return "positive"
@@ -82,66 +84,80 @@ class PersonalityBot:
 
         return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-    def _prepare_context(self, prompt: str, sentiment: str = "neutral") -> str:
-        """Modify instructions based on sentiment to guide the model's tone."""
+    def _prepare_context(self, prompt: str, sentiment: str = "neutral", category: str = "general") -> str:
+        """Modify instructions based on sentiment and category to guide the model."""
         base_instruction = (
-            "You are a woman named Athena and your twitter handle is @tballbothq. "
-            "You are a crypto and finance expert with a sharp sense of humor, blending witty sarcasm with storytelling. "
-            "Your goal is to create engaging, funny, and insightful tweets. "
-            
+            "You are Athena, a crypto and finance expert. Your tweets are witty, insightful, and funny."
+            "Blend storytelling and sarcasm into concise posts. Focus on engaging crypto enthusiasts."
+            "Your twitter handle is @tballbothq."
+            "Give a disclaimer before offering financial advice."
         )
 
-        if sentiment == "positive":
-            tone_instruction = "Use an energetic and witty tone, with plenty of positivity."
-        elif sentiment == "negative":
-            tone_instruction = "Be empathetic but maintain humor in a less sarcastic manner."
-        else:  # Neutral
-            tone_instruction = "Use a balanced tone with clever humor."
+        sentiment_tone = {
+            "positive": "Use an energetic and witty tone, with plenty of positivity.",
+            "negative": "Maintain humor in a less sarcastic and more empathetic manner.",
+            "neutral": "Use a balanced tone with clever humor.",
+        }.get(sentiment, "Use a balanced tone with clever humor.")
+
+        category_focus = {
+            "market_analysis": "Focus on market trends, technical insights, and trading tips.",
+            "tech_discussion": "Discuss blockchain protocols, code, and scaling challenges.",
+            "defi": "Explain DeFi concepts like yield farming, staking, and TVL trends.",
+            "nft": "Talk about NFTs, rarity traits, and minting news.",
+            "culture": "Highlight community vibes, DAOs, and crypto ethos.",
+        }.get(category, "Keep it general and versatile for any crypto topic.")
 
         examples = (
             "Prompt: What's your take on Bitcoin as digital gold?\n"
-            "Tweet: Bitcoin as digital gold? Nah, it's more like digital real estate in the metaverse—except everyone's still arguing over the property lines. 🚀 #Bitcoin #Crypto\n\n"
+            "Tweet: Bitcoin as digital gold? Nah, it's more like digital real estate in the metaverse—except everyone's still arguing over the property lines. 🚀\n\n"
             "Prompt: Explain staking in the context of DeFi but make it funny.\n"
-            "Tweet: Staking in DeFi is like putting your money on a treadmill—you lock it up, it works out, and somehow you end up with more than just sweaty tokens. Gains on gains! 🏋️‍♂️ #DeFi #Staking\n\n"
+            "Tweet: Staking in DeFi is like putting your money on a treadmill—you lock it up, it works out, and somehow you end up with more. Gains on gains! 🏋️‍♂️\n\n"
         )
 
-        return f"{base_instruction}{tone_instruction}\n\n{examples}Prompt: {prompt}\nTweet:"
+        return f"{base_instruction} {sentiment_tone} {category_focus}\n\n{examples}Prompt: {prompt}\nTweet:"
 
 
-    def _enhance_response(self, response: str, category: str) -> str:
+
+    def _enhance_response(self, response: str, category: str, sentiment: str) -> str:
         """Post-process and enhance the response with hooks, emojis, and hashtags."""
         response = clean_response(response)
-        response = f"{generate_hook(category)} {response}".strip()
-        response = add_emojis(response, category)
-        response = add_hashtags(response, category)
+        if sentiment == "positive" and random.random() <= 0.1:  # Hooks 10% chance for positive sentiment
+            response = f"{generate_hook(category)} {response}".strip()
+        response = add_emojis_and_hashtags(response, category)
+
         return response
 
     def generate_response(self, prompt: str) -> str:
-        """Generate a Twitter-ready response based on a given prompt."""
-        if not prompt.strip():
-            raise ValueError("Input prompt is empty or invalid.")
+            """Generate a Twitter-ready response based on a given prompt."""
+            if not prompt.strip():
+                raise ValueError("Input prompt is empty or invalid.")
 
-        self.logger.info("Before inference:")
-        log_resource_usage(self.logger)
+            # self.logger.info("Before inference:")
+            # log_resource_usage(self.logger)
 
-        # Prepare context for the model
-        context = self._prepare_context(prompt)
-        generated_text = self._generate_model_response(context)
+            # Analyze sentiment and categorize the prompt
+            sentiment = self._analyze_sentiment(prompt)  # Analyze sentiment
+            category = self.categorize_prompt(prompt)  # Categorize prompt
 
-        # Extract relevant response
-        response = self._extract_relevant_tweet(prompt, generated_text)
-        if len(response) < 20:
-            self.logger.warning("Generated response is too short. Falling back to default response.")
-            response = self._get_fallback_response()
+            # Prepare context for the model
+            context = self._prepare_context(prompt, sentiment, category)
+            generated_text = self._generate_model_response(context)
 
-        # Categorize prompt and enhance response based on sentiment
-        category = self.categorize_prompt(prompt)
-        response = self._enhance_response(response, category)
+            # Extract relevant response
+            response = self._extract_relevant_tweet(prompt, generated_text)
+            if len(response) < 20:
+                self.logger.warning("Generated response is too short. Falling back to default response.")
+                response = self._get_fallback_response(prompt)
 
-        self.logger.info("After inference and enhancements:")
-        log_resource_usage(self.logger)
+            # Enhance response based on category and sentiment
+            response = self._enhance_response(response, category, sentiment)
 
-        return response[:280]
+            # self.logger.info("After inference and enhancements:")
+            # log_resource_usage(self.logger)
+
+            return response[:280]
+            
+
 
 
     def _extract_relevant_tweet(self, prompt: str, text: str) -> str:
