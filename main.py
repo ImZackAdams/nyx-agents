@@ -65,17 +65,19 @@ def post_tweet(bot, client, api, logger):
 
         # List of predefined prompts
         prompts = [
-            "If Satoshi Nakamoto invited you to a dinner party, what question would you ask them first?",
-            "AI can predict crypto prices, but it still can’t figure out where my missing socks go. What's your take?",
-            "Describe the current crypto market using only three emojis!",
-            "What’s your life hack for surviving a bear market in crypto? Asking for a friend. 🐻📉",
-            "Tell us your favorite blockchain project and why it’s not just another rug pull. 😂",
-            "If NFTs could talk, what would your profile picture say about you?",
-            "What’s the funniest misconception about Web3 that you’ve heard? (Mine: 'It’s the sequel to Web2.')",
-            "If you could automate one part of personal finance using AI, what would it be? (No, 'making me rich' doesn’t count!)",
-            "What’s a random fact about blockchain that you love explaining at parties (even if no one asked)?",
-            "If Elon Musk tokenized Mars, how much ETH do you think it would cost per square meter?"
-        ]
+        "Make a post about Crypto. Be funny, educational, and engage user replies.",
+        "Make a post about Tech. Be funny, educational, and engage user replies.",
+        "Make a post about AI. Be funny, educational, and engage user replies.",
+        "Make a post about NFTs. Be funny, educational, and engage user replies.",
+        "Make a post about Web3. Be funny, educational, and engage user replies.",
+        "Make a post about Blockchain. Be funny, educational, and engage user replies.",
+        "Make a post about Finance. Be funny, educational, and engage user replies.",
+        "Make a post about Computer Programming. Be funny, educational, and engage user replies.",
+        "Make a joke about being an AI.",
+        "Make a post about Cybersecurity. Be funny, educational, and engage user replies.",
+        "Make a joke comparing your dating life to blockchain."
+    ]
+        
 
         prompt = random.choice(prompts)
         logger.info(f"Selected prompt: {prompt}")
