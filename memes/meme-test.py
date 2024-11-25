@@ -1,5 +1,6 @@
 import tweepy
 import os
+import random
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -13,7 +14,7 @@ def post_image_with_tweet(client, api, tweet_text, image_path):
         client: The authenticated Tweepy client.
         api: The authenticated Tweepy API object for media uploads.
         tweet_text: The text of the tweet.
-        image_path: The local path to the image (JPG).clear
+        image_path: The local path to the image (JPG).
     """
     try:
         # Upload the image using the API
@@ -43,9 +44,16 @@ if __name__ == "__main__":
     )
     api = tweepy.API(auth)
 
-    # Define the tweet text and image path
-    tweet_text = "Check out this meme! 🤣 #SignMeme #TwitterBot"
-    image_path = "signmeme.jpeg"  # File name of your image
+    # Get all image files in the current directory
+    supported_formats = ('.jpg', '.jpeg', '.png', '.gif')
+    images = [file for file in os.listdir('.') if file.lower().endswith(supported_formats)]
 
-    # Call the function to post the tweet
-    post_image_with_tweet(client, api, tweet_text, image_path)
+    if not images:
+        print("No images found in the current directory.")
+    else:
+        # Select a random image
+        image_path = random.choice(images)
+        tweet_text = "Check out this meme! 🤣 #Tetherball"
+
+        # Call the function to post the tweet
+        post_image_with_tweet(client, api, tweet_text, image_path)
