@@ -1,5 +1,4 @@
 import os
-import schedule
 import time
 from dotenv import load_dotenv
 from bot.bot import PersonalityBot
@@ -14,96 +13,123 @@ load_dotenv()
 def post_tweet_job(bot, client, logger):
     """Job to post a tweet with a user-provided prompt."""
     try:
+        logger.info("Starting the post_tweet_job...")
         prompt = input("Enter a prompt for the tweet: ").strip()
         if not prompt:
             logger.warning("Prompt is empty. Skipping tweet.")
-            return
+            return None
 
+        logger.info(f"Generating a tweet with the provided prompt: {prompt}")
         tweet = bot.generate_response(prompt)
-        post_to_twitter(tweet, client, logger)
+        logger.info(f"Generated tweet: {tweet}")
+
+        response = client.create_tweet(text=tweet)
+        tweet_id = response.data['id']
+        logger.info(f"Tweet successfully posted with ID: {tweet_id}")
+        return tweet_id
     except Exception as e:
-        logger.error(f"Error posting tweet: {str(e)}")
+        logger.error(f"Error posting tweet: {str(e)}", exc_info=True)
+        return None
 
 
-def reply_to_last_comment(bot, client, logger, since_id=None):
+def reply_to_last_comment(bot, client, logger, since_id=None, tweet_id=None):
     """Replies to the last user who commented on the bot's tweet."""
     try:
+        logger.info("Starting reply_to_last_comment...")
+
         # Fetch the bot's user ID from environment variables
         bot_user_id = os.getenv("BOT_USER_ID")
         if not bot_user_id:
             raise ValueError("BOT_USER_ID is not set in the .env file")
 
-        # Fetch the bot's recent tweets
-        tweets = client.get_users_tweets(id=bot_user_id, max_results=5)
-        if not tweets or not tweets.data:
-            logger.info("No recent tweets to fetch replies for.")
-            return since_id
+        logger.info(f"BOT_USER_ID: {bot_user_id}")
 
-        latest_tweet = tweets.data[0]
-        tweet_id = latest_tweet.id
+        if not tweet_id:
+            logger.error("No tweet ID provided. Skipping reply task.")
+            return since_id
 
         # Fetch replies to the latest tweet
+        logger.info(f"Fetching replies to the tweet with ID {tweet_id}...")
         replies = search_replies_to_tweet(client, tweet_id, bot_user_id)
         if not replies:
-            logger.info("No replies to the latest tweet.")
+            logger.info(f"No replies found for tweet ID: {tweet_id}")
             return since_id
 
-        # Respond to the most recent reply
-        # Sort replies by ID (assuming higher ID = more recent)
+        logger.info(f"Fetched {len(replies)} replies. Sorting to find the most recent reply...")
         latest_reply = sorted(replies, key=lambda x: x.id, reverse=True)[0]
 
         if since_id and latest_reply.id <= since_id:
-            logger.info("No new replies to respond to.")
+            logger.info(f"No new replies to respond to. Since ID: {since_id}")
             return since_id
 
+        logger.info(f"Latest reply ID: {latest_reply.id}, Reply text: {latest_reply.text}")
         reply_text = latest_reply.text
         reply_id = latest_reply.id
 
         # Generate a reply
+        logger.info(f"Generating a response to the reply: {reply_text}")
         response = bot.generate_response(reply_text)
-        reply_message = response  # The bot's reply text without mentioning the user
+        logger.info(f"Generated response: {response}")
 
-        # Post the reply using `in_reply_to_tweet_id`
-        try:
-            client.create_tweet(
-                text=reply_message,
-                in_reply_to_tweet_id=reply_id
-            )
-            logger.info(f"Replied to tweet ID {reply_id} successfully!")
-        except Exception as e:
-            logger.error(f"Failed to post reply: {str(e)}")
+        # Post the reply
+        logger.info(f"Posting reply to tweet ID {reply_id}...")
+        client.create_tweet(text=response, in_reply_to_tweet_id=reply_id)
+        logger.info(f"Replied to tweet ID {reply_id} successfully!")
 
         return latest_reply.id
     except Exception as e:
-        logger.error(f"Error replying to last comment: {str(e)}")
+        logger.error(f"Error replying to last comment: {str(e)}", exc_info=True)
         return since_id
 
 
 def main():
     logger = setup_logging()
-    bot = PersonalityBot(model_path="./fine_tuned_personality_bot/", logger=logger)
-    client = setup_twitter_client()
-    rate_limiter_tweet = RateLimiter(limit=1, interval_hours=3)
-    rate_limiter_reply = RateLimiter(limit=1, interval_hours=12)
+    logger.info("Starting the bot...")
+    
+    # Initialize the bot and Twitter client
+    try:
+        bot = PersonalityBot(model_path="./fine_tuned_personality_bot/", logger=logger)
+        client = setup_twitter_client()
+    except Exception as e:
+        logger.error("Failed to initialize the bot or Twitter client.", exc_info=True)
+        return
 
-    # Use a global variable to track the latest reply ID
-    global since_id
+    # Track the latest reply ID and tweet ID
     since_id = None
-
-    # Schedule tasks
-    def reply_task():
-        global since_id
-        since_id = reply_to_last_comment(bot, client, logger, since_id)
-
-    # Run the reply job first
-    reply_task()
-
-    # Schedule reply and post tasks
-    schedule.every(12).hours.do(reply_task)
-    schedule.every(3).hours.do(lambda: post_tweet_job(bot, client, logger))
+    tweet_id = None
 
     while True:
-        schedule.run_pending()
+        try:
+            # Step 1: Post a tweet
+            logger.info("Posting a new tweet...")
+            tweet_id = post_tweet_job(bot, client, logger)
+            if not tweet_id:
+                logger.warning("No tweet posted. Skipping reply task.")
+                continue
+
+            logger.info("Tweet posting completed.")
+
+            # Step 2: Wait 10 seconds to allow indexing
+            logger.info("Waiting 10 seconds to allow the tweet to be indexed...")
+            time.sleep(10)
+
+            # Step 3: Wait 16 minutes before checking for replies
+            logger.info("Waiting 16 minutes before checking for replies...")
+            time.sleep(16 * 60)
+
+            # Step 4: Respond to the most recent reply
+            logger.info("Checking for replies to the latest tweet...")
+            since_id = reply_to_last_comment(bot, client, logger, since_id, tweet_id)
+            logger.info("Reply task completed.")
+
+            # Step 5: Wait another 16 minutes before repeating
+            logger.info("Waiting 16 minutes before starting the next iteration...")
+            time.sleep(16 * 60)
+
+        except Exception as e:
+            logger.error(f"An error occurred in the main loop: {str(e)}", exc_info=True)
+
+        # Short delay before starting the next cycle (for debugging purposes)
         time.sleep(1)
 
 
