@@ -20,14 +20,17 @@ def validate_env_variables(logger):
             raise EnvironmentError(f"Missing required environment variable: {var}")
 
 
+import random
+import os
+
 def post_tweet(bot, client, api, logger):
     """
-    Posts either a text tweet or a random meme.
+    Posts either a text tweet or a random meme with an optional caption.
     """
     logger.info("Starting the post_tweet process...")
 
     try:
-        if random.choice([True, False]):  # Randomly decide between text or meme
+        if random.random() < 0.2:  # Randomly decide between text or meme
             memes_folder = os.path.join(os.getcwd(), 'memes')
             supported_formats = ('.jpg', '.jpeg', '.png', '.gif')
 
@@ -38,8 +41,25 @@ def post_tweet(bot, client, api, logger):
             images = [file for file in os.listdir(memes_folder) if file.lower().endswith(supported_formats)]
             if images:
                 image_path = os.path.join(memes_folder, random.choice(images))
-                tweet_text = "Check out this meme! 🤣 #Tetherball"
-                return post_image_with_tweet(client, api, tweet_text, image_path, logger)
+                
+                # List of meme captions
+                meme_captions = [
+                    "This meme? Pure gold. 🪙✨ #Tetherball",
+                    "Some things you just can't unsee. 😂 #CryptoHumor",
+                    "Hodlers will understand. 💎🙌 #Tetherball",
+                    "Because laughter is the best investment. 😂📈 #CryptoMemes",
+                    "Meme game strong, just like our coin. 🚀🔥 #Tetherball",
+                    "Surviving the market one meme at a time. 🐻📉 #BlockchainBlues",
+                    "When reality is funnier than the meme. 🤯🤣 #Web3Life",
+                    "Mood: Exactly this. 👀😂 #CryptoLife",
+                    "Who needs financial advice when you’ve got memes? 📲🤣 #Tetherball"
+                    
+                ]
+
+
+                caption = random.choice(meme_captions)
+                logger.info(f"Selected meme caption: {caption}")
+                return post_image_with_tweet(client, api, caption, image_path, logger)
             else:
                 logger.warning("No images found in the memes folder. Falling back to text tweet.")
 
@@ -66,6 +86,7 @@ def post_tweet(bot, client, api, logger):
     except Exception as e:
         logger.error("Error while posting tweet.", exc_info=True)
         return None
+
 
 
 def reply_to_latest(bot, client, logger, tweet_id, since_id=None):
@@ -154,7 +175,7 @@ def main():
         except Exception as e:
             logger.error("Error in main loop", exc_info=True)
             logger.info("Retrying after 1 minute due to error...")
-            time.sleep(60)  # Shorter delay on error for retry
+            time.sleep(60 * 15)  # Shorter delay on error for retry
 
 
 if __name__ == "__main__":
