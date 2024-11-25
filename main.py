@@ -4,191 +4,158 @@ import random
 from dotenv import load_dotenv
 from bot.bot import PersonalityBot
 from bot.utilities import setup_logging
-from bot.twitter_client import setup_twitter_client, search_replies_to_tweet
+from bot.twitter_client import setup_twitter_client, search_replies_to_tweet, post_image_with_tweet
 import logging
-import tweepy
+import tweepy  
 
 # Load environment variables
 load_dotenv()
 
-def post_image_with_tweet(client, api, tweet_text, image_path, logger):
+
+def validate_env_variables(logger):
+    required_vars = ["API_KEY", "API_SECRET", "ACCESS_TOKEN", "ACCESS_TOKEN_SECRET", "BOT_USER_ID"]
+    for var in required_vars:
+        if not os.getenv(var):
+            logger.error(f"Environment variable {var} is not set.")
+            raise EnvironmentError(f"Missing required environment variable: {var}")
+
+
+def post_tweet(bot, client, api, logger):
     """
-    Post a tweet with an attached image.
-
-    Args:
-        client: The authenticated Tweepy client.
-        api: The authenticated Tweepy API object for media uploads.
-        tweet_text: The text of the tweet.
-        image_path: The local path to the image (JPG).
+    Posts either a text tweet or a random meme.
     """
+    logger.info("Starting the post_tweet process...")
+
     try:
-        # Upload the image using the API
-        media = api.media_upload(image_path)
-        logger.info(f"Image uploaded successfully: Media ID {media.media_id}")
-
-        # Post the tweet with the image using the Client
-        client.create_tweet(text=tweet_text, media_ids=[media.media_id])
-        logger.info("Tweet with image posted successfully!")
-    except Exception as e:
-        logger.error(f"Error posting tweet with image: {str(e)}", exc_info=True)
-
-def post_tweet_job(bot, client, api, logger):
-    """Job to post a tweet with text or a random meme."""
-    try:
-        logger.info("Starting the post_tweet_job...")
-
-        # Decide whether to post a text tweet or a meme
-        post_meme = random.choice([True, False])  # 50% chance to post a meme
-
-        if post_meme:
-            # Define the memes folder path
+        if random.choice([True, False]):  # Randomly decide between text or meme
             memes_folder = os.path.join(os.getcwd(), 'memes')
+            supported_formats = ('.jpg', '.jpeg', '.png', '.gif')
 
-            # Check if the memes folder exists
             if not os.path.exists(memes_folder):
-                logger.error(f"The 'memes' folder does not exist at {memes_folder}.")
+                logger.error(f"'memes' folder does not exist at {memes_folder}.")
                 return None
 
-            # Get all image files in the memes folder
-            supported_formats = ('.jpg', '.jpeg', '.png', '.gif')
             images = [file for file in os.listdir(memes_folder) if file.lower().endswith(supported_formats)]
-
-            if not images:
-                logger.warning("No images found in the memes folder. Falling back to text tweet.")
-            else:
-                # Select a random image
+            if images:
                 image_path = os.path.join(memes_folder, random.choice(images))
                 tweet_text = "Check out this meme! 🤣 #Tetherball"
+                return post_image_with_tweet(client, api, tweet_text, image_path, logger)
+            else:
+                logger.warning("No images found in the memes folder. Falling back to text tweet.")
 
-                # Post the meme
-                post_image_with_tweet(client, api, tweet_text, image_path, logger)
-                return None
+        # List of predefined prompts
+        prompts = [
+            "If Satoshi Nakamoto invited you to a dinner party, what question would you ask them first?",
+            "AI can predict crypto prices, but it still can’t figure out where my missing socks go. What's your take?",
+            "Describe the current crypto market using only three emojis!",
+            "What’s your life hack for surviving a bear market in crypto? Asking for a friend. 🐻📉",
+            "Tell us your favorite blockchain project and why it’s not just another rug pull. 😂",
+            "If NFTs could talk, what would your profile picture say about you?",
+            "What’s the funniest misconception about Web3 that you’ve heard? (Mine: 'It’s the sequel to Web2.')",
+            "If you could automate one part of personal finance using AI, what would it be? (No, 'making me rich' doesn’t count!)",
+            "What’s a random fact about blockchain that you love explaining at parties (even if no one asked)?",
+            "If Elon Musk tokenized Mars, how much ETH do you think it would cost per square meter?"
+        ]
 
-        # Post a regular text tweet
-        prompt = input("Enter a prompt for the tweet: ").strip()
-        if not prompt:
-            logger.warning("Prompt is empty. Skipping tweet.")
-            return None
-
-        logger.info(f"Generating a tweet with the provided prompt: {prompt}")
+        prompt = random.choice(prompts)
+        logger.info(f"Selected prompt: {prompt}")
         tweet = bot.generate_response(prompt)
         logger.info(f"Generated tweet: {tweet}")
+        return client.create_tweet(text=tweet).data.get('id')
 
-        response = client.create_tweet(text=tweet)
-        tweet_id = response.data['id']
-        logger.info(f"Tweet successfully posted with ID: {tweet_id}")
-        return tweet_id
     except Exception as e:
-        logger.error(f"Error posting tweet: {str(e)}", exc_info=True)
+        logger.error("Error while posting tweet.", exc_info=True)
         return None
 
 
-def reply_to_last_comment(bot, client, logger, since_id=None, tweet_id=None):
-    """Replies to the last user who commented on the bot's tweet."""
+def reply_to_latest(bot, client, logger, tweet_id, since_id=None):
+    """
+    Reply to the latest comment on a specific tweet.
+    """
     try:
-        logger.info("Starting reply_to_last_comment...")
-
-        # Fetch the bot's user ID from environment variables
         bot_user_id = os.getenv("BOT_USER_ID")
-        if not bot_user_id:
-            raise ValueError("BOT_USER_ID is not set in the .env file")
-
-        logger.info(f"BOT_USER_ID: {bot_user_id}")
-
-        if not tweet_id:
-            logger.error("No tweet ID provided. Skipping reply task.")
-            return since_id
-
-        # Fetch replies to the latest tweet
-        logger.info(f"Fetching replies to the tweet with ID {tweet_id}...")
         replies = search_replies_to_tweet(client, tweet_id, bot_user_id)
         if not replies:
-            logger.info(f"No replies found for tweet ID: {tweet_id}")
+            logger.info("No new replies found.")
             return since_id
 
-        logger.info(f"Fetched {len(replies)} replies. Sorting to find the most recent reply...")
-        latest_reply = sorted(replies, key=lambda x: x.id, reverse=True)[0]
-
+        latest_reply = max(replies, key=lambda x: x.id)
         if since_id and latest_reply.id <= since_id:
-            logger.info(f"No new replies to respond to. Since ID: {since_id}")
+            logger.info("No new replies since last check.")
             return since_id
 
-        logger.info(f"Latest reply ID: {latest_reply.id}, Reply text: {latest_reply.text}")
-        reply_text = latest_reply.text
-        reply_id = latest_reply.id
-
-        # Generate a reply
-        logger.info(f"Generating a response to the reply: {reply_text}")
-        response = bot.generate_response(reply_text)
-        logger.info(f"Generated response: {response}")
-
-        # Post the reply
-        logger.info(f"Posting reply to tweet ID {reply_id}...")
-        client.create_tweet(text=response, in_reply_to_tweet_id=reply_id)
-        logger.info(f"Replied to tweet ID {reply_id} successfully!")
-
+        logger.info(f"Replying to: {latest_reply.text}")
+        response = bot.generate_response(latest_reply.text)
+        client.create_tweet(text=response, in_reply_to_tweet_id=latest_reply.id)
         return latest_reply.id
+
     except Exception as e:
-        logger.error(f"Error replying to last comment: {str(e)}", exc_info=True)
+        logger.error("Error while replying to the latest tweet.", exc_info=True)
         return since_id
+
 
 def main():
     logger = setup_logging()
     logger.info("Starting the bot...")
-    
-    # Initialize the bot and Twitter client
+
     try:
+        validate_env_variables(logger)
+
         bot = PersonalityBot(model_path="./fine_tuned_personality_bot/", logger=logger)
         client = setup_twitter_client()
-
-        auth = tweepy.OAuth1UserHandler(
+        api = tweepy.API(tweepy.OAuth1UserHandler(
             consumer_key=os.getenv('API_KEY'),
             consumer_secret=os.getenv('API_SECRET'),
             access_token=os.getenv('ACCESS_TOKEN'),
             access_token_secret=os.getenv('ACCESS_TOKEN_SECRET')
-        )
-        api = tweepy.API(auth)
+        ))
+
     except Exception as e:
-        logger.error("Failed to initialize the bot or Twitter client.", exc_info=True)
+        logger.error("Initialization error", exc_info=True)
         return
 
-    # Track the latest reply ID and tweet ID
     since_id = None
-    tweet_id = None
+    post_interval = 16 * 60  # 16 minutes in seconds
+    reply_interval = 16 * 60
 
     while True:
         try:
+            logger.info("Starting a new bot cycle...")
+
             # Step 1: Post a tweet or meme
-            logger.info("Posting a new tweet or meme...")
-            tweet_id = post_tweet_job(bot, client, api, logger)
-            if not tweet_id:
-                logger.warning("No tweet posted. Skipping reply task.")
-                continue
+            tweet_id = post_tweet(bot, client, api, logger)
+            if tweet_id:
+                logger.info(f"Posted tweet with ID: {tweet_id}")
+            else:
+                logger.error("Tweet posting failed. Skipping to reply step.")
 
-            logger.info("Tweet posting completed.")
+            # Step 2: Wait 16 minutes before replying to a tweet
+            logger.info(f"Sleeping for {post_interval // 60} minutes before checking replies...")
+            time.sleep(post_interval)
 
-            # Step 2: Wait 10 seconds to allow indexing
-            logger.info("Waiting 10 seconds to allow the tweet to be indexed...")
-            time.sleep(10)
+            # Step 3: Respond to a reply on the most recent tweet
+            if tweet_id:
+                since_id = reply_to_latest(bot, client, logger, tweet_id, since_id)
+                logger.info("Finished replying to the latest tweet.")
+            else:
+                logger.warning("No tweet to check replies for. Skipping reply step.")
 
-            # Step 3: Wait 16 minutes before checking for replies
-            logger.info("Waiting 16 minutes before checking for replies...")
-            time.sleep(16 * 60)
+            # Step 4: Wait 16 minutes before starting a new cycle
+            logger.info(f"Sleeping for {reply_interval // 60} minutes before posting a new tweet...")
+            time.sleep(reply_interval)
 
-            # Step 4: Respond to the most recent reply
-            logger.info("Checking for replies to the latest tweet...")
-            since_id = reply_to_last_comment(bot, client, logger, since_id, tweet_id)
-            logger.info("Reply task completed.")
-
-            # Step 5: Wait another 16 minutes before repeating
-            logger.info("Waiting 16 minutes before starting the next iteration...")
-            time.sleep(16 * 60)
+        except tweepy.errors.TooManyRequests as e:
+            logger.error("Rate limit hit. Retrying after rate limit reset...", exc_info=True)
+            reset_time = int(e.response.headers.get('x-rate-limit-reset', time.time() + 60))
+            sleep_time = reset_time - int(time.time())
+            logger.info(f"Sleeping for {sleep_time} seconds until rate limit reset.")
+            time.sleep(max(0, sleep_time))  # Ensure no negative sleep time
 
         except Exception as e:
-            logger.error(f"An error occurred in the main loop: {str(e)}", exc_info=True)
+            logger.error("Error in main loop", exc_info=True)
+            logger.info("Retrying after 1 minute due to error...")
+            time.sleep(60)  # Shorter delay on error for retry
 
-        # Short delay before starting the next cycle (for debugging purposes)
-        time.sleep(1)
 
 if __name__ == "__main__":
     main()
