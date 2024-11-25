@@ -13,7 +13,10 @@ project/
 
 post memes
 integrate post/response/memes
+prompt list
 refactor
+personality
+
 
 
 add fallbacks
