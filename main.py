@@ -136,8 +136,8 @@ def main():
         return
 
     since_id = None
-    post_interval = 16 * 60  # 16 minutes in seconds
-    reply_interval = 16 * 60
+    post_interval = 60 * 60  # 1 hour in seconds
+    reply_interval = 60 * 60
 
     while True:
         try:
