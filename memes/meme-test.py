@@ -13,7 +13,7 @@ def post_image_with_tweet(client, api, tweet_text, image_path):
         client: The authenticated Tweepy client.
         api: The authenticated Tweepy API object for media uploads.
         tweet_text: The text of the tweet.
-        image_path: The local path to the image (JPG).
+        image_path: The local path to the image (JPG).clear
     """
     try:
         # Upload the image using the API
