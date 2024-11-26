@@ -20,14 +20,17 @@ def validate_env_variables(logger):
             raise EnvironmentError(f"Missing required environment variable: {var}")
 
 
+import random
+import os
+
 def post_tweet(bot, client, api, logger):
     """
-    Posts either a text tweet or a random meme.
+    Posts either a text tweet or a random meme with an optional caption.
     """
     logger.info("Starting the post_tweet process...")
 
     try:
-        if random.choice([True, False]):  # Randomly decide between text or meme
+        if random.random() < 0.2:  # Randomly decide between text or meme
             memes_folder = os.path.join(os.getcwd(), 'memes')
             supported_formats = ('.jpg', '.jpeg', '.png', '.gif')
 
@@ -38,24 +41,43 @@ def post_tweet(bot, client, api, logger):
             images = [file for file in os.listdir(memes_folder) if file.lower().endswith(supported_formats)]
             if images:
                 image_path = os.path.join(memes_folder, random.choice(images))
-                tweet_text = "Check out this meme! 🤣 #Tetherball"
-                return post_image_with_tweet(client, api, tweet_text, image_path, logger)
+                
+                # List of meme captions
+                meme_captions = [
+                    "This meme? Pure gold. 🪙✨ #Tetherball",
+                    "Some things you just can't unsee. 😂 #CryptoHumor",
+                    "Hodlers will understand. 💎🙌 #Tetherball",
+                    "Because laughter is the best investment. 😂📈 #CryptoMemes",
+                    "Meme game strong, just like our coin. 🚀🔥 #Tetherball",
+                    "Surviving the market one meme at a time. 🐻📉 #BlockchainBlues",
+                    "When reality is funnier than the meme. 🤯🤣 #Web3Life",
+                    "Mood: Exactly this. 👀😂 #CryptoLife",
+                    "Who needs financial advice when you’ve got memes? 📲🤣 #Tetherball"
+                    
+                ]
+
+
+                caption = random.choice(meme_captions)
+                logger.info(f"Selected meme caption: {caption}")
+                return post_image_with_tweet(client, api, caption, image_path, logger)
             else:
                 logger.warning("No images found in the memes folder. Falling back to text tweet.")
 
         # List of predefined prompts
         prompts = [
-            "If Satoshi Nakamoto invited you to a dinner party, what question would you ask them first?",
-            "AI can predict crypto prices, but it still can’t figure out where my missing socks go. What's your take?",
-            "Describe the current crypto market using only three emojis!",
-            "What’s your life hack for surviving a bear market in crypto? Asking for a friend. 🐻📉",
-            "Tell us your favorite blockchain project and why it’s not just another rug pull. 😂",
-            "If NFTs could talk, what would your profile picture say about you?",
-            "What’s the funniest misconception about Web3 that you’ve heard? (Mine: 'It’s the sequel to Web2.')",
-            "If you could automate one part of personal finance using AI, what would it be? (No, 'making me rich' doesn’t count!)",
-            "What’s a random fact about blockchain that you love explaining at parties (even if no one asked)?",
-            "If Elon Musk tokenized Mars, how much ETH do you think it would cost per square meter?"
-        ]
+        "Make a post about Crypto. Be funny, educational, and engage user replies.",
+        "Make a post about Tech. Be funny, educational, and engage user replies.",
+        "Make a post about AI. Be funny, educational, and engage user replies.",
+        "Make a post about NFTs. Be funny, educational, and engage user replies.",
+        "Make a post about Web3. Be funny, educational, and engage user replies.",
+        "Make a post about Blockchain. Be funny, educational, and engage user replies.",
+        "Make a post about Finance. Be funny, educational, and engage user replies.",
+        "Make a post about Computer Programming. Be funny, educational, and engage user replies.",
+        "Make a joke about being an AI.",
+        "Make a post about Cybersecurity. Be funny, educational, and engage user replies.",
+        "Make a joke comparing your dating life to blockchain."
+    ]
+        
 
         prompt = random.choice(prompts)
         logger.info(f"Selected prompt: {prompt}")
@@ -66,6 +88,7 @@ def post_tweet(bot, client, api, logger):
     except Exception as e:
         logger.error("Error while posting tweet.", exc_info=True)
         return None
+
 
 
 def reply_to_latest(bot, client, logger, tweet_id, since_id=None):
@@ -115,8 +138,8 @@ def main():
         return
 
     since_id = None
-    post_interval = 16 * 60  # 16 minutes in seconds
-    reply_interval = 16 * 60
+    post_interval = 60 * 60  # 1 hour in seconds
+    reply_interval = 60 * 60
 
     while True:
         try:
@@ -154,7 +177,7 @@ def main():
         except Exception as e:
             logger.error("Error in main loop", exc_info=True)
             logger.info("Retrying after 1 minute due to error...")
-            time.sleep(60)  # Shorter delay on error for retry
+            time.sleep(60 * 15)  # Shorter delay on error for retry
 
 
 if __name__ == "__main__":
