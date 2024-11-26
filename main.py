@@ -44,15 +44,17 @@ def post_tweet(bot, client, api, logger):
                 
                 # List of meme captions
                 meme_captions = [
-                    "This meme? Pure gold. 🪙✨ #Tetherball",
+                    "This meme? Pure gold. 🪙✨ #Tetherballcoin",
                     "Some things you just can't unsee. 😂 #CryptoHumor",
-                    "Hodlers will understand. 💎🙌 #Tetherball",
+                    "Hodlers will understand. 💎🙌 #Tetherballcoin",
                     "Because laughter is the best investment. 😂📈 #CryptoMemes",
-                    "Meme game strong, just like our coin. 🚀🔥 #Tetherball",
+                    "Meme game strong, just like our coin. 🚀🔥 #Tetherballcoin",
                     "Surviving the market one meme at a time. 🐻📉 #BlockchainBlues",
                     "When reality is funnier than the meme. 🤯🤣 #Web3Life",
                     "Mood: Exactly this. 👀😂 #CryptoLife",
                     "Who needs financial advice when you’ve got memes? 📲🤣 #Tetherball",
+                    "Come swing with us! @tetherballcoin",
+                    "Be a baller $TBALL"
                 ]
 
                 caption = random.choice(meme_captions)
@@ -74,6 +76,7 @@ def post_tweet(bot, client, api, logger):
             "Make a joke about being an AI.",
             "Make a post about Cybersecurity. Be funny, educational, and engage user replies.",
             "Make a joke comparing your dating life to blockchain."
+            
         ]
 
         prompt = random.choice(prompts)
@@ -145,8 +148,8 @@ def main():
         return
 
     since_id = None
-    post_interval = 60 * 5  # 5 minutes
-    reply_interval = 60 * 5  # 5 minutes
+    post_interval = 60 * 60  # 1 hour
+    reply_interval = 60 * 60  # 1 hour
 
     while True:
         try:

@@ -22,10 +22,13 @@ def log_resource_usage(logger):
         gpu_utilization = torch.cuda.utilization()
         logger.info(f"GPU Memory Usage: {gpu_memory} MB | GPU Utilization: {gpu_utilization}%")
 
+import re
+
 def clean_text(text):
     """
     Cleans text by removing unnecessary elements such as hashtags, mentions, URLs, 
-    excessive whitespace, and unnecessary quotation marks.
+    excessive whitespace, and unnecessary quotation marks. Also improves readability 
+    by fixing punctuation spacing, capitalization, and formatting.
 
     Args:
         text (str): The text to clean.
@@ -39,10 +42,20 @@ def clean_text(text):
     text = re.sub(r"#\w+", "", text)
     # Remove URLs
     text = re.sub(r"http\S+", "", text)
-    # Remove special characters except punctuation
+    # Remove special characters except basic punctuation
     text = re.sub(r"[^a-zA-Z0-9\s.,!?']", "", text)
-    # Remove unnecessary quotation marks
-    text = re.sub(r"[\"“”]", "", text)
+    # Remove unnecessary quotation marks (leading and trailing)
+    text = text.strip('"').strip("'")
+    # Fix spacing around punctuation
+    text = re.sub(r"([.,!?])([A-Za-z])", r"\1 \2", text)  # Ensure space after punctuation
+    # Add spacing for camel-cased words (e.g., "BlockChain" → "Block Chain")
+    text = re.sub(r"([a-z])([A-Z])", r"\1 \2", text)
     # Normalize whitespace
     text = re.sub(r"\s+", " ", text).strip()
+    # Capitalize first letter of each sentence
+    sentences = re.split(r'([.!?])', text)  # Split into sentences with punctuation
+    cleaned_sentences = [s.capitalize() if i % 2 == 0 else s for i, s in enumerate(sentences)]
+    text = ''.join(cleaned_sentences)
+
     return text
+
