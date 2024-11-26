@@ -3,7 +3,7 @@ import time
 import random
 from dotenv import load_dotenv
 from bot.bot import PersonalityBot
-from bot.utilities import setup_logging
+from bot.utilities import setup_logging, clean_text
 from bot.twitter_client import setup_twitter_client, search_replies_to_tweet, post_image_with_tweet
 import logging
 import tweepy  
@@ -138,8 +138,8 @@ def main():
         return
 
     since_id = None
-    post_interval = 60 * 60  # 1 hour in seconds
-    reply_interval = 60 * 60
+    post_interval = 60 * 20  # 1 hour in seconds
+    reply_interval = 60 * 20
 
     while True:
         try:
