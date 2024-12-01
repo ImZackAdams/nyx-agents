@@ -64,14 +64,3 @@ def clean_response(text: str) -> str:
     text = re.sub(r'http\S+', '', text)  # Remove URLs
     text = re.sub(r'\s+', ' ', text).strip()  # Remove extra whitespace
     return text.rstrip('"\'.,!?') + '.'
-
-
-def test_add_emojis_and_hashtags():
-    text = "This is a test."
-    category = "general"
-    results = [add_emojis_and_hashtags(text, category) for _ in range(1000)]
-    with_modifications = sum(1 for result in results if text != result)
-    print(f"Modification Frequency: {with_modifications / 1000:.2%}")
-
-test_add_emojis_and_hashtags()
-
