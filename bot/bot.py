@@ -13,8 +13,9 @@ from .hooks import (
     categorize_prompt,
     prepare_context,
     clean_response,
-    add_emojis_and_hashtags,
-    extract_relevant_tweet
+    add_style,  # Updated import
+    extract_relevant_tweet,
+    validate_tweet_length  # New import
 )
 
 class PersonalityBot:
@@ -117,22 +118,31 @@ class PersonalityBot:
         # Clean and format the response
         response = clean_response(response)
         
+        # Validate length
+        if not validate_tweet_length(response):
+            if len(response) > 240:
+                # Truncate to last complete sentence
+                sentences = re.split(r'(?<=[.!?])\s+', response)
+                response = ""
+                for sentence in sentences:
+                    if len(response + sentence) <= 237:  # Leave room for ending
+                        response += sentence + " "
+                    else:
+                        break
+                response = response.strip()
+                
+                # Ensure proper ending
+                if not response.endswith(('!', '?', '.')):
+                    response += '!'
+        
         # Handle duplicate responses
         if response in self.recent_responses:
-            response += " (new thought!)"
-            
-        # Truncate if needed
-        if len(response) > 280:
-            response = response[:280].rsplit(' ', 1)[0] + "…"
-            
-        # Fix dangling conjunctions
-        if response.endswith(("and", "but", "or", ",")):
-            response = response.rsplit(' ', 1)[0].rstrip(",.") + "."
-            
-        # Add emojis and hashtags
-        response = add_emojis_and_hashtags(response, category)
+            response = f"{response} (new thought!)"
         
-        return response[:280]  # Ensure final response fits Twitter limit
+        # Add style elements (emojis, hashtags)
+        response = add_style(response, category)
+        
+        return response
 
     def generate_response(self, prompt: str) -> str:
         """
@@ -164,14 +174,15 @@ class PersonalityBot:
             # Generate response
             generated_text = self._generate_model_response(context)
             if not generated_text:
-                return "I'm having trouble thinking of a response right now. Could you try rephrasing?"
+                return "✨ Having a galaxy brain moment... try that again? 💅"
+            
             self.logger.info(f"Generated raw response: {generated_text}")
 
             # Extract relevant tweet
             response = extract_relevant_tweet(prompt, generated_text)
             if len(response) < 20:
                 self.logger.warning("Generated response is too short. Using fallback response.")
-                response = "This is intriguing! But I can't make sense of it right now. Care to clarify?"
+                return "💅 Tea's brewing but not quite ready... spill that question again? ✨"
 
             # Format and store response
             response = self._format_response(response, category)
@@ -181,4 +192,4 @@ class PersonalityBot:
 
         except Exception as e:
             self.logger.error(f"Error generating response: {e}")
-            return "I encountered an error while processing your request. Please try again."
+            return "✨ Oops, the tea got cold! Let's try brewing a fresh cup! 💅"

@@ -3,75 +3,87 @@ import time
 from dotenv import load_dotenv
 from bot.bot import PersonalityBot
 import logging
+import warnings
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore", message=".*MatMul8bitLt.*")
+warnings.filterwarnings("ignore", message=".*quantization_config.*")
+warnings.filterwarnings("ignore", message=".*Unused kwargs.*")
 
 # Load environment variables
 load_dotenv()
 
-
-def validate_env_variables():
-    """Ensure required environment variables are set."""
-    required_vars = ["BOT_USER_ID"]
-    for var in required_vars:
-        if not os.getenv(var):
-            raise EnvironmentError(f"Missing required environment variable: {var}")
-
-
-def post_simulated_output(bot, prompts, current_index):
-    """Generate and return a simplified output for a given prompt."""
-    try:
-        prompt = prompts[current_index % len(prompts)]
-        print(f"Using prompt: {prompt}")  # Debugging: Display the prompt
-        generated_output = bot.generate_response(prompt)
-
-        if len(generated_output.strip()) < 20:
-            generated_output = "Hmm, it seems I'm having trouble. Care to try a different angle?"
-
-        # Debugging: Log the raw output for inspection
-        logging.getLogger(__name__).info(f"Generated raw output: {generated_output}")
-
-        # Print only the response
-        print("")
-        print(generated_output)
-        print("")
-    except Exception as e:
-        print(f"Error generating output: {e}")
-
+# Configure logging to suppress most messages
+logging.basicConfig(level=logging.ERROR)
+for name in logging.root.manager.loggerDict:
+    logging.getLogger(name).setLevel(logging.ERROR)
 
 def main():
     try:
-        validate_env_variables()
         model_path = "athena_8bit_model"
         bot = PersonalityBot(model_path=model_path, logger=logging.getLogger(__name__))
 
     except Exception as e:
-        print(f"Initialization error: {e}")
+        print(f"✨ Initialization error! Check if model path exists: {str(e)} 💅")
         return
 
     prompts = [
-        "Make a post about Crypto. Be hilarious, educational, and engage user replies.",
-        "Make a post about Tech. Be hilarious, educational, and engage user replies.",
-        "Make a post about AI. Be hilarious, educational, and engage user replies.",
-        "Make a post about NFTs. Be hilarious, educational, and engage user replies.",
-        "Make a post about Web3. Be hilarious, educational, and engage user replies.",
-        "Make a post about Blockchain. Be hilarious, educational, and engage user replies.",
-        "Make a post about Finance. Be hilarious, educational, and engage user replies.",
-        "Make a post about Computer Programming. Be hilarious, educational, and engage user replies.",
-        "Make a joke about being an AI.",
-        "Make a post about Cybersecurity. Be hilarious, educational, and engage user replies.",
-        "Make a joke comparing your dating life to blockchain.",
+        # Evergreen Crypto Takes
+        "Spill the tea on why HODLing isn't always the best strategy! Give us those timeless investment wisdom bombs!",
+        "Share your spiciest take on why diversification matters in crypto. Make it iconic!",
+        "Drop some timeless wisdom about crypto security practices. Make it sassy but educational!",
+        
+        # Tech Fundamentals
+        "Explain why blockchain technology is more than just crypto! Serve pure tech tea!",
+        "Spill the tea on why decentralization matters! Make it relevant for everyone!",
+        "Break down smart contracts like you're explaining them to your bestie! Keep it fresh!",
+        
+        # Philosophical Takes
+        "Give us your hottest take on the future of digital ownership! Make it thought-provoking!",
+        "Share your spiciest thoughts on web3 privacy! Keep it relevant and real!",
+        "Drop some truth bombs about decentralized identity! Make it accessible!",
+        
+        # Educational Moments
+        "Explain consensus mechanisms like you're hosting a masterclass! Extra sass required!",
+        "Break down DeFi fundamentals like you're teaching Fashion Week! Make it pop!",
+        "Share some timeless blockchain scaling tea! Keep it fresh and fierce!",
+        
+        # Culture Commentary
+        "Spill the tea on crypto community dynamics! Keep it real but make it fun!",
+        "Share your thoughts on why DYOR is everything in crypto! Make it memorable!",
+        "Rate different crypto research strategies! Be the Simon Cowell of DYOR!"
     ]
 
-    post_interval = 10  # 10 seconds between posts
+    def post_simulated_output(prompt):
+        """Generate and print only the response."""
+        try:
+            generated_output = bot.generate_response(prompt)
+            
+            # Clean any potential formatting issues
+            generated_output = generated_output.replace('\n', ' ').strip()
+            
+            # Only print if we have a valid response
+            if len(generated_output) >= 20:
+                print(f"{generated_output}")
+            else:
+                print("✨ Brewing fresh tea... try again! 💅")
+                
+        except Exception as e:
+            print(f"✨ Oops! Error brewing tea: {str(e)} 💅")
+
     current_index = 0
+    post_interval = 10  # 10 seconds between posts
 
     try:
         while True:
-            post_simulated_output(bot, prompts, current_index)
+            prompt = prompts[current_index % len(prompts)]
+            post_simulated_output(prompt)
+            print("")  # Single blank line between responses
             current_index += 1
             time.sleep(post_interval)
 
     except KeyboardInterrupt:
-        print("\nExiting cleanly.")
+        print("\n💅 Tea time's over! Bye bestie! ✨")
 
 
 if __name__ == "__main__":

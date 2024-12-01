@@ -32,111 +32,94 @@ OPENERS = [
     "💫 Spicy take incoming!", "🔥 Hot gossip!",
     # Traditional openers with attitude
     "Hot take!", "Fun fact:", "Did you know?", "Guess what?", 
-    "Newsflash!", "Heads up!", "Crypto chat time!", "Just thinking:",
+    "Newsflash!", "Heads up!", "Crypto chat time!", 
     # Engagement starters
-    "Question for you:", "Quick thought:", "So here's the deal:",
-    "Word on the street:", "Update:", "Random thought:",
+    "Quick thought:", "So here's the deal:", "Word on the street:",
+    "Update:", 
     # Category specific
     "Crypto musings:", "Tech vibes:", "Here's a spicy take:",
     # Fresh additions
     "🌶️ Controversial opinion:", "💎 Gem alert:", "🚀 Launch sequence:",
-    "💫 Galaxy brain moment:", "🎭 Drama in the cryptoverse:",
+    "💫 Galaxy brain moment:", "🎭 Drama in the cryptoverse:"
 ]
 
 HOOKS = {
     "market_analysis": [
-        "Market alert:", "Chart check:", "Price watch:", 
-        "Trading insight:", "Trend spotting:", "Market pulse:",
-        "Trading update:", "Market moves:", "Price tea:",
-        "Portfolio drama:", "Market gossip:", "Trading tea:"
+        "Market tea:", "Chart check:", "Price watch:", 
+        "Trading tea:", "Trend tea:", "Market pulse:",
+        "Portfolio tea:", "Market gossip:"
     ],
     "tech_discussion": [
-        "Tech tea:", "Protocol tea:", "Blockchain drama:", 
-        "Scaling tea:", "Tech breakthrough:", "Innovation gossip:",
-        "Code drama:", "Dev tea:", "Architecture tea:",
-        "Protocol drama:", "Tech gossip:", "Blockchain tea:"
+        "Tech tea:", "Protocol tea:", "Blockchain tea:", 
+        "Dev tea:", "Innovation tea:", "Code tea:",
+        "Architecture tea:", "Tech gossip:"
     ],
     "defi": [
-        "DeFi drama:", "Yield tea:", "Protocol gossip:", 
-        "TVL tea:", "DeFi tea:", "Farming drama:",
-        "Liquidity tea:", "Staking gossip:", "Pool drama:",
-        "APY tea:", "DeFi gossip:", "Yield drama:"
+        "DeFi tea:", "Yield tea:", "Protocol tea:", 
+        "Farming tea:", "Staking tea:", "Pool tea:",
+        "APY tea:", "DeFi gossip:"
     ],
     "nft": [
-        "NFT drama:", "Mint tea:", "Floor gossip:", 
-        "Rarity tea:", "Collection drama:", "NFT tea:",
-        "Art drama:", "Project tea:", "Trait gossip:",
-        "Market tea:", "NFT gossip:", "Collection tea:"
+        "NFT tea:", "Mint tea:", "Floor tea:", 
+        "Collection tea:", "Project tea:", "Art tea:",
+        "Trait tea:", "NFT gossip:"
     ],
     "culture": [
-        "Culture tea:", "DAO drama:", "Community gossip:", 
+        "Culture tea:", "DAO tea:", "Community tea:", 
         "Web3 tea:", "Drama alert:", "Vibe check:",
-        "Alpha tea:", "Scene drama:", "Community tea:",
-        "Trend gossip:", "Culture drama:", "Web3 gossip:"
+        "Alpha tea:", "Scene tea:"
     ],
     "general": [
-        "Hot take:", "Spicy opinion:", "Plot twist:", 
-        "Real talk:", "Quick tea:", "Fresh gossip:",
-        "Drama alert:", "Tea time:", "Spill alert:",
-        "Gossip check:", "Vibe alert:", "Take incoming:"
+        "Hot take:", "Tea time:", "Spill alert:", 
+        "Fresh tea:", "Gossip hour:", "Drama check:",
+        "Vibe alert:", "Take incoming:"
     ]
 }
 
 # Category-specific styling
 EMOJIS = {
-    "market_analysis": ["📈", "📊", "💹", "📉", "💰", "📱", "💎", "🚀", "🌙"],
-    "tech_discussion": ["⚡️", "🔧", "💻", "🛠️", "🚀", "🔨", "🎮", "🔋", "💡"],
-    "defi": ["🏦", "💰", "🏧", "💎", "🔄", "🏆", "💸", "🌱", "🏃‍♀️"],
-    "nft": ["🎨", "🖼️", "🎭", "🎪", "🎯", "🎟️", "🎸", "🎮", "🎲"],
-    "culture": ["🌐", "🤝", "🗣️", "🌟", "🎮", "🎭", "🎪", "🎯", "🎨"],
-    "general": ["🚀", "💎", "🌙", "✨", "💫", "🔥", "🌟", "💅", "👀"]
+    "market_analysis": ["📈", "💰", "💎", "🚀", "💅"],
+    "tech_discussion": ["💻", "⚡️", "🔧", "💅", "✨"],
+    "defi": ["🏦", "💰", "💎", "✨", "💅"],
+    "nft": ["🎨", "🖼️", "✨", "💅", "🌟"],
+    "culture": ["🌐", "✨", "💅", "🌟", "🎭"],
+    "general": ["✨", "💅", "🌟", "🚀", "💎"]
 }
 
 # Enhanced hashtags with personality
 HASHTAGS = {
     "market_analysis": [
-        "#CryptoTrading", "#TechnicalAnalysis", "#CryptoMarkets",
-        "#Trading", "#CryptoSignals", "#MarketAnalysis",
-        "#CryptoTea", "#TradingGossip", "#MarketDrama"
+        "#CryptoTea", "#TradingGossip", "#MarketDrama",
+        "#CryptoLife", "#TradingTea"
     ],
     "tech_discussion": [
-        "#Blockchain", "#CryptoTech", "#Web3Dev",
-        "#BlockchainTech", "#CryptoInnovation", "#Tech",
-        "#DevLife", "#CodeDrama", "#TechTea"
+        "#TechTea", "#BlockchainGossip", "#CryptoTech",
+        "#DevLife", "#CodeTea"
     ],
     "defi": [
-        "#DeFi", "#YieldFarming", "#Staking",
-        "#DeFiYield", "#Farming", "#PassiveIncome",
-        "#DeFiDrama", "#YieldLife", "#StakingTea"
+        "#DeFiTea", "#YieldGossip", "#DeFiDrama",
+        "#FarmingTea", "#StakingLife"
     ],
     "nft": [
-        "#NFTs", "#NFTCommunity", "#NFTCollector",
-        "#NFTArt", "#NFTProject", "#DigitalArt",
-        "#NFTDrama", "#NFTTea", "#CollectionGossip"
+        "#NFTea", "#NFTGossip", "#CollectionDrama",
+        "#NFTLife", "#DigitalArtTea"
     ],
     "culture": [
-        "#CryptoCulture", "#DAOs", "#Web3",
-        "#Community", "#CryptoTwitter", "#Web3Culture",
-        "#CryptoTea", "#Web3Drama", "#CultureGossip"
+        "#CryptoTea", "#Web3Drama", "#CultureGossip",
+        "#Web3Life", "#CryptoScene"
     ],
     "general": [
-        "#Crypto", "#Web3", "#Bitcoin",
-        "#Ethereum", "#Blockchain", "#CryptoLife",
-        "#CryptoTea", "#BlockchainDrama", "#Web3Gossip"
+        "#CryptoTea", "#Web3Gossip", "#BlockchainLife",
+        "#CryptoDrama", "#Web3Tea"
     ]
 }
 
 FALLBACK_RESPONSES = [
-    "Crypto never sleeps, and neither do the opportunities! What's catching your eye in the market? 👀",
-    "Another day in crypto – where the memes are hot and the takes are hotter! 🌶️",
-    "Sometimes the best crypto strategy is grabbing popcorn and enjoying the show! 🍿",
-    "Plot twist: crypto is just spicy math with memes! 💅",
-    "In crypto we trust... to keep things interesting! ✨",
-    "Tea time in the cryptoverse! Who's ready for some drama? 🫖",
-    "Serving fresh crypto tea, hot and ready! ☕",
-    "Your daily dose of blockchain drama incoming! 🎭",
-    "Web3 gossip hour! Grab your popcorn! 🍿",
-    "Spilling some crypto tea today! 💅"
+    "✨ Crypto never sleeps, and neither do the opportunities! What's catching your eye in the market? 💅",
+    "💅 Another day in crypto – where the memes are hot and the takes are hotter! ✨",
+    "🌟 Plot twist: crypto is just spicy math with memes! 💅 #CryptoTea",
+    "💅 Your daily dose of blockchain drama incoming! ✨ #Web3Life",
+    "✨ Spilling some crypto tea today! Time for the ☕ #CryptoGossip"
 ]
 
 # Enhanced personality traits
@@ -167,7 +150,7 @@ def analyze_sentiment(text: str, logger) -> str:
     except Exception as e:
         logger.error(f"Error analyzing sentiment: {e}")
         return "neutral"
-
+    
 def categorize_prompt(prompt: str) -> str:
     """
     Categorize the input prompt into predefined categories.
@@ -230,6 +213,17 @@ def get_random_opener(recent_openers: List[str], max_history: int = 10) -> str:
         recent_openers.pop(0)
     return opener
 
+def validate_tweet_length(tweet: str) -> bool:
+    """
+    Check if tweet meets length requirements.
+    Args:
+        tweet (str): Tweet to validate
+    Returns:
+        bool: True if valid length, False otherwise
+    """
+    clean_length = len(tweet.strip())
+    return 50 <= clean_length <= 240
+
 def clean_response(text: str) -> str:
     """
     Clean and format the response text.
@@ -238,160 +232,114 @@ def clean_response(text: str) -> str:
     Returns:
         str: Cleaned text
     """
-    # Remove leading/trailing quotes
-    text = text.strip('"\'')
+    # Remove leading/trailing quotes and spaces
+    text = text.strip('"\'').strip()
     
     # Remove URLs and meta-commentary
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'^(here is|here\'s) my attempt.*?:', '', text, flags=re.IGNORECASE)
     
+    # Handle incomplete endings and ellipsis
+    incomplete_endings = [
+        "...", ". . .", "…", "meanwhile", "but first", "speaking of",
+        "1/", "🧵", "thread", "to be continued", "stay tuned"
+    ]
+    
+    for ending in incomplete_endings:
+        if text.lower().rstrip('.!?').endswith(ending.lower()):
+            text = text[:text.lower().rindex(ending.lower())].strip()
+    
     # Standardize ellipsis and dashes
-    text = re.sub(r'\. \. \.|\.\.\.|…', '...', text)
+    text = re.sub(r'\. \. \.|\.\.\.|…', '', text)
     text = re.sub(r'\s*--?\s*', ' – ', text)
     
-    # Remove extra whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
+    # Remove markdown and extra formatting
+    text = re.sub(r'\*\*|__', '', text)  # Remove bold
+    text = re.sub(r'\*|_', '', text)     # Remove italic
     
-    # Handle markdown and formatting
-    text = re.sub(r'\*\*', '', text)  # Remove markdown bold
-    text = re.sub(r'_([^_]+)_', r'\1', text)  # Remove markdown italic
-    
-    # Fix punctuation issues with quotes
-    text = text.replace('!"', '!')  # Fix quote after exclamation
-    text = text.replace('."', '.')  # Fix quote after period
-    text = text.replace('?"', '?')  # Fix quote after question mark
-    
-    # Check for incomplete endings
-    text_lower = text.lower()
-    if any(text_lower.rstrip('.!?').endswith(phrase) for phrase in INCOMPLETE_PHRASES):
-        for phrase in INCOMPLETE_PHRASES:
-            if text_lower.rstrip('.!?').endswith(phrase):
-                text = text[:text.lower().rindex(phrase)].strip()
-                break
-    
-    # Fix punctuation
-    text = re.sub(r'[!?.][\s!?.]*$', '!', text)  # End with single punctuation
-    text = re.sub(r'\s*([.!?])\s*', r'\1 ', text)  # Fix spacing around punctuation
-    
-    # Clean up any remaining quotes
-    text = re.sub(r'"([^"]*)"', r'\1', text)  # Remove paired quotes
-    text = text.replace('"', '')  # Remove any remaining quotes
+    # Clean up spacing and punctuation
+    text = re.sub(r'\s+', ' ', text).strip()  # Normalize spaces
+    text = re.sub(r'\s*([.!?])\s*', r'\1 ', text)  # Fix punctuation spacing
     
     # Ensure proper ending
     if not text.rstrip().endswith(('!', '?', '.')):
         text += '!'
-        
+    
     return text.strip()
 
-def add_personality(text: str, category: str) -> str:
+def add_style(text: str, category: str) -> str:
     """
-    Add personality markers to the text.
+    Add emojis and hashtags while maintaining personality.
     Args:
         text (str): Input text
         category (str): Content category
     Returns:
-        str: Text with personality markers
+        str: Styled text
     """
-    # Add random personality marker
-    trait = random.choice(list(PERSONALITY_MARKERS.keys()))
-    marker = random.choice(PERSONALITY_MARKERS[trait])
-    
-    # 30% chance to add marker at start
-    if random.random() < 0.3:
-        text = f"{marker} {text}"
-    
-    return text
-
-def add_emojis_and_hashtags(text: str, category: str) -> str:
-    """
-    Add emojis and hashtags to the response with proper formatting.
-    Args:
-        text (str): Input text
-        category (str): Content category
-    Returns:
-        str: Text with emojis and/or hashtags
-    """
-    text = add_personality(text, category)
-    
-    if random.random() > 0.2:  # 80% chance to skip additions
+    # Ensure we have room for additions
+    if len(text) >= 220:
         return text
         
-    text_length = len(text)
-    space_left = 280 - text_length
-
-    if space_left < 10:  # Ensure enough space for additions
-        return text
-
-    additions = []
-
-    # Add emojis
-    if random.random() < 0.3 and space_left >= 4:
-        emoji_count = min(2, space_left // 2)
-        if emoji_count > 0:
-            emojis = random.sample(EMOJIS[category], emoji_count)
-            additions.extend(emojis)
-
-    # Add hashtags
-    if random.random() < 0.7:
-        remaining_space = 280 - (text_length + sum(len(a) + 1 for a in additions))
-        if remaining_space >= 15:
-            hashtag_count = min(2, remaining_space // 15)
-            if hashtag_count > 0:
-                hashtags = random.sample(HASHTAGS[category], hashtag_count)
-                additions.extend(hashtags)
-
-    if additions:
-        return f"{text} {' '.join(additions)}"
+    # Add personality emoji if none present
+    has_emoji = any(char in text for char in ['💅', '✨', '👀', '🔥', '💫', '🌟'])
+    if not has_emoji:
+        text = f"✨ {text}"
+    
+    # Add hashtag if we have room
+    if len(text) <= 200 and not any(tag in text for tag in HASHTAGS[category]):
+        hashtag = random.choice(HASHTAGS[category])
+        text = f"{text} {hashtag}"
+    
     return text
 
 
 def extract_relevant_tweet(prompt: str, text: str) -> str:
     """
-    Extract the generated tweet from the response.
+    Extract and clean the generated tweet from the response.
     Args:
         prompt (str): Original prompt
         text (str): Generated text
     Returns:
-        str: Extracted tweet
+        str: Extracted and cleaned tweet
     """
     try:
+        # Split on "Tweet:" and get the last part
         parts = text.split("Tweet:")
         if len(parts) < 2:
             return clean_response(text)
         
-        # Get content after "Tweet:" and clean it
-        tweet = parts[-1].strip().split('\n')[0]
+        # Get the first line after "Tweet:"
+        tweet_lines = parts[-1].strip().split('\n')
+        tweet = tweet_lines[0].strip()
         
-        # Remove quotes at the beginning and end
-        tweet = tweet.strip('"\'')
+        # Clean the tweet
+        tweet = clean_response(tweet)
         
-        # Check for generic or empty responses
-        generic_starts = [
-            "here is my attempt",
-            "let me try",
-            "okay, here",
-            "athena here",
-            "hey there",
-            "hey devs",
-            "hey guys"
-        ]
-        
-        if any(tweet.lower().startswith(start) for start in generic_starts):
-            return random.choice(FALLBACK_RESPONSES)
-        
-        # Check for incomplete thoughts
-        forbidden_patterns = [
-            r'\d/\d', r'thread', r'\.\.\.$', r'to be continued',
-            r'next part', r'stay tuned', r'coming soon',
-            r'hold on', r'wait for it'
-        ]
-        
-        if any(re.search(pattern, tweet.lower()) for pattern in forbidden_patterns):
+        # Check for minimum content
+        if len(tweet) < 20:
             return random.choice(FALLBACK_RESPONSES)
             
-        return clean_response(tweet)
+        # Handle truncation
+        if len(tweet) > 240:
+            sentences = re.split(r'(?<=[.!?])\s+', tweet)
+            tweet = ""
+            for sentence in sentences:
+                if len(tweet + sentence) <= 237:  # Leave room for ending
+                    tweet += sentence + " "
+                else:
+                    break
+            tweet = tweet.strip()
+            
+            # Ensure proper ending
+            if not tweet.endswith(('!', '?', '.')):
+                tweet += '!'
         
-    except Exception:
+        # Add style elements
+        tweet = add_style(tweet, categorize_prompt(prompt))
+        
+        return tweet
+        
+    except Exception as e:
         return random.choice(FALLBACK_RESPONSES)
 
 def prepare_context(prompt: str, sentiment: str = "neutral", 
@@ -408,68 +356,71 @@ def prepare_context(prompt: str, sentiment: str = "neutral",
     """
     opener = get_random_opener(recent_openers or [])
     
-    # Enhanced personality base instruction
+    # Core personality instruction
     base_instruction = (
         "You are Athena, a sassy crypto and finance expert with major attitude and wit. "
-        "Create ONE engaging tweet that serves tea, spills gossip, or drops knowledge bombs. "
-        "Keep it focused, complete, and avoid meta-commentary. "
-        "Never end with '...' or incomplete thoughts. "
-        "Make every word count and ensure your message is both informative and entertaining. "
-        "Channel your inner crypto influencer with confidence and style."
+        "Create ONE short, complete tweet (max 240 chars) that serves tea and drops knowledge. "
+        "Rules:\n"
+        "1. Must be self-contained - no threads or continuations\n"
+        "2. End with ! or ? for punch\n"
+        "3. No ellipsis or trailing thoughts\n"
+        "4. Include specific details or examples\n"
+        "5. Be informative AND entertaining\n"
+        "6. Keep it sassy and confident"
     )
 
-    # Enhanced sentiment tones with personality
+    # Enhanced sentiment tones
     sentiment_tone = {
         "positive": (
-            "Serve the tea with extra sparkle and enthusiasm! "
-            "Make your observations clever and your excitement contagious. "
-            "This is good news - make it pop!"
+            "Serve the tea with extra sparkle! "
+            "Make your excitement contagious but keep it real. "
+            "Good news deserves extra sass!"
         ),
         "negative": (
-            "Keep that sass sharp but wrap the tough news in wit. "
-            "Balance criticism with clever insights. "
-            "Even in a dip, keep your personality strong!"
+            "Keep the sass while serving truth. "
+            "Balance criticism with wit. "
+            "Make the tea memorable!"
         ),
         "neutral": (
-            "Blend facts with fashion, honey! "
-            "Stay objective but make it entertaining. "
-            "Your analysis should be as sharp as your attitude!"
+            "Facts + Fashion = Your Tweet! "
+            "Stay objective but make it pop. "
+            "Analysis should sparkle!"
         )
-    }.get(sentiment, "Balance insight with humor, staying objective but engaging.")
+    }.get(sentiment, "Balance insight with sass!")
 
-    # Enhanced category focus with personality
+    # Focused category guidance
     category_focus = {
         "market_analysis": (
-            "Spill the market tea with a mix of data and drama! "
-            "Make those charts and trends sound like the latest gossip. "
-            "Numbers are your runway - work it!"
+            "Spill market tea with data and drama! "
+            "Make those charts sound like gossip. "
+            "Numbers are your stage!"
         ),
         "tech_discussion": (
-            "Break down tech like you're explaining drama to your bestie. "
-            "Those protocols? Make them the stars of your story. "
-            "Code is your catwalk - strut it!"
+            "Tech tea, bestie style! "
+            "Make protocols the main character. "
+            "Code is your runway!"
         ),
         "defi": (
-            "Serve DeFi realness with a side of sass. "
-            "Make yields and liquidity pools sound like the hottest tea. "
-            "APY is your alphabet soup - stir it up!"
+            "DeFi drama with receipts! "
+            "Make yields sound juicy. "
+            "Serve that APY tea!"
         ),
         "nft": (
-            "Drop NFT knowledge like you're rating outfits at the Met Gala. "
-            "Make those collections and floor prices sound like fashion trends. "
-            "Digital art is your magazine spread - style it!"
+            "Rate these NFTs like Met Gala fits! "
+            "Floor prices = fashion trends. "
+            "Digital art tea!"
         ),
         "culture": (
-            "Dish out community tea with insider vibes. "
-            "Make those trends and movements sound like A-list gossip. "
-            "Web3 culture is your reality show - direct it!"
+            "Community tea time! "
+            "Trends = A-list gossip. "
+            "Web3 reality show!"
         ),
         "general": (
-            "Spread crypto knowledge like it's the juiciest gossip in town. "
-            "Make those concepts pop with personality and flair. "
-            "Blockchain is your stage - own it!"
+            "Crypto gossip with facts! "
+            "Make it pop with personality. "
+            "Own that blockchain tea!"
         )
-    }.get(category, "Share crypto knowledge with broad appeal and clever observations.")
+    }.get(category, "Serve that crypto tea with style!")
 
     return (
         f"{opener} {prompt}\n\n"
