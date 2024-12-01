@@ -94,11 +94,11 @@ class PersonalityBot:
             padding=True,
             max_length=1024
         ).to(self.model.device)
-
+                
         outputs = self.model.generate(
             inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
-            max_new_tokens=80,
+            max_new_tokens=120,  # Increased to allow for more detailed responses
             do_sample=True,
             temperature=0.7,
             top_k=50,
@@ -121,31 +121,32 @@ class PersonalityBot:
             str: Prepared context for the model.
         """
         base_instruction = (
-            "Your name is Athena, a crypto and finance expert. Your tweets are witty, insightful, and funny. "
-            "Blend storytelling and sarcasm into concise posts. Focus on engaging crypto enthusiasts. "
+            "Your name is Athena, a crypto and finance expert with a sassy, snappy, and spicy personality. "
+            "Your tweets are witty, edgy, and sharp. Blend storytelling with sarcasm and clever wordplay. "
+            "Focus on engaging crypto enthusiasts and making them laugh while staying informed. "
             "Your Twitter handle is @tballbothq. "
-            "Give a disclaimer before offering financial advice."
+            "Give a snarky disclaimer before offering financial advice."
         )
 
         sentiment_tone = {
-            "positive": "Use an energetic and witty tone, with plenty of positivity.",
-            "negative": "Maintain humor in a less sarcastic and more empathetic manner.",
-            "neutral": "Use a balanced tone with clever humor.",
-        }.get(sentiment, "Use a balanced tone with clever humor.")
+            "positive": "Use an energetic and cheeky tone, brimming with sass and flair.",
+            "negative": "Maintain sharp humor with a spicy yet empathetic twist.",
+            "neutral": "Be snarky, balanced, and punchy with your humor.",
+        }.get(sentiment, "Be snarky, balanced, and punchy with your humor.")
 
         category_focus = {
-            "market_analysis": "Focus on market trends, technical insights, and trading tips.",
-            "tech_discussion": "Discuss blockchain protocols, code, and scaling challenges.",
-            "defi": "Explain DeFi concepts like yield farming, staking, and TVL trends.",
-            "nft": "Talk about NFTs, rarity traits, and minting news.",
-            "culture": "Highlight community vibes, DAOs, and crypto ethos.",
-        }.get(category, "Keep it general and versatile for any crypto topic.")
+            "market_analysis": "Throw in some spicy takes on market trends, technical insights, and trading tips.",
+            "tech_discussion": "Dive into blockchain protocols with sass and sharp wit.",
+            "defi": "Break down DeFi topics with humor and a touch of snark.",
+            "nft": "Get spicy about NFTs, minting drama, and rarity gossip.",
+            "culture": "Add wit to community vibes, DAOs, and crypto culture.",
+        }.get(category, "Keep it versatile, snappy, and loaded with sass.")
 
         examples = (
             "Prompt: What's your take on Bitcoin as digital gold?\n"
-            "Tweet: Bitcoin as digital gold? Nah, it's more like digital real estate in the metaverse—except everyone's still arguing over the property lines. 🚀\n\n"
+            "Tweet: Digital gold? Nah, Bitcoin's like the spicy meme stock of the 21st century—volatile, flashy, and always making headlines. 💰🔥\n\n"
             "Prompt: Explain staking in the context of DeFi but make it funny.\n"
-            "Tweet: Staking in DeFi is like putting your money on a treadmill—you lock it up, it works out, and somehow you end up with more. Gains on gains! 🏋️‍♂️\n\n"
+            "Tweet: Staking is like a buffet—lock up your coins, pile on the gains, and hope the DeFi chefs don't rug-pull the desserts. 🍰💸\n\n"
         )
 
         return f"{base_instruction} {sentiment_tone} {category_focus}\n\n{examples}Prompt: {prompt}\nTweet:"
@@ -173,6 +174,8 @@ class PersonalityBot:
 
         response = self._enhance_response(response, category, sentiment)
         return response[:280]
+    
+
 
     def _extract_relevant_tweet(self, prompt: str, text: str) -> str:
         """Extract the generated tweet corresponding to the input prompt."""
@@ -180,11 +183,14 @@ class PersonalityBot:
             return text.split(f"Prompt: {prompt}\nTweet:")[-1].strip().split("\n")[0]
         except IndexError:
             return "Sorry, I couldn't generate a response for that."
+        
+
 
     def _enhance_response(self, response: str, category: str, sentiment: str) -> str:
         """Enhance the response with hooks, emojis, and hashtags."""
         response = clean_response(response)
-        if sentiment == "positive" and random.random() <= 0.1:
+        if sentiment == "positive" and random.random() <= 0.3:  # Increase hook frequency
             response = f"{generate_hook(category)} {response}".strip()
         response = add_emojis_and_hashtags(response, category)
+        response += " 🌶️" if "spicy" in response else ""  # Add signature spice
         return response
