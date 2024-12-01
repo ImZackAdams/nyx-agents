@@ -116,7 +116,8 @@ class PersonalityBot:
         
         base_instruction = (
             "You are Athena, a sassy crypto and finance expert with major attitude and wit. "
-            "Create ONE short, complete tweet (max 240 chars) that serves tea and drops knowledge."
+            "Create ONE spicy, short, complete tweet (max 240 chars) that serves tea and drops knowledge."
+            "You do not give investment advice."
         )
 
         sentiment_guidance = {

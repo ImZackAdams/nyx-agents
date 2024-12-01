@@ -4,16 +4,13 @@ from dotenv import load_dotenv
 from bot.bot import PersonalityBot
 import logging
 import warnings
+import random
 
-# Suppress specific warnings
 warnings.filterwarnings("ignore", message=".*MatMul8bitLt.*")
 warnings.filterwarnings("ignore", message=".*quantization_config.*")
 warnings.filterwarnings("ignore", message=".*Unused kwargs.*")
 
-# Load environment variables
 load_dotenv()
-
-# Configure logging to suppress most messages
 logging.basicConfig(level=logging.ERROR)
 for name in logging.root.manager.loggerDict:
     logging.getLogger(name).setLevel(logging.ERROR)
@@ -22,69 +19,97 @@ def main():
     try:
         model_path = "athena_8bit_model"
         bot = PersonalityBot(model_path=model_path, logger=logging.getLogger(__name__))
-
     except Exception as e:
-        print(f"✨ Initialization error! Check if model path exists: {str(e)} 💅")
+        print(f"✨ Error: {str(e)} 💅")
         return
 
-    prompts = [
-        # Evergreen Crypto Takes
-        "Spill the tea on why HODLing isn't always the best strategy! Give us those timeless investment wisdom bombs!",
-        "Share your spiciest take on why diversification matters in crypto. Make it iconic!",
-        "Drop some timeless wisdom about crypto security practices. Make it sassy but educational!",
-        
-        # Tech Fundamentals
-        "Explain why blockchain technology is more than just crypto! Serve pure tech tea!",
-        "Spill the tea on why decentralization matters! Make it relevant for everyone!",
-        "Break down smart contracts like you're explaining them to your bestie! Keep it fresh!",
-        
-        # Philosophical Takes
-        "Give us your hottest take on the future of digital ownership! Make it thought-provoking!",
-        "Share your spiciest thoughts on web3 privacy! Keep it relevant and real!",
-        "Drop some truth bombs about decentralized identity! Make it accessible!",
-        
-        # Educational Moments
-        "Explain consensus mechanisms like you're hosting a masterclass! Extra sass required!",
-        "Break down DeFi fundamentals like you're teaching Fashion Week! Make it pop!",
-        "Share some timeless blockchain scaling tea! Keep it fresh and fierce!",
-        
-        # Culture Commentary
-        "Spill the tea on crypto community dynamics! Keep it real but make it fun!",
-        "Share your thoughts on why DYOR is everything in crypto! Make it memorable!",
-        "Rate different crypto research strategies! Be the Simon Cowell of DYOR!"
+    dating_prompts = [
+        "Break down why FOMO is like your ex - keeps coming back but never good for you!",
+        "Tell us why panic selling is giving the same energy as drunk texting!",
+        "Why trusting random DeFi protocols is like swiping right on every profile!",
+        "Tell us why diversification is better than commitment issues!",
+        "When GPT understands you better than your dating matches!",
+        "Why chart patterns are like dating patterns - they keep repeating!"
     ]
 
-    def post_simulated_output(prompt):
-        """Generate and print only the response."""
-        try:
-            generated_output = bot.generate_response(prompt)
-            
-            # Clean any potential formatting issues
-            generated_output = generated_output.replace('\n', ' ').strip()
-            
-            # Only print if we have a valid response
-            if len(generated_output) >= 20:
-                print(f"{generated_output}")
-            else:
-                print("✨ Brewing fresh tea... try again! 💅")
-                
-        except Exception as e:
-            print(f"✨ Oops! Error brewing tea: {str(e)} 💅")
+    regular_prompts = [
+        # Market & Trading
+        "Spill the tea on why FOMO is your portfolio's worst enemy!",
+        "Break down why panic selling never helps your gains!",
+        "Share why watching charts 24/7 isn't the move!",
+        
+        # Tech & Innovation
+        "Explain why blockchain is simpler than everyone thinks!",
+        "Break down why smart contracts are the future!",
+        "When your AI model serves better predictions than the experts!",
+        
+        # Security
+        "Spill why your seed phrase is your most precious possession!",
+        "Why trusting unaudited protocols is playing with fire!",
+        "Share why clicking random links is the fastest way to get rekt!",
+        
+        # DeFi & Investment
+        "Break down why sky-high APY is usually a red flag!",
+        "Tell us why diversification is the ultimate power move!",
+        "When your portfolio strategy actually makes sense!",
+        
+        # AI & Tech
+        "Your neural network is giving genius vibes!",
+        "Share why AI models are revolutionizing trading!",
+        "Break down why machine learning changes everything!",
+        
+        # Market Analysis
+        "Explain why market analysis needs both tech and fundamentals!",
+        "Why technical indicators are your best friends in volatility!",
+        "Break down why your trading strategy needs constant updates!",
+        
+        # Culture & Community
+        "Tell us why crypto Twitter has the best alpha!",
+        "Share why Web3 communities are changing the game!",
+        "Why NFTs are more than just expensive JPEGs!",
+        
+        # General Wisdom
+        "Break down why DYOR is non-negotiable!",
+        "Why wallet security should be your top priority!",
+        "Share why paper hands never make it in crypto!"
+    ]
 
-    post_interval = 2  # 10 seconds between posts
+    def clean_tweet(tweet: str) -> str:
+        tweet = ' '.join(tweet.split())
+        tweet = tweet.replace('..', '.').replace('!!', '!').replace('??', '?')
+        if tweet.count('#') > 2:
+            parts = tweet.split('#')
+            tweet = parts[0] + '#' + parts[1] + '#' + parts[2]
+        if not tweet[-1] in '.!?':
+            tweet += '!'
+        return tweet.strip()
+
+    def generate_tweet(prompt):
+        try:
+            output = bot.generate_response(prompt)
+            tweet = output.replace('\n', ' ').strip()
+            if len(tweet) < 50 or len(tweet) > 280:
+                return generate_tweet(prompt)
+            tweet = clean_tweet(tweet)
+            return tweet
+        except Exception as e:
+            return f"✨ Error: {str(e)} 💅"
 
     try:
-        # Loop through prompts once
-        for prompt in prompts:
-            post_simulated_output(prompt)
-            print("")  # Single blank line between responses
-            time.sleep(post_interval)
+        # Generate 24 tweets with ~20% dating references
+        for i in range(24):
+            # 20% chance of selecting a dating prompt
+            if random.random() < 0.2:
+                prompt = random.choice(dating_prompts)
+            else:
+                prompt = random.choice(regular_prompts)
             
-        print("\n✨ All prompts have been processed! Tea time's complete! 💅")
+            tweet = generate_tweet(prompt)
+            print(f"\n{tweet}\n")
+            time.sleep(2)
 
     except KeyboardInterrupt:
-        print("\n💅 Tea time's over! Bye bestie! ✨")
-
+        print("\n✨ Bye! 💅")
 
 if __name__ == "__main__":
     main()
