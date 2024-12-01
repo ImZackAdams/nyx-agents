@@ -1,40 +1,55 @@
 import os
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from .utilities import log_resource_usage
 from nltk.sentiment import SentimentIntensityAnalyzer
 import random
+from .utilities import log_resource_usage
 from .hooks import generate_hook, add_emojis_and_hashtags, clean_response
 
 
 class PersonalityBot:
     def __init__(self, model_path, logger):
+        """
+        Initialize the PersonalityBot.
+        Args:
+            model_path (str): Path to the pre-trained model directory.
+            logger (logging.Logger): Logger for logging events.
+        """
         self.model_path = model_path
         self.logger = logger
+        self.sentiment_analyzer = SentimentIntensityAnalyzer()  # Initialize VADER sentiment analyzer
         self.model, self.tokenizer = self._setup_model()
-        self.sentiment_analyzer = SentimentIntensityAnalyzer()  # Initialize VADER
 
     def _setup_model(self):
-        """Initialize and load the model and tokenizer."""
-        if not os.path.exists(self.model_path):
-            raise FileNotFoundError(f"Model not found at {self.model_path}")
+        """
+        Initialize and load the model and tokenizer with CPU-GPU offloading for 8-bit quantized models.
+        Returns:
+            model (AutoModelForCausalLM): The loaded pre-trained model.
+            tokenizer (AutoTokenizer): The tokenizer corresponding to the model.
+        """
+        print("Loading tokenizer...")
+        tokenizer = AutoTokenizer.from_pretrained(self.model_path)
 
-        tokenizer = AutoTokenizer.from_pretrained(self.model_path, use_fast=True)
-        tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token
-
+        print("Loading 8-bit quantized model with CPU-GPU offloading...")
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-            device_map="auto"
+            torch_dtype="auto",  # Automatically select precision
+            device_map="auto",   # Automatically map model across CPU and GPU
+            load_in_8bit=True,   # Enable 8-bit quantization
+            llm_int8_enable_fp32_cpu_offload=True  # Allow CPU offloading for unsupported layers
         ).eval()
 
         return model, tokenizer
-    
-    def _analyze_sentiment(self, text: str) -> str:
-        """Analyze the sentiment of a given text and return the dominant sentiment."""
-        sentiment_scores = self.sentiment_analyzer.polarity_scores(text)
-       # self.logger.info(f"Sentiment scores: {sentiment_scores}")
 
+    def _analyze_sentiment(self, text: str) -> str:
+        """
+        Analyze the sentiment of the given text and return the dominant sentiment.
+        Args:
+            text (str): Input text.
+        Returns:
+            str: "positive", "neutral", or "negative" sentiment.
+        """
+        sentiment_scores = self.sentiment_analyzer.polarity_scores(text)
         if sentiment_scores["compound"] > 0.05:
             return "positive"
         elif sentiment_scores["compound"] < -0.05:
@@ -43,7 +58,13 @@ class PersonalityBot:
             return "neutral"
 
     def categorize_prompt(self, prompt: str) -> str:
-        """Categorize the input prompt into predefined categories."""
+        """
+        Categorize the input prompt into predefined categories.
+        Args:
+            prompt (str): Input prompt.
+        Returns:
+            str: Category label.
+        """
         categories = {
             "market_analysis": ["price", "market", "chart", "trend", "trading", "volume"],
             "tech_discussion": ["blockchain", "protocol", "code", "network", "scaling"],
@@ -59,15 +80,20 @@ class PersonalityBot:
         return "general"
 
     def _generate_model_response(self, context: str) -> str:
-        """Generate a response using the loaded model."""
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        """
+        Generate a response using the pre-trained model.
+        Args:
+            context (str): Context prompt for the model.
+        Returns:
+            str: Model-generated response.
+        """
         inputs = self.tokenizer(
             context,
             return_tensors="pt",
             truncation=True,
             padding=True,
             max_length=1024
-        ).to(device)
+        ).to(self.model.device)
 
         outputs = self.model.generate(
             inputs["input_ids"],
@@ -85,11 +111,19 @@ class PersonalityBot:
         return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
     def _prepare_context(self, prompt: str, sentiment: str = "neutral", category: str = "general") -> str:
-        """Modify instructions based on sentiment and category to guide the model."""
+        """
+        Prepare the context by combining instructions with sentiment and category information.
+        Args:
+            prompt (str): User prompt.
+            sentiment (str): Sentiment tone ("positive", "neutral", "negative").
+            category (str): Category for the content.
+        Returns:
+            str: Prepared context for the model.
+        """
         base_instruction = (
-            "Your name is Athena, a crypto and finance expert. Your tweets are witty, insightful, and funny."
-            "Blend storytelling and sarcasm into concise posts. Focus on engaging crypto enthusiasts."
-            "Your twitter handle is @tballbothq."
+            "Your name is Athena, a crypto and finance expert. Your tweets are witty, insightful, and funny. "
+            "Blend storytelling and sarcasm into concise posts. Focus on engaging crypto enthusiasts. "
+            "Your Twitter handle is @tballbothq. "
             "Give a disclaimer before offering financial advice."
         )
 
@@ -116,49 +150,29 @@ class PersonalityBot:
 
         return f"{base_instruction} {sentiment_tone} {category_focus}\n\n{examples}Prompt: {prompt}\nTweet:"
 
-
-
-    def _enhance_response(self, response: str, category: str, sentiment: str) -> str:
-        """Post-process and enhance the response with hooks, emojis, and hashtags."""
-        response = clean_response(response)
-        if sentiment == "positive" and random.random() <= 0.1:  # Hooks 10% chance for positive sentiment
-            response = f"{generate_hook(category)} {response}".strip()
-        response = add_emojis_and_hashtags(response, category)
-
-        return response
-
     def generate_response(self, prompt: str) -> str:
-            """Generate a Twitter-ready response based on a given prompt."""
-            if not prompt.strip():
-                raise ValueError("Input prompt is empty or invalid.")
+        """
+        Generate a Twitter-ready response based on the given prompt.
+        Args:
+            prompt (str): User input prompt.
+        Returns:
+            str: Generated Twitter-ready response.
+        """
+        if not prompt.strip():
+            raise ValueError("Input prompt is empty or invalid.")
 
-            # self.logger.info("Before inference:")
-            # log_resource_usage(self.logger)
+        sentiment = self._analyze_sentiment(prompt)
+        category = self.categorize_prompt(prompt)
+        context = self._prepare_context(prompt, sentiment, category)
+        generated_text = self._generate_model_response(context)
 
-            # Analyze sentiment and categorize the prompt
-            sentiment = self._analyze_sentiment(prompt)  # Analyze sentiment
-            category = self.categorize_prompt(prompt)  # Categorize prompt
+        response = self._extract_relevant_tweet(prompt, generated_text)
+        if len(response) < 20:
+            self.logger.warning("Generated response is too short. Falling back to default response.")
+            response = "This is intriguing! But I can't make sense of it right now. Care to clarify?"
 
-            # Prepare context for the model
-            context = self._prepare_context(prompt, sentiment, category)
-            generated_text = self._generate_model_response(context)
-
-            # Extract relevant response
-            response = self._extract_relevant_tweet(prompt, generated_text)
-            if len(response) < 20:
-                self.logger.warning("Generated response is too short. Falling back to default response.")
-                response = self._get_fallback_response(prompt)
-
-            # Enhance response based on category and sentiment
-            response = self._enhance_response(response, category, sentiment)
-
-            # self.logger.info("After inference and enhancements:")
-            # log_resource_usage(self.logger)
-
-            return response[:280]
-            
-
-
+        response = self._enhance_response(response, category, sentiment)
+        return response[:280]
 
     def _extract_relevant_tweet(self, prompt: str, text: str) -> str:
         """Extract the generated tweet corresponding to the input prompt."""
@@ -167,6 +181,10 @@ class PersonalityBot:
         except IndexError:
             return "Sorry, I couldn't generate a response for that."
 
-    def _get_fallback_response(self) -> str:
-        """Provide a default fallback response."""
-        return "This is intriguing! But I can't make sense of it right now. Care to clarify?"
+    def _enhance_response(self, response: str, category: str, sentiment: str) -> str:
+        """Enhance the response with hooks, emojis, and hashtags."""
+        response = clean_response(response)
+        if sentiment == "positive" and random.random() <= 0.1:
+            response = f"{generate_hook(category)} {response}".strip()
+        response = add_emojis_and_hashtags(response, category)
+        return response

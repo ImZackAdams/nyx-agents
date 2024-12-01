@@ -7,6 +7,7 @@ results/
 
 fine_tuned_personality_bot.tar.gz
 
+athena_8bit_model
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
