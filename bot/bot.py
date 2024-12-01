@@ -5,43 +5,55 @@ Handles response generation and management using the pre-trained model.
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Dict, Optional
 import re
+import random
+from dataclasses import dataclass
 
-from .utilities import log_resource_usage
-from .hooks import (
-    TextProcessor,  # New import
-    analyze_sentiment,
-    categorize_prompt,
-    prepare_context,
-    validate_tweet_length
+from .text_processor import (
+    TextProcessor,
+    StyleConfig,
+    Category,
+    ContentAnalyzer
 )
+from .utilities import log_resource_usage
+
+@dataclass
+class GenerationConfig:
+    """Configuration for text generation parameters"""
+    max_new_tokens: int = 100
+    temperature: float = 0.6
+    top_k: int = 30
+    top_p: float = 0.8
+    repetition_penalty: float = 2.2
 
 class PersonalityBot:
-    def __init__(self, model_path: str, logger):
+    def __init__(self, model_path: str, logger, style_config: Optional[StyleConfig] = None):
         """
         Initialize the PersonalityBot.
         Args:
             model_path (str): Path to the pre-trained model directory
             logger: Logger instance for tracking events and errors
+            style_config: Optional custom style configuration
         """
         self.model_path = model_path
         self.logger = logger
         self.model, self.tokenizer = self._setup_model()
         
         # Response history management
-        self.recent_responses: List[str] = []
         self.max_history: int = 10
+        self.recent_responses: List[str] = []
         
-        # Initialize TextProcessor
-        self.text_processor = TextProcessor(max_history=self.max_history)
+        # Initialize processors
+        self.style_config = style_config or StyleConfig.default()
+        self.text_processor = TextProcessor(self.style_config, self.max_history)
+        self.content_analyzer = ContentAnalyzer()
+        
+        # Default generation config
+        self.generation_config = GenerationConfig()
 
     def _setup_model(self) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
-        """
-        Initialize and load the model and tokenizer with CPU-GPU offloading.
-        Returns:
-            tuple: (model, tokenizer)
-        """
+        """Initialize and load the model and tokenizer with CPU-GPU offloading."""
         self.logger.info("Loading tokenizer...")
         tokenizer = AutoTokenizer.from_pretrained(self.model_path)
 
@@ -63,13 +75,7 @@ class PersonalityBot:
 
     @log_resource_usage
     def _generate_model_response(self, context: str) -> str:
-        """
-        Generate a response using the pre-trained model.
-        Args:
-            context (str): Context prompt for the model
-        Returns:
-            str: Model-generated response
-        """
+        """Generate a response using the pre-trained model."""
         try:
             inputs = self.tokenizer(
                 context,
@@ -82,12 +88,12 @@ class PersonalityBot:
             outputs = self.model.generate(
                 inputs["input_ids"],
                 attention_mask=inputs["attention_mask"],
-                max_new_tokens=100,  # Shorter output for focused tweets
+                max_new_tokens=self.generation_config.max_new_tokens,
                 do_sample=True,
-                temperature=0.6,     # Lower temperature for deterministic results
-                top_k=30,           # Reduce randomness
-                top_p=0.8,          # Narrow probability distribution
-                repetition_penalty=2.2,  # Penalize repetitive patterns
+                temperature=self.generation_config.temperature,
+                top_k=self.generation_config.top_k,
+                top_p=self.generation_config.top_p,
+                repetition_penalty=self.generation_config.repetition_penalty,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
             )
@@ -98,58 +104,55 @@ class PersonalityBot:
             return ""
 
     def _store_response(self, response: str) -> None:
-        """
-        Store the response in history to avoid repetition.
-        Args:
-            response (str): Generated response to store
-        """
+        """Store the response in history to avoid repetition."""
         self.recent_responses.append(response)
         if len(self.recent_responses) > self.max_history:
             self.recent_responses.pop(0)
 
-    def _format_response(self, response: str, prompt: str) -> str:
-        """
-        Format and clean the generated response using TextProcessor.
-        Args:
-            response (str): Raw response text
-            prompt (str): Original prompt for category detection
-        Returns:
-            str: Formatted and cleaned response
-        """
-        # Handle duplicate responses before processing
-        if response in self.recent_responses:
-            response = f"{response} (new thought!)"
+    def _prepare_context(self, prompt: str, sentiment: str, category: Category) -> str:
+        """Prepare the context for response generation."""
+        opener = random.choice([op for op in self.style_config.openers 
+                              if op not in self.text_processor.recent_openers])
         
-        # Use TextProcessor for cleaning and styling
-        processed_response = self.text_processor.process_tweet(prompt, response)
-        
-        return processed_response
+        base_instruction = (
+            "You are Athena, a sassy crypto and finance expert with major attitude and wit. "
+            "Create ONE short, complete tweet (max 240 chars) that serves tea and drops knowledge."
+        )
+
+        sentiment_guidance = {
+            "positive": "Serve the tea with extra sparkle! Make your excitement contagious!",
+            "negative": "Keep the sass while serving truth. Balance criticism with wit.",
+            "neutral": "Facts + Fashion = Your Tweet! Stay objective but make it pop."
+        }.get(sentiment, "Balance insight with sass!")
+
+        category_guidance = {
+            Category.MARKET_ANALYSIS: "Spill market tea with data and drama!",
+            Category.TECH_DISCUSSION: "Tech tea, bestie style!",
+            Category.DEFI: "DeFi drama with receipts!",
+            Category.NFT: "Rate these NFTs like Met Gala fits!",
+            Category.CULTURE: "Community tea time!",
+            Category.GENERAL: "Crypto gossip with facts!"
+        }.get(category, "Serve that crypto tea with style!")
+
+        return f"{opener} {prompt}\n\n{base_instruction}\n{category_guidance}\n{sentiment_guidance}\nTweet:"
+
+    def _validate_tweet_length(self, tweet: str) -> bool:
+        """Check if tweet meets length requirements."""
+        clean_length = len(tweet.strip())
+        return 50 <= clean_length <= 240
 
     def generate_response(self, prompt: str) -> str:
-        """
-        Generate a Twitter-ready response based on the given prompt.
-        Args:
-            prompt (str): User input prompt
-        Returns:
-            str: Generated Twitter-ready response
-        Raises:
-            ValueError: If prompt is empty or invalid
-        """
+        """Generate a Twitter-ready response based on the given prompt."""
         if not prompt.strip():
             raise ValueError("Input prompt is empty or invalid.")
 
         try:
             # Analyze input
-            sentiment = analyze_sentiment(prompt, self.logger)
-            category = categorize_prompt(prompt)
+            sentiment = self.content_analyzer.analyze_sentiment(prompt)
+            category = self.content_analyzer.categorize_prompt(prompt)
             
             # Generate context
-            context = prepare_context(
-                prompt=prompt,
-                sentiment=sentiment,
-                category=category,
-                recent_openers=self.text_processor.recent_openers  # Use TextProcessor's openers
-            )
+            context = self._prepare_context(prompt, sentiment, category)
             self.logger.info(f"Generated context: {context}")
 
             # Generate response
@@ -160,16 +163,15 @@ class PersonalityBot:
             self.logger.info(f"Generated raw response: {generated_text}")
 
             # Format response using TextProcessor
-            response = self._format_response(generated_text, prompt)
+            response = self.text_processor.process_tweet(prompt, generated_text)
             
-            # Store if valid
-            if validate_tweet_length(response):
+            # Validate and store
+            if self._validate_tweet_length(response):
                 self._store_response(response)
+                return response
             else:
                 self.logger.warning("Generated response failed length validation")
                 return "💅 Tea's brewing but not quite ready... spill that question again? ✨"
-
-            return response
 
         except Exception as e:
             self.logger.error(f"Error generating response: {e}")

@@ -71,16 +71,16 @@ def main():
         except Exception as e:
             print(f"✨ Oops! Error brewing tea: {str(e)} 💅")
 
-    current_index = 0
     post_interval = 10  # 10 seconds between posts
 
     try:
-        while True:
-            prompt = prompts[current_index % len(prompts)]
+        # Loop through prompts once
+        for prompt in prompts:
             post_simulated_output(prompt)
             print("")  # Single blank line between responses
-            current_index += 1
             time.sleep(post_interval)
+            
+        print("\n✨ All prompts have been processed! Tea time's complete! 💅")
 
     except KeyboardInterrupt:
         print("\n💅 Tea time's over! Bye bestie! ✨")
