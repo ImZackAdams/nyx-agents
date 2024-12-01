@@ -6,16 +6,15 @@ Handles response generation and management using the pre-trained model.
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from typing import List, Tuple, Optional
+import re
 
 from .utilities import log_resource_usage
 from .hooks import (
+    TextProcessor,  # New import
     analyze_sentiment,
     categorize_prompt,
     prepare_context,
-    clean_response,
-    add_style,  # Updated import
-    extract_relevant_tweet,
-    validate_tweet_length  # New import
+    validate_tweet_length
 )
 
 class PersonalityBot:
@@ -32,8 +31,10 @@ class PersonalityBot:
         
         # Response history management
         self.recent_responses: List[str] = []
-        self.recent_openers: List[str] = []
         self.max_history: int = 10
+        
+        # Initialize TextProcessor
+        self.text_processor = TextProcessor(max_history=self.max_history)
 
     def _setup_model(self) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
         """
@@ -106,43 +107,23 @@ class PersonalityBot:
         if len(self.recent_responses) > self.max_history:
             self.recent_responses.pop(0)
 
-    def _format_response(self, response: str, category: str) -> str:
+    def _format_response(self, response: str, prompt: str) -> str:
         """
-        Format and clean the generated response.
+        Format and clean the generated response using TextProcessor.
         Args:
             response (str): Raw response text
-            category (str): Content category
+            prompt (str): Original prompt for category detection
         Returns:
             str: Formatted and cleaned response
         """
-        # Clean and format the response
-        response = clean_response(response)
-        
-        # Validate length
-        if not validate_tweet_length(response):
-            if len(response) > 240:
-                # Truncate to last complete sentence
-                sentences = re.split(r'(?<=[.!?])\s+', response)
-                response = ""
-                for sentence in sentences:
-                    if len(response + sentence) <= 237:  # Leave room for ending
-                        response += sentence + " "
-                    else:
-                        break
-                response = response.strip()
-                
-                # Ensure proper ending
-                if not response.endswith(('!', '?', '.')):
-                    response += '!'
-        
-        # Handle duplicate responses
+        # Handle duplicate responses before processing
         if response in self.recent_responses:
             response = f"{response} (new thought!)"
         
-        # Add style elements (emojis, hashtags)
-        response = add_style(response, category)
+        # Use TextProcessor for cleaning and styling
+        processed_response = self.text_processor.process_tweet(prompt, response)
         
-        return response
+        return processed_response
 
     def generate_response(self, prompt: str) -> str:
         """
@@ -167,7 +148,7 @@ class PersonalityBot:
                 prompt=prompt,
                 sentiment=sentiment,
                 category=category,
-                recent_openers=self.recent_openers
+                recent_openers=self.text_processor.recent_openers  # Use TextProcessor's openers
             )
             self.logger.info(f"Generated context: {context}")
 
@@ -178,16 +159,16 @@ class PersonalityBot:
             
             self.logger.info(f"Generated raw response: {generated_text}")
 
-            # Extract relevant tweet
-            response = extract_relevant_tweet(prompt, generated_text)
-            if len(response) < 20:
-                self.logger.warning("Generated response is too short. Using fallback response.")
+            # Format response using TextProcessor
+            response = self._format_response(generated_text, prompt)
+            
+            # Store if valid
+            if validate_tweet_length(response):
+                self._store_response(response)
+            else:
+                self.logger.warning("Generated response failed length validation")
                 return "💅 Tea's brewing but not quite ready... spill that question again? ✨"
 
-            # Format and store response
-            response = self._format_response(response, category)
-            self._store_response(response)
-            
             return response
 
         except Exception as e:
