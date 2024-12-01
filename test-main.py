@@ -71,7 +71,7 @@ def main():
         except Exception as e:
             print(f"✨ Oops! Error brewing tea: {str(e)} 💅")
 
-    post_interval = 10  # 10 seconds between posts
+    post_interval = 2  # 10 seconds between posts
 
     try:
         # Loop through prompts once

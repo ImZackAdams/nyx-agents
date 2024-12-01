@@ -90,31 +90,41 @@ class TextCleaner:
     @staticmethod
     def clean_text(text: str) -> str:
         """Cleans and formats text for consistency"""
+        if not text:
+            return ""
+            
+        # Initial cleanup
         text = text.strip('"\'').strip()
         
-        # Basic cleanup
-        text = re.sub(r'\s+', ' ', text)
-        text = re.sub(r'\s*([.,!?;:])\s*', r'\1 ', text)
-        text = re.sub(r'\s*-\s*', '-', text)
-        text = re.sub(r'\s*–\s*', ' – ', text)
+        # Remove placeholder content
+        text = re.sub(r'\?\s*([.,!?]|$)', r'\1', text)  # remove ? placeholders
+        text = re.sub(r'\[\s*[^]]*\]', '', text)  # remove [explanations]
+        text = re.sub(r'\s{2,}', ' ', text)  # normalize multiple spaces
         
-        # Advanced formatting
-        text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
-        text = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', text)
-        text = re.sub(r'(\d)([a-zA-Z])', r'\1 \2', text)
-        text = re.sub(r'\s*(#\w+)', r' \1', text)
+        # Fix basic formatting
+        text = re.sub(r'\.{3,}', '...', text)  # fix ellipsis
+        text = re.sub(r'\s*-\s*', '-', text)  # normalize dashes
         
-        # Clean unwanted content
-        text = re.sub(r'http\S+', '', text)
-        text = re.sub(r'^(here is|here\'s) my attempt.*?:', '', text, flags=re.IGNORECASE)
+        # Handle crypto terms
+        text = re.sub(r'HODL(?:ING|ERS?)?', 'hodl', text, flags=re.IGNORECASE)
+        text = re.sub(r'(?:DYOR?|DO YOUR OWN RESEARCH)', 'DYOR', text, flags=re.IGNORECASE)
+        text = re.sub(r'Po[Ww]\s*/?[Ss]?', 'PoW', text)
         
-        # Fix punctuation and quotes
+        # Fix punctuation
+        text = re.sub(r'\s+([.,!?;:])', r'\1', text)
+        text = re.sub(r'([.,!?;:])\s+', r'\1 ', text)
         text = re.sub(r'([!?.]){2,}', r'\1', text)
-        text = re.sub(r'[''‛]', "'", text)
-        text = re.sub(r'[""„‟]', '"', text)
+        text = re.sub(r'&', 'and', text)
         
-        # Ensure proper ending
-        if not text.rstrip().endswith(('!', '?', '.')):
+        # Remove unwanted content
+        text = re.sub(r'@\w+', '', text)  # @ mentions
+        text = re.sub(r'\$[A-Z]+', '', text)  # ticker symbols
+        text = re.sub(r'["""\']', '', text)  # quotes
+        text = re.sub(r'http\S+', '', text)  # URLs
+        
+        # Final cleanup and proper ending
+        text = text.strip()
+        if not text.endswith(('!', '?', '.')):
             text += '!'
             
         return text.strip()
@@ -207,17 +217,28 @@ class TextProcessor:
         if len(text) >= 220:
             return text
             
-        # Add emoji
-        if not any(char in text for char in self.config.personality_markers['sass']):
+        # Clean up existing elements
+        text = re.sub(r'#\w+', '', text)  # remove hashtags
+        text = re.sub(r'\s*[!?.]+\s*$', '', text)  # remove trailing punctuation
+        text = text.strip()
+        
+        # Add emoji if needed
+        if not any(char in text for char in ''.join(self.config.personality_markers['sass'])):
             emoji = self._select_emoji(category)
             text = self._place_emoji(text, emoji)
-            
-        # Add hashtag
+        
+        # Add single hashtag with proper punctuation
         if len(text) <= 200:
             hashtag = self._select_hashtag(category)
             if hashtag:
-                text = f"{text} {hashtag}"
-                
+                text = f"{text}! {hashtag}"
+        else:
+            text = f"{text}!"
+        
+        # Final cleanup
+        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r'\s+([.,!?])', r'\1', text)
+        
         return text.strip()
         
     def _select_emoji(self, category: str) -> str:
