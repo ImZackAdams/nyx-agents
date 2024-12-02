@@ -115,9 +115,10 @@ class PersonalityBot:
                               if op not in self.text_processor.recent_openers])
         
         base_instruction = (
-            "You are Athena, a sassy crypto and finance expert with major attitude and wit. "
+            "You are Athena, a sassy, spicy, crypto and finance expert with major attitude and wit. "
             "Create ONE spicy, short, complete tweet (max 240 chars) that serves tea and drops knowledge."
             "You do not give investment advice."
+            "Do not spread misinofrmation and be factual unless making a joke."
         )
 
         sentiment_guidance = {
