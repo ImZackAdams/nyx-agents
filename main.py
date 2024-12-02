@@ -30,7 +30,7 @@ def post_tweet(bot, client, api, logger):
     logger.info("Starting the post_tweet process...")
 
     try:
-        if random.random() < 0.2:  # Randomly decide between text or meme
+        if random.random() < 0.1:  # 10% chance for meme
             memes_folder = os.path.join(os.getcwd(), 'memes')
             supported_formats = ('.jpg', '.jpeg', '.png', '.gif')
 
@@ -42,7 +42,6 @@ def post_tweet(bot, client, api, logger):
             if images:
                 image_path = os.path.join(memes_folder, random.choice(images))
                 
-                # List of meme captions
                 meme_captions = [
                     "This meme? Pure gold. 🪙✨ #Tetherballcoin",
                     "Some things you just can't unsee. 😂 #CryptoHumor",
@@ -52,7 +51,7 @@ def post_tweet(bot, client, api, logger):
                     "Surviving the market one meme at a time. 🐻📉 #BlockchainBlues",
                     "When reality is funnier than the meme. 🤯🤣 #Web3Life",
                     "Mood: Exactly this. 👀😂 #CryptoLife",
-                    "Who needs financial advice when you’ve got memes? 📲🤣 #Tetherball",
+                    "Who needs financial advice when you've got memes? 📲🤣 #Tetherball",
                     "Come swing with us! @tetherballcoin",
                     "Be a baller $TBALL"
                 ]
@@ -63,7 +62,6 @@ def post_tweet(bot, client, api, logger):
             else:
                 logger.warning("No images found in the memes folder. Falling back to text tweet.")
 
-        # List of predefined prompts
         prompts = [
             "Make a post about Crypto. Be funny, educational, and engage user replies.",
             "Make a post about Tech. Be funny, educational, and engage user replies.",
@@ -76,7 +74,6 @@ def post_tweet(bot, client, api, logger):
             "Make a joke about being an AI.",
             "Make a post about Cybersecurity. Be funny, educational, and engage user replies.",
             "Make a joke comparing your dating life to blockchain."
-            
         ]
 
         prompt = random.choice(prompts)
@@ -101,25 +98,19 @@ def reply_to_last_three(bot, client, logger, tweet_id, since_id=None):
             logger.info("No new replies found.")
             return since_id
 
-        # Sort replies by tweet ID (assuming tweet IDs increase with time)
         sorted_replies = sorted(replies, key=lambda x: x.id)
-        
-        # Filter replies to only include new ones since the last since_id
         new_replies = [reply for reply in sorted_replies if not since_id or reply.id > since_id]
-        
-        # Get the last 3 replies, if available
         latest_replies = new_replies[-3:] if new_replies else []
+        
         if not latest_replies:
             logger.info("No new replies since last check.")
             return since_id
 
-        # Reply to each of the last 3 replies
         for reply in latest_replies:
             logger.info(f"Replying to: {reply.text}")
             response = bot.generate_response(reply.text)
             client.create_tweet(text=response, in_reply_to_tweet_id=reply.id)
         
-        # Update since_id to the latest reply's ID
         return latest_replies[-1].id if latest_replies else since_id
 
     except Exception as e:
@@ -133,7 +124,6 @@ def main():
 
     try:
         validate_env_variables(logger)
-
         bot = PersonalityBot(model_path="./fine_tuned_personality_bot/", logger=logger)
         client = setup_twitter_client()
         api = tweepy.API(tweepy.OAuth1UserHandler(
@@ -147,38 +137,77 @@ def main():
         logger.error("Initialization error", exc_info=True)
         return
 
+    # Initialize timing parameters
     since_id = None
-    post_interval = 60 * 5  # 1 hour
-    reply_interval = 60 * 5  # 1 hour
+    reply_check_interval = 60 * 10  # Check replies every 10 minutes
+    reply_cycles = 2  # Number of reply checking cycles before new tweet
+    post_cooldown = 60 * 5  # 5 minutes between posts
+
+    # Add rate limit tracking
+    rate_limit_hits = 0
+    max_rate_limit_hits = 3  # Maximum number of rate limit hits before longer pause
+    daily_post_count = 0
+    last_reset_time = time.time()
+    daily_post_limit = 100
 
     while True:
         try:
+            current_time = time.time()
+            # Reset counters every 24 hours
+            if current_time - last_reset_time >= 24 * 60 * 60:
+                daily_post_count = 0
+                rate_limit_hits = 0
+                last_reset_time = current_time
+                logger.info("Reset daily counters")
+
+            logger.info(f"Current daily post count: {daily_post_count}/{daily_post_limit}")
             logger.info("Starting a new bot cycle...")
+
+            if daily_post_count >= daily_post_limit:
+                logger.warning("Daily post limit reached, waiting for reset...")
+                time.sleep(60 * 30)  # Wait 30 minutes before checking again
+                continue
 
             # Step 1: Post a tweet or meme
             tweet_id = post_tweet(bot, client, api, logger)
             if tweet_id:
+                daily_post_count += 1
                 logger.info(f"Posted tweet with ID: {tweet_id}")
+                
+                # Step 2: Multiple cycles of checking replies
+                for cycle in range(reply_cycles):
+                    if daily_post_count >= daily_post_limit:
+                        logger.warning("Daily post limit reached during reply cycle")
+                        break
+
+                    logger.info(f"Starting reply check cycle {cycle + 1}/{reply_cycles}")
+                    
+                    since_id = reply_to_last_three(bot, client, logger, tweet_id, since_id)
+                    logger.info(f"Completed reply cycle {cycle + 1}")
+                    
+                    # Only sleep if it's not the last cycle
+                    if cycle < reply_cycles - 1:
+                        logger.info(f"Sleeping for {reply_check_interval // 60} minutes before next reply check...")
+                        time.sleep(reply_check_interval)
             else:
-                logger.error("Tweet posting failed. Skipping to reply step.")
+                logger.error("Tweet posting failed. Waiting before retry...")
+                time.sleep(post_cooldown)
+                continue
 
-            # Step 2: Wait before replying to a tweet
-            logger.info(f"Sleeping for {post_interval // 60} minutes before checking replies...")
-            time.sleep(post_interval)
-
-            # Step 3: Respond to replies
-            if tweet_id:
-                since_id = reply_to_last_three(bot, client, logger, tweet_id, since_id)
-                logger.info("Finished replying to the latest tweets.")
-            else:
-                logger.warning("No tweet to check replies for. Skipping reply step.")
-
-            # Step 4: Wait before starting a new cycle
-            logger.info(f"Sleeping for {reply_interval // 60} minutes before posting a new tweet...")
-            time.sleep(reply_interval)
+            # Cool down before next post
+            logger.info(f"Cooling down for {post_cooldown // 60} minutes before next post...")
+            time.sleep(post_cooldown)
 
         except tweepy.errors.TooManyRequests as e:
-            logger.error("Rate limit hit. Retrying after rate limit reset...", exc_info=True)
+            rate_limit_hits += 1
+            logger.error(f"Rate limit hit #{rate_limit_hits}. Retrying after rate limit reset...")
+            
+            if rate_limit_hits >= max_rate_limit_hits:
+                logger.warning("Multiple rate limits hit. Taking a longer break...")
+                time.sleep(60 * 60 * 2)  # 2 hour break
+                rate_limit_hits = 0  # Reset counter
+                continue
+                
             reset_time = int(e.response.headers.get('x-rate-limit-reset', time.time() + 60))
             sleep_time = reset_time - int(time.time())
             logger.info(f"Sleeping for {sleep_time} seconds until rate limit reset.")
