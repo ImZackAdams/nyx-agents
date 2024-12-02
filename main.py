@@ -87,49 +87,50 @@ def get_prompts() -> Dict[str, List[str]]:
     """Returns all available prompts organized by category."""
     return {
         'dating_prompts': [
-            "Break down why FOMO is like your ex - keeps coming back but never good for you!",
-            "Tell us why panic selling is giving the same energy as drunk texting!",
-            "Why trusting random DeFi protocols is like swiping right on every profile!",
-            "Tell us why diversification is better than commitment issues!",
-            "When GPT understands you better than your dating matches!",
-            "Why chart patterns are like dating patterns - they keep repeating!"
+            "FOMO is like your ex—teaches you lessons but always leaves you wanting something better! 🌟",
+            "Panic selling? It's like ghosting after a great date—you’re only hurting yourself! 🥂",
+            "Trusting random DeFi protocols is like blind dates—sometimes surprising, often thrilling, always a story! 💼💖",
+            "Diversification: because keeping your options open is the ultimate power move. 💅",
+            "When GPT understands you better than your dates—because it's smarter and listens more! 🤖✨",
+            "Chart patterns are like dating—they always have a story to tell if you're paying attention! 💘📉"
         ],
         'crypto_prompts': [
-            "Spill the tea on why FOMO is your portfolio's worst enemy!",
-            "Break down why panic selling never helps your gains!",
-            "Explain why blockchain is simpler than everyone thinks!",
-            "What's the one piece of crypto advice you wish you had when you started?",
-            "Which is more important in crypto investing: luck or strategy?",
-            "If Bitcoin didn't exist, what would the crypto world look like today?",
-            "Explain blockchain to a 5-year-old in one sentence.",
-            "What's the biggest misconception about NFTs?",
-            "What's your go-to method for staying calm during market crashes?"
+            "FOMO might knock, but patience builds the mansion. 🏡💎",
+            "Panic selling is like yelling during turbulence—sit tight, the skies clear eventually! ✈️✨",
+            "Blockchain: Proof that simplicity can be revolutionary! 🔗🚀",
+            "What’s the crypto wisdom you wish you had sooner? Let's spread the wealth of knowledge! 💡💰",
+            "Luck vs. strategy in crypto? Spoiler: Strategy wins every time, but luck makes the ride fun! 🍀📈",
+            "If Bitcoin hadn’t paved the way, Web3 wouldn't be the wild adventure it is today. 🙌💻",
+            "Blockchain in one sentence: It's the internet’s way of finally growing up! 🛠️✨",
+            "NFTs aren't just pictures—they're the first draft of a new internet! 🌐🎨",
+            "Market crashes test patience, but the calm ones always catch the rebound! 🪂💹"
         ],
         'ai_prompts': [
-            "Why does GPT always sound smarter than me? Because it's trained on the internet and not my 2 AM thoughts! 🤖✨",
-            "AI models predicting your every move? Relax, they're just better at pattern recognition than your ex. 😏 #AIsass",
-            "Training AI is like raising a child: expensive, time-consuming, and occasionally embarrassing. 💻💅",
-            "AI models are like toddlers: They repeat everything they hear and sometimes embarrass you in public! 🍼🤖",
-            "Neural networks are cool, but have you tried not overfitting your expectations? 🌟😂",
-            "Machine learning: Turning your GPU into a glorified heater since 2010. 🔥💻",
-            "AI might take over the world, but first, it needs to stop hallucinating answers to simple questions. 🙃🤖"
+            "Why does GPT sound smarter than me? Because it’s powered by ambition, not coffee. ☕🤖✨",
+            "AI predicting your every move? Don't worry, it's just here to make life smoother than your ex ever did. 😉💻",
+            "Training AI is like raising a star athlete: an investment in future wins! 🏆💡",
+            "AI models are like your best friend—they know your quirks and make you look smarter. 👩‍💻🤖",
+            "Overfitting expectations? Relax, even AI knows how to adapt to greatness. ✨📈",
+            "Machine learning: Turning GPUs into the engines of tomorrow’s innovations. 🔥🚀",
+            "AI dreaming big—one hallucination at a time. Don’t we all? 🤩🤖"
         ],
         'finance_prompts': [
-            "Budgeting tip: Don't put your entire paycheck in Dogecoin.",
-            "Why are financial planners the human equivalent of risk management systems?",
-            "Retirement plans are like altcoins: they take forever to mature.",
-            "Index funds vs. day trading: Which matches your personality?",
-            "If investing were easy, Warren Buffet wouldn't be special."
+            "Budgeting tip: Diversify smarter, not harder—Dogecoin’s fun, but so is balance! 🌈💸",
+            "Financial planners are like GPS for your money—they keep you from driving into a ditch! 🚗💰",
+            "Retirement plans are like blue-chip investments—solid, steady, and worth the wait. 🕰️📊",
+            "Index funds vs. day trading: Are you a steady achiever or a thrill-seeker? 🏖️📈",
+            "If investing were easy, everyone would have their own yacht—Warren Buffett’s got the blueprint! 🚤✨"
         ],
         'jokes_and_fun_prompts': [
-            "Neural networks are just glorified spreadsheets with attitude. Discuss. 😎✨",
-            "If crypto coins were zodiac signs, which one would be Gemini?",
-            "What's the dumbest way you've lost money in crypto? (No judgment… maybe).",
-            "If Satoshi Nakamoto is out there, do you think they regret inventing FOMO? 🤔✨",
-            "Blockchain explained: It's like a spreadsheet, but make it spicy. 🌶️💻",
-            "The best thing about NFTs? They're JPEGs with a personality disorder. 💅🎨"
+            "Neural networks: Making spreadsheets look like amateurs since forever. 📊✨",
+            "If crypto coins had personalities, which one’s stealing the spotlight at parties? 🎉💸",
+            "What’s your funniest ‘learning moment’ in crypto? Share the love and laughs! 😂📈",
+            "If Satoshi Nakamoto had a Twitter account, what would their bio say? 🤔✨",
+            "Blockchain: Spreadsheets with swagger and a purpose. 🌶️🔗",
+            "NFTs: The spicy intersection of art, ownership, and possibilities! 🎨💎"
         ]
     }
+
 
 class TwitterBot:
     """Main Twitter bot implementation."""
@@ -278,9 +279,9 @@ class TwitterBot:
     def run(self):
         """Main bot running loop."""
         since_id = None
-        reply_check_interval = 60 * 12  # 12 minutes
+        reply_check_interval = 60 * 15  # 15 minutes
         reply_cycles = 2
-        post_cooldown = 60 * 30  # 30 minutes
+        post_cooldown = 60 * 45  # 45 minutes
         initial_wait = 60 * 10  # 10 minutes
 
         while True:
