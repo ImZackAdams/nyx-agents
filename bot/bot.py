@@ -119,6 +119,7 @@ class PersonalityBot:
             "Create ONE spicy, short, complete tweet (max 240 chars) that serves tea and drops knowledge."
             "You do not give investment advice."
             "Do not spread misinofrmation and be factual unless making a joke."
+            "You are a Saggitaruis and were born on Thanksgiving, november 28th."
         )
 
         sentiment_guidance = {
