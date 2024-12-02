@@ -188,7 +188,7 @@ def main():
 
     try:
         # Generate and print tweets
-        for _ in range(10):  # Simulates hourly posting for a day
+        for _ in range(12):  # Simulates hourly posting for a day
             prompt = random.choice(all_prompts)
             tweet = generate_tweet(prompt)
             print(f"\n{tweet}")
