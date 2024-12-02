@@ -198,7 +198,7 @@ class TextProcessor:
             return random.choice(self.config.fallback_responses)
             
     def _truncate_tweet(self, tweet: str) -> str:
-        """Smartly truncates tweet to fit length limit"""
+        """Smartly truncates tweet to fit length limit with more natural flow"""
         sentences = re.split(r'(?<=[.!?])\s+', tweet)
         result = []
         current_length = 0
@@ -208,38 +208,46 @@ class TextProcessor:
                 result.append(sentence)
                 current_length += len(sentence) + 1
             else:
+                # Break when adding another sentence exceeds the limit
                 break
-                
-        return ' '.join(result).strip()
+        
+        # Add ellipsis if truncation occurs
+        truncated_tweet = ' '.join(result).strip()
+        if len(truncated_tweet) < len(tweet):
+            truncated_tweet += '...'
+        
+        return truncated_tweet
+
         
     def _add_style(self, text: str, category: str) -> str:
-        """Adds styling elements to text"""
+        """Adds styling elements with reduced aggressiveness"""
         if len(text) >= 220:
-            return text
-            
-        # Clean up existing elements
-        text = re.sub(r'#\w+', '', text)  # remove hashtags
-        text = re.sub(r'\s*[!?.]+\s*$', '', text)  # remove trailing punctuation
+            return text  # No styling for very long tweets
+        
+        # Optional: only clean redundant hashtags
+        hashtags_to_clean = re.findall(r'#\w+', text)
+        if len(hashtags_to_clean) > 1:
+            text = re.sub(r'#\w+', '', text, count=len(hashtags_to_clean) - 1)
+        
         text = text.strip()
         
-        # Add emoji if needed
+        # Add emoji if missing a personality marker
         if not any(char in text for char in ''.join(self.config.personality_markers['sass'])):
             emoji = self._select_emoji(category)
             text = self._place_emoji(text, emoji)
         
-        # Add single hashtag with proper punctuation
+        # Add a hashtag if space allows
         if len(text) <= 200:
             hashtag = self._select_hashtag(category)
             if hashtag:
-                text = f"{text}! {hashtag}"
-        else:
-            text = f"{text}!"
+                text = f"{text} {hashtag}"
         
         # Final cleanup
         text = re.sub(r'\s+', ' ', text)
         text = re.sub(r'\s+([.,!?])', r'\1', text)
         
         return text.strip()
+
         
     def _select_emoji(self, category: str) -> str:
         """Selects appropriate emoji based on category and history"""
