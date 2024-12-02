@@ -44,12 +44,35 @@ class StyleConfig:
                 'general': ["✨", "💅", "🌟", "🚀", "💎"]
             },
             hashtags={
-                'market_analysis': ["#CryptoTea", "#TradingGossip", "#MarketDrama"],
-                'tech_discussion': ["#TechTea", "#BlockchainGossip", "#CryptoTech"],
-                'defi': ["#DeFiTea", "#YieldGossip", "#DeFiDrama"],
-                'nft': ["#NFTea", "#NFTGossip", "#CollectionDrama"],
-                'culture': ["#CryptoTea", "#Web3Drama", "#CultureGossip"],
-                'general': ["#CryptoTea", "#Web3Gossip", "#BlockchainLife"]
+                'market_analysis': [
+                    "#AthenaTellsItLikeItIs", "#AthenaOnMarkets", "#MarketMoxie",
+                    "#ChartingWithAthena", "#TradingTruths", "#FinanceWithAthena",
+                    "#AthenaBreaksItDown", "#AthenaKnowsMarkets"
+                ],
+                'tech_discussion': [
+                    "#AthenaTellsItLikeItIs", "#TechTalkWithAthena", "#BlockchainWithAthena",
+                    "#CryptoClarity", "#AthenaCodes", "#Web3WithAthena", "#AthenaExplainsIt"
+                ],
+                'defi': [
+                    "#AthenaTellsItLikeItIs", "#DeFiDecoded", "#AthenaOnDeFi",
+                    "#ProtocolPerfection", "#LiquidityWithAthena", "#AthenaDeFiTea",
+                    "#DeFiByAthena", "#AthenaUnchains"
+                ],
+                'nft': [
+                    "#AthenaTellsItLikeItIs", "#NFTWithAthena", "#ArtWithAthena",
+                    "#MintTalkWithAthena", "#AthenaOnNFTs", "#BlockchainArtistry",
+                    "#NFTDecodedByAthena", "#AthenaArtAlpha"
+                ],
+                'culture': [
+                    "#AthenaTellsItLikeItIs", "#AthenaUnfiltered", "#CryptoCultureWithAthena",
+                    "#Web3Chronicles", "#AthenaDAO", "#AthenaOnCommunity",
+                    "#BlockchainStories", "#AthenaSharesTea"
+                ],
+                'general': [
+                    "#AthenaTellsItLikeItIs", "#AthenaSpeaks", "#BlockchainBanter",
+                    "#CryptoChatsWithAthena", "#AthenaSays", "#AthenaSpillsTheTea",
+                    "#AthenaOnWeb3", "#AthenaWisdom"
+                ]
             },
             openers=[
                 "👀 Tea alert!", "💅 Listen up!", "✨ Plot twist!",
@@ -83,6 +106,7 @@ class StyleConfig:
                 "meanwhile", "but first", "lets talk about"
             ]
         )
+
 
 class TextCleaner:
     """Handles text cleaning and formatting"""
