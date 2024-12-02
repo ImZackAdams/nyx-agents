@@ -279,16 +279,26 @@ class TwitterBot:
         """Main bot running loop."""
         since_id = None
         reply_check_interval = 60 * 12  # 12 minutes
-        reply_cycles = 4
-        post_cooldown = 60 * 45  # 45 minutes
+        reply_cycles = 3
+        post_cooldown = 60 * 30  # 30 minutes
+        initial_wait = 60 * 10  # 10 minutes
 
         while True:
             try:
                 self.logger.info("Starting new bot cycle...")
                 
+                # Do one final check for replies from previous tweet if we have a tweet_id
+                if hasattr(self, 'last_tweet_id') and self.last_tweet_id:
+                    self.logger.info("Checking for final replies on previous tweet...")
+                    since_id = self.reply_to_last_three(self.last_tweet_id, since_id)
+                
                 tweet_id = self.post_tweet()
                 if tweet_id:
                     self.logger.info(f"Posted tweet: {tweet_id}")
+                    self.last_tweet_id = tweet_id  # Store for next cycle's final check
+
+                    self.logger.info(f"Waiting {initial_wait // 60} minutes before starting reply cycles...")
+                    time.sleep(initial_wait)
                     
                     for cycle in range(reply_cycles):
                         self.logger.info(f"Starting reply cycle {cycle + 1}/{reply_cycles}")
@@ -304,6 +314,7 @@ class TwitterBot:
                 else:
                     self.logger.error("Tweet posting failed. Retrying after cooldown...")
                     time.sleep(post_cooldown)
+                    continue
 
             except tweepy.errors.TooManyRequests as e:
                 self.rate_limit_tracker.add_rate_limit()
