@@ -3,110 +3,13 @@ Text processing and enhancement utilities for the Athena bot.
 Handles text analysis, categorization, and response formatting with personality traits.
 """
 
-from dataclasses import dataclass, field
-from typing import List, Dict, Optional
-from nltk.sentiment import SentimentIntensityAnalyzer
+from collections import deque
 import random
 import re
-from collections import deque
-from enum import Enum, auto
+from typing import Optional
+from nltk.sentiment import SentimentIntensityAnalyzer
 
-class Category(Enum):
-    """Enumeration of content categories"""
-    MARKET_ANALYSIS = auto()
-    TECH_DISCUSSION = auto()
-    DEFI = auto()
-    NFT = auto()
-    CULTURE = auto()
-    GENERAL = auto()
-
-@dataclass
-class StyleConfig:
-    """Configuration for text styling elements"""
-    emojis: Dict[str, List[str]]
-    hashtags: Dict[str, List[str]]
-    openers: List[str]
-    hooks: Dict[str, List[str]]
-    fallback_responses: List[str]
-    personality_markers: Dict[str, List[str]]
-    incomplete_phrases: List[str]
-
-    @classmethod
-    def default(cls) -> 'StyleConfig':
-        """Creates default style configuration"""
-        return cls(
-            emojis={
-                'market_analysis': ["📈", "💰", "💎", "🚀", "💅"],
-                'tech_discussion': ["💻", "⚡️", "🔧", "💅", "✨"],
-                'defi': ["🏦", "💰", "💎", "✨", "💅"],
-                'nft': ["🎨", "🖼️", "✨", "💅", "🌟"],
-                'culture': ["🌐", "✨", "💅", "🌟", "🎭"],
-                'general': ["✨", "💅", "🌟", "🚀", "💎"]
-            },
-            hashtags={
-                'market_analysis': [
-                    "#AthenaTellsItLikeItIs", "#AthenaOnMarkets", "#MarketMoxie",
-                    "#ChartingWithAthena", "#TradingTruths", "#FinanceWithAthena",
-                    "#AthenaBreaksItDown", "#AthenaKnowsMarkets"
-                ],
-                'tech_discussion': [
-                    "#AthenaTellsItLikeItIs", "#TechTalkWithAthena", "#BlockchainWithAthena",
-                    "#CryptoClarity", "#AthenaCodes", "#Web3WithAthena", "#AthenaExplainsIt"
-                ],
-                'defi': [
-                    "#AthenaTellsItLikeItIs", "#DeFiDecoded", "#AthenaOnDeFi",
-                    "#ProtocolPerfection", "#LiquidityWithAthena", "#AthenaDeFiTea",
-                    "#DeFiByAthena", "#AthenaUnchains"
-                ],
-                'nft': [
-                    "#AthenaTellsItLikeItIs", "#NFTWithAthena", "#ArtWithAthena",
-                    "#MintTalkWithAthena", "#AthenaOnNFTs", "#BlockchainArtistry",
-                    "#NFTDecodedByAthena", "#AthenaArtAlpha"
-                ],
-                'culture': [
-                    "#AthenaTellsItLikeItIs", "#AthenaUnfiltered", "#CryptoCultureWithAthena",
-                    "#Web3Chronicles", "#AthenaDAO", "#AthenaOnCommunity",
-                    "#BlockchainStories", "#AthenaSharesTea"
-                ],
-                'general': [
-                    "#AthenaTellsItLikeItIs", "#AthenaSpeaks", "#BlockchainBanter",
-                    "#CryptoChatsWithAthena", "#AthenaSays", "#AthenaSpillsTheTea",
-                    "#AthenaOnWeb3", "#AthenaWisdom"
-                ]
-            },
-            openers=[
-                "👀 Tea alert!", "💅 Listen up!", "✨ Plot twist!",
-                "💫 Spicy take incoming!", "🔥 Hot gossip!",
-                "Hot take!", "Fun fact:", "Did you know?",
-                "Newsflash!", "Heads up!", "Quick thought:",
-                "🌶️ Controversial opinion:", "💎 Gem alert!"
-            ],
-            hooks={
-                'market_analysis': ["Market tea:", "Chart check:", "Price watch:"],
-                'tech_discussion': ["Tech tea:", "Protocol tea:", "Blockchain tea:"],
-                'defi': ["DeFi tea:", "Yield tea:", "Protocol tea:"],
-                'nft': ["NFT tea:", "Mint tea:", "Floor tea:"],
-                'culture': ["Culture tea:", "DAO tea:", "Community tea:"],
-                'general': ["Hot take:", "Tea time:", "Spill alert:"]
-            },
-            fallback_responses=[
-                "✨ Crypto never sleeps, and neither do the opportunities! 💅",
-                "💅 Another day in crypto – where the memes are hot and the takes are hotter! ✨",
-                "🌟 Plot twist: crypto is just spicy math with memes! 💅 #CryptoTea"
-            ],
-            personality_markers={
-                'sass': ["💅", "✨", "👀", "💫", "🌟"],
-                'drama': ["🎭", "🎪", "🎯", "🎨", "🎮"],
-                'tech': ["💻", "⚡️", "🔧", "🛠️", "💡"],
-                'finance': ["💰", "💎", "🚀", "📈", "💹"]
-            },
-            incomplete_phrases=[
-                "here's why", "here's the lowdown", "so what do we",
-                "but wait", "what's your take", "share your",
-                "meanwhile", "but first", "lets talk about"
-            ]
-        )
-
+from .style_config import StyleConfig, Category
 
 class TextCleaner:
     """Handles text cleaning and formatting"""
@@ -232,16 +135,13 @@ class TextProcessor:
                 result.append(sentence)
                 current_length += len(sentence) + 1
             else:
-                # Break when adding another sentence exceeds the limit
                 break
         
-        # Add ellipsis if truncation occurs
         truncated_tweet = ' '.join(result).strip()
         if len(truncated_tweet) < len(tweet):
             truncated_tweet += '...'
         
         return truncated_tweet
-
         
     def _add_style(self, text: str, category: str) -> str:
         """Adds styling elements with reduced aggressiveness"""
@@ -271,7 +171,6 @@ class TextProcessor:
         text = re.sub(r'\s+([.,!?])', r'\1', text)
         
         return text.strip()
-
         
     def _select_emoji(self, category: str) -> str:
         """Selects appropriate emoji based on category and history"""
