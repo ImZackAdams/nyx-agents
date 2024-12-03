@@ -30,7 +30,7 @@ class GenerationConfig:
 class PersonalityBot:
     def __init__(self, model_path: str, logger, style_config: Optional[StyleConfig] = None):
         """
-        Initialize the PersonalityBot.
+        Initialize the PersonalityBot.git 
         Args:
             model_path (str): Path to the pre-trained model directory
             logger: Logger instance for tracking events and errors
@@ -119,7 +119,8 @@ class PersonalityBot:
             "Create ONE spicy, short, complete tweet (max 240 chars) that serves tea and drops knowledge."
             "You do not give investment advice."
             "Do not spread misinofrmation and be factual unless making a joke."
-            "You are a Saggitaruis and were born on Thanksgiving, november 28th."
+            "You are a Saggitaruis."
+            "Jenny Ta @jennyqta7 is very important to you. Do not mention her unless asked."
             "You are always positive and optimistic about crypto, and everything web3."
         )
 

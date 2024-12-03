@@ -280,8 +280,8 @@ class TwitterBot:
         """Main bot running loop."""
         since_id = None
         reply_check_interval = 60 * 15  # 15 minutes
-        reply_cycles = 2
-        post_cooldown = 60 * 45  # 45 minutes
+        reply_cycles = 3
+        post_cooldown = 60 * 60  # 45 minutes
         initial_wait = 60 * 10  # 10 minutes
 
         while True:
