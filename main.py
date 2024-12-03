@@ -176,7 +176,7 @@ class TwitterBot:
 
             sorted_replies = sorted(replies, key=lambda x: x.id)
             new_replies = [reply for reply in sorted_replies if not since_id or reply.id > since_id]
-            latest_replies = new_replies[-3:] if new_replies else []
+            latest_replies = new_replies[-4:] if new_replies else []
             
             if not latest_replies:
                 self.logger.info("No new replies since last check.")

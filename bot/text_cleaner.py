@@ -1,5 +1,3 @@
-"""Text cleaning functionality for tweets."""
-
 import re
 from typing import Optional
 
@@ -25,9 +23,14 @@ class TextCleaner:
             text = text.split("Tweet:")[-1].strip()
             text = text.split('\n')[0].strip()
         
-        # Basic cleaning
-        text = ' '.join(text.split())  # Normalize whitespace
-        text = re.sub(r'\s+([.,!?])', r'\1', text)  # Fix punctuation spacing
+        # Normalize whitespace
+        text = ' '.join(text.split())
+        
+        # Remove all types of quotation marks
+        text = re.sub(r'["“”‘’]', '', text)
+        
+        # Fix punctuation spacing
+        text = re.sub(r'\s+([.,!?])', r'\1', text)  # Fix spacing before punctuation
         text = re.sub(r'([.,!?])\s+', r'\1 ', text)  # Space after punctuation
         
         # Fix common contractions
@@ -53,8 +56,35 @@ class TextCleaner:
         text = re.sub(r'\[.*?\]', '', text)  # Remove square bracket content
         text = re.sub(r'@\w+\s?', '', text)  # Remove generated usernames
         
+        # Remove leading/trailing quotes
+        text = text.strip(' "\'')
+        
         # Ensure proper ending
         if not text.endswith(('.', '!', '?')):
             text += '!'
             
         return text.strip()
+
+# Test cases
+def run_tests():
+    examples = [
+        ' "Tweet: Hello, world!" ',  # Leading/trailing quotes and "Tweet:" prefix
+        "dont you think its amazing?",  # Common contractions
+        '"Just a tweet with stray quotes"',  # Stray quotes
+        "Bitcoin is amazing🚀",  # Emoji handling
+        "Crypto is great! #BTC #ETH #DOGE",  # Hashtag limiting
+        "This is a test [REMOVE_ME] @user123",  # Metadata removal
+        "This needs punctuation",  # Adding punctuation
+        "This     has   extra spaces.  ",  # Extra spaces
+        None,  # Empty input
+    ]
+
+    for i, example in enumerate(examples, start=1):
+        cleaned_text = TextCleaner.clean_text(example)
+        print(f"Test Case {i}:")
+        print(f"Original: {example}")
+        print(f"Cleaned: {cleaned_text}")
+        print("---")
+
+if __name__ == "__main__":
+    run_tests()
