@@ -1,50 +1,60 @@
-"""
-Text cleaning and formatting utilities for the Athena bot.
-"""
+"""Text cleaning functionality for tweets."""
 
 import re
+from typing import Optional
 
 class TextCleaner:
-    """Handles text cleaning and formatting"""
+    """Handles tweet text cleaning and formatting."""
     
     @staticmethod
-    def clean_text(text: str) -> str:
-        """Cleans and formats text for consistency"""
+    def clean_text(text: Optional[str]) -> str:
+        """
+        Cleans and formats the text for consistent spacing and readability.
+        
+        Args:
+            text: Input text to clean
+            
+        Returns:
+            str: Cleaned and formatted text
+        """
         if not text:
             return ""
             
-        # Initial cleanup
-        text = text.strip('"\'').strip()
+        # Extract actual tweet content if it contains the "Tweet:" prefix
+        if "Tweet:" in text:
+            text = text.split("Tweet:")[-1].strip()
+            text = text.split('\n')[0].strip()
         
-        # Remove placeholder content
-        text = re.sub(r'\?\s*([.,!?]|$)', r'\1', text)  # remove ? placeholders
-        text = re.sub(r'\[\s*[^]]*\]', '', text)  # remove [explanations]
-        text = re.sub(r'\s{2,}', ' ', text)  # normalize multiple spaces
+        # Basic cleaning
+        text = ' '.join(text.split())  # Normalize whitespace
+        text = re.sub(r'\s+([.,!?])', r'\1', text)  # Fix punctuation spacing
+        text = re.sub(r'([.,!?])\s+', r'\1 ', text)  # Space after punctuation
         
-        # Fix basic formatting
-        text = re.sub(r'\.{3,}', '...', text)  # fix ellipsis
-        text = re.sub(r'\s*-\s*', '-', text)  # normalize dashes
+        # Fix common contractions
+        text = re.sub(
+            r"(?<!\w)(dont|wont|im|ive|its|lets|youre|whats|cant|ill|id)(?!\w)", 
+            lambda m: m.group(1).capitalize(), 
+            text, 
+            flags=re.IGNORECASE
+        )
         
-        # Handle crypto terms
-        text = re.sub(r'HODL(?:ING|ERS?)?', 'hodl', text, flags=re.IGNORECASE)
-        text = re.sub(r'(?:DYOR?|DO YOUR OWN RESEARCH)', 'DYOR', text, flags=re.IGNORECASE)
-        text = re.sub(r'Po[Ww]\s*/?[Ss]?', 'PoW', text)
+        # Clean punctuation and emojis
+        text = re.sub(r'([!?.]){2,}', r'\1', text)  # Reduce repeated punctuation
+        text = re.sub(r'(\w)([💅✨👏🌟🚀💎🔓🎨⚡️🔧])', r'\1 \2', text)  # Space before emojis
+        text = re.sub(r'(?<!\s)([#@])', r' \1', text)  # Space before hashtags/mentions
         
-        # Fix punctuation
-        text = re.sub(r'\s+([.,!?;:])', r'\1', text)
-        text = re.sub(r'([.,!?;:])\s+', r'\1 ', text)
-        text = re.sub(r'([!?.]){2,}', r'\1', text)
-        text = re.sub(r'&', 'and', text)
+        # Limit hashtags to 2
+        if text.count('#') > 2:
+            hashtags = re.findall(r'#\w+', text)
+            main_text = re.sub(r'#\w+', '', text).strip()
+            text = f"{main_text} {' '.join(hashtags[:2])}"
+            
+        # Remove any remaining generated metadata or instructions
+        text = re.sub(r'\[.*?\]', '', text)  # Remove square bracket content
+        text = re.sub(r'@\w+\s?', '', text)  # Remove generated usernames
         
-        # Remove unwanted content
-        text = re.sub(r'@\w+', '', text)  # @ mentions
-        text = re.sub(r'\$[A-Z]+', '', text)  # ticker symbols
-        text = re.sub(r'["""\']', '', text)  # quotes
-        text = re.sub(r'http\S+', '', text)  # URLs
-        
-        # Final cleanup and proper ending
-        text = text.strip()
-        if not text.endswith(('!', '?', '.')):
+        # Ensure proper ending
+        if not text.endswith(('.', '!', '?')):
             text += '!'
             
         return text.strip()

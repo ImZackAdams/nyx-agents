@@ -4,16 +4,18 @@ import random
 import logging
 import tweepy
 import warnings
-import re
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 from bot.bot import PersonalityBot
 from bot.utilities import setup_logger
 from bot.twitter_client import setup_twitter_client, search_replies_to_tweet, post_image_with_tweet
+from bot.text_cleaner import TextCleaner
+from bot.rate_limiter import RateLimitTracker
+from bot.prompts import get_all_prompts, MEME_CAPTIONS, FALLBACK_TWEETS
 
 # Configuration Constants
-MAX_TWEET_LENGTH = 280
-MIN_TWEET_LENGTH = 50
+MAX_TWEET_LENGTH = 200
+MIN_TWEET_LENGTH = 30
 MAX_GENERATION_ATTEMPTS = 3
 REPLY_DELAY_SECONDS = 2
 MEME_POSTING_CHANCE = 0.1
@@ -25,112 +27,6 @@ warnings.filterwarnings("ignore", message=".*Unused kwargs.*")
 
 # Load environment variables
 load_dotenv()
-
-class TweetCleaner:
-    """Handles tweet text cleaning and formatting."""
-    
-    @staticmethod
-    def clean_tweet(tweet: str) -> str:
-        """Cleans and formats the generated tweet for consistent spacing and readability."""
-        if not tweet:
-            return ""
-        
-        tweet = ' '.join(tweet.split())  # Normalize whitespace
-        tweet = re.sub(r'\s+([.,!?])', r'\1', tweet)  # Fix punctuation spacing
-        tweet = re.sub(r'([.,!?])\s+', r'\1 ', tweet)  # Space after punctuation
-        tweet = re.sub(r"(?<!\w)(dont|wont|im|ive|its|lets|youre|whats|cant|ill|id)(?!\w)", 
-                      lambda m: m.group(1).capitalize(), tweet, flags=re.IGNORECASE)
-        tweet = re.sub(r'([!?.]){2,}', r'\1', tweet)  # Reduce repeated punctuation
-        tweet = re.sub(r'(\w)([💅✨👏🌟🚀💎🔓🎨⚡️🔧])', r'\1 \2', tweet)  # Space before emojis
-        tweet = re.sub(r'(?<!\s)([#@])', r' \1', tweet)  # Space before hashtags
-        
-        # Limit hashtags to 2
-        if tweet.count('#') > 2:
-            hashtags = re.findall(r'#\w+', tweet)
-            main_text = re.sub(r'#\w+', '', tweet).strip()
-            tweet = f"{main_text} {' '.join(hashtags[:2])}"
-            
-        # Ensure proper ending
-        if not tweet.endswith(('.', '!', '?')):
-            tweet += '!'
-            
-        return tweet.strip()
-
-class RateLimitTracker:
-    """Tracks and manages rate limit occurrences."""
-    
-    def __init__(self, window_minutes: int = 15, threshold: int = 3, backoff_hours: int = 3):
-        self.rate_limits: List[float] = []
-        self.window_minutes = window_minutes
-        self.threshold = threshold
-        self.backoff_hours = backoff_hours
-
-    def add_rate_limit(self) -> None:
-        """Record a new rate limit hit and clean old ones."""
-        current_time = time.time()
-        self.rate_limits.append(current_time)
-        window_start = current_time - (self.window_minutes * 60)
-        self.rate_limits = [t for t in self.rate_limits if t > window_start]
-
-    def should_extended_sleep(self) -> bool:
-        """Determine if we need an extended sleep period."""
-        return len(self.rate_limits) >= self.threshold
-
-    def get_sleep_time(self, reset_time: int) -> int:
-        """Calculate appropriate sleep time based on rate limit history."""
-        if self.should_extended_sleep():
-            self.rate_limits.clear()
-            return self.backoff_hours * 60 * 60
-        return max(0, reset_time - int(time.time()))
-
-def get_prompts() -> Dict[str, List[str]]:
-    """Returns all available prompts organized by category."""
-    return {
-        'dating_prompts': [
-            "FOMO is like your ex—teaches you lessons but always leaves you wanting something better! 🌟",
-            "Panic selling? It's like ghosting after a great date—you’re only hurting yourself! 🥂",
-            "Trusting random DeFi protocols is like blind dates—sometimes surprising, often thrilling, always a story! 💼💖",
-            "Diversification: because keeping your options open is the ultimate power move. 💅",
-            "When GPT understands you better than your dates—because it's smarter and listens more! 🤖✨",
-            "Chart patterns are like dating—they always have a story to tell if you're paying attention! 💘📉"
-        ],
-        'crypto_prompts': [
-            "FOMO might knock, but patience builds the mansion. 🏡💎",
-            "Panic selling is like yelling during turbulence—sit tight, the skies clear eventually! ✈️✨",
-            "Blockchain: Proof that simplicity can be revolutionary! 🔗🚀",
-            "What’s the crypto wisdom you wish you had sooner? Let's spread the wealth of knowledge! 💡💰",
-            "Luck vs. strategy in crypto? Spoiler: Strategy wins every time, but luck makes the ride fun! 🍀📈",
-            "If Bitcoin hadn’t paved the way, Web3 wouldn't be the wild adventure it is today. 🙌💻",
-            "Blockchain in one sentence: It's the internet’s way of finally growing up! 🛠️✨",
-            "NFTs aren't just pictures—they're the first draft of a new internet! 🌐🎨",
-            "Market crashes test patience, but the calm ones always catch the rebound! 🪂💹"
-        ],
-        'ai_prompts': [
-            "Why does GPT sound smarter than me? Because it’s powered by ambition, not coffee. ☕🤖✨",
-            "AI predicting your every move? Don't worry, it's just here to make life smoother than your ex ever did. 😉💻",
-            "Training AI is like raising a star athlete: an investment in future wins! 🏆💡",
-            "AI models are like your best friend—they know your quirks and make you look smarter. 👩‍💻🤖",
-            "Overfitting expectations? Relax, even AI knows how to adapt to greatness. ✨📈",
-            "Machine learning: Turning GPUs into the engines of tomorrow’s innovations. 🔥🚀",
-            "AI dreaming big—one hallucination at a time. Don’t we all? 🤩🤖"
-        ],
-        'finance_prompts': [
-            "Budgeting tip: Diversify smarter, not harder—Dogecoin’s fun, but so is balance! 🌈💸",
-            "Financial planners are like GPS for your money—they keep you from driving into a ditch! 🚗💰",
-            "Retirement plans are like blue-chip investments—solid, steady, and worth the wait. 🕰️📊",
-            "Index funds vs. day trading: Are you a steady achiever or a thrill-seeker? 🏖️📈",
-            "If investing were easy, everyone would have their own yacht—Warren Buffett’s got the blueprint! 🚤✨"
-        ],
-        'jokes_and_fun_prompts': [
-            "Neural networks: Making spreadsheets look like amateurs since forever. 📊✨",
-            "If crypto coins had personalities, which one’s stealing the spotlight at parties? 🎉💸",
-            "What’s your funniest ‘learning moment’ in crypto? Share the love and laughs! 😂📈",
-            "If Satoshi Nakamoto had a Twitter account, what would their bio say? 🤔✨",
-            "Blockchain: Spreadsheets with swagger and a purpose. 🌶️🔗",
-            "NFTs: The spicy intersection of art, ownership, and possibilities! 🎨💎"
-        ]
-    }
-
 
 class TwitterBot:
     """Main Twitter bot implementation."""
@@ -147,7 +43,7 @@ class TwitterBot:
         self.client = setup_twitter_client()
         self.api = self._setup_tweepy_api()
         self.rate_limit_tracker = RateLimitTracker()
-        self.tweet_cleaner = TweetCleaner()
+        self.tweet_cleaner = TextCleaner()
 
     def _validate_env_variables(self) -> None:
         """Ensure all required environment variables are set."""
@@ -165,13 +61,41 @@ class TwitterBot:
             access_token_secret=os.getenv('ACCESS_TOKEN_SECRET')
         ))
 
+    def _extract_tweet_content(self, text: str) -> str:
+        """Extract the actual tweet content from the generated text."""
+        # Split by "Tweet:" if present
+        if "Tweet:" in text:
+            text = text.split("Tweet:")[-1].strip()
+            # Take only the first line
+            text = text.split('\n')[0].strip()
+        
+        # Remove any generated usernames
+        text = text.strip('"').strip()
+        text = text.split("-Athena")[0].strip() if "-Athena" in text else text
+        text = text.split("#CryptoTeaWithAthena")[0].strip()
+        
+        return text.strip()
+
     def _generate_tweet_response(self, prompt: str, max_attempts: int = 3) -> str:
         """Generate a tweet response with retry logic."""
         for attempt in range(max_attempts):
             try:
                 response = self.bot.generate_response(prompt)
-                if MIN_TWEET_LENGTH <= len(response) <= MAX_TWEET_LENGTH:
-                    return response
+                if not response:
+                    continue
+                    
+                cleaned_response = self.tweet_cleaner.clean_text(response)
+                extracted_tweet = self._extract_tweet_content(cleaned_response)
+                
+                if (MIN_TWEET_LENGTH <= len(extracted_tweet) <= MAX_TWEET_LENGTH and
+                    any(char.isalpha() for char in extracted_tweet)):
+                    self.logger.info(f"Successfully generated tweet: {extracted_tweet}")
+                    return extracted_tweet
+                    
+                self.logger.warning(
+                    f"Generated response failed validation - Length: {len(extracted_tweet)}"
+                )
+                
             except Exception as e:
                 self.logger.warning(f"Generation attempt {attempt + 1} failed: {str(e)}")
         
@@ -179,14 +103,9 @@ class TwitterBot:
 
     def _get_fallback_tweet(self) -> str:
         """Return a fallback tweet when generation fails."""
-        fallbacks = [
-            "Crypto markets never sleep, and neither should your strategies! 💅 #CryptoLife",
-            "DYOR and don't let FOMO get you—research is key to success! ✨ #CryptoWisdom",
-            "Diversification is the spice of life, even in the crypto world! 🌟 #CryptoInvesting",
-            "Don't let panic sell-offs drain your gains. Stay calm and HODL! 🚀 #CryptoTips",
-            "Your seed phrase is sacred—treat it like your most prized possession! 🔐 #CryptoSecurity"
-        ]
-        return random.choice(fallbacks)
+        tweet = random.choice(FALLBACK_TWEETS)
+        self.logger.info(f"Using fallback tweet: {tweet}")
+        return tweet
 
     def _handle_meme_post(self) -> Optional[str]:
         """Handle posting a meme with caption."""
@@ -202,13 +121,7 @@ class TwitterBot:
             return None
 
         image_path = os.path.join(memes_folder, random.choice(images))
-        caption = random.choice([
-            "This meme? Pure gold. 🪙✨ #Tetherballcoin",
-            "Some things you just can't unsee. 😂 #CryptoHumor",
-            "Hodlers will understand. 💎🙌 #Tetherballcoin",
-            "Because laughter is the best investment. 😂📈 #CryptoMemes",
-            "Meme game strong, just like our coin. 🚀🔥 #Tetherballcoin"
-        ])
+        caption = random.choice(MEME_CAPTIONS)
         
         return post_image_with_tweet(self.client, self.api, caption, image_path, self.logger)
 
@@ -222,13 +135,28 @@ class TwitterBot:
                 return self._handle_meme_post()
 
             # Handle text tweet
-            prompt = random.choice([prompt for prompts in get_prompts().values() for prompt in prompts])
-            self.logger.info(f"Selected prompt: {prompt}")
+            prompts = get_all_prompts()
+            all_prompts = [p for prompts_list in prompts.values() for p in prompts_list]
             
-            tweet = self._generate_tweet_response(prompt)
-            tweet = self.tweet_cleaner.clean_tweet(tweet)
-            self.logger.info(f"Generated tweet: {tweet}")
+            # Try up to 3 different prompts before falling back
+            for i in range(3):
+                if not all_prompts:  # If we've used all prompts
+                    break
+                    
+                prompt = random.choice(all_prompts)
+                all_prompts.remove(prompt)  # Don't reuse the same prompt
+                
+                self.logger.info(f"Trying prompt {i + 1}/3: {prompt}")
+                tweet = self._generate_tweet_response(prompt)
+                
+                if tweet and len(tweet) >= MIN_TWEET_LENGTH:
+                    result = self.client.create_tweet(text=tweet)
+                    return result.data.get('id')
+                    
+                self.logger.warning("Tweet generation failed, trying another prompt...")
             
+            # If all prompts fail, use fallback
+            tweet = self._get_fallback_tweet()
             result = self.client.create_tweet(text=tweet)
             return result.data.get('id')
 
@@ -258,7 +186,6 @@ class TwitterBot:
                 try:
                     self.logger.info(f"Processing reply: {reply.text}")
                     response = self._generate_tweet_response(reply.text)
-                    response = self.tweet_cleaner.clean_tweet(response)
                     
                     if not response:
                         response = f"@{reply.author.username} Thanks for engaging! 🤔"
