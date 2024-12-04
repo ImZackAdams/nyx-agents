@@ -15,6 +15,7 @@ from .text_processor import (
 from .utilities import log_resource_usage
 from .model_config import ModelManager
 from .prompt_templates import PromptManager, PersonalityConfig
+from .prompts import get_all_prompts
 
 class PersonalityBot:
     def __init__(self, model_path: str, logger, style_config: Optional[StyleConfig] = None):
@@ -37,6 +38,10 @@ class PersonalityBot:
         self.text_processor = TextProcessor(self.style_config, self.max_history)
         self.content_analyzer = ContentAnalyzer()
         self.prompt_manager = PromptManager()
+
+        # Initialize fallback tweets
+        self.all_prompts = get_all_prompts()
+        self.fallback_tweets = self.all_prompts['fallback_tweets']
 
     @log_resource_usage
     def _generate_model_response(self, context: str) -> str:
@@ -66,6 +71,17 @@ class PersonalityBot:
         clean_length = len(tweet.strip())
         return 50 <= clean_length <= 240
 
+    def _get_fallback_response(self) -> str:
+        """Get a random fallback response that hasn't been used recently."""
+        available_responses = [resp for resp in self.fallback_tweets 
+                             if resp not in self.recent_responses]
+        
+        if not available_responses:
+            # If all fallbacks have been used, clear history and use any
+            available_responses = self.fallback_tweets
+            
+        return random.choice(available_responses)
+
     def generate_response(self, prompt: str) -> str:
         """Generate a Twitter-ready response based on the given prompt."""
         if not prompt.strip():
@@ -83,7 +99,9 @@ class PersonalityBot:
             # Generate response
             generated_text = self._generate_model_response(context)
             if not generated_text:
-                return "✨ Having a galaxy brain moment... try that again? 💅"
+                fallback = self._get_fallback_response()
+                self._store_response(fallback)
+                return fallback
             
             self.logger.info(f"Generated raw response: {generated_text}")
 
@@ -96,8 +114,12 @@ class PersonalityBot:
                 return response
             else:
                 self.logger.warning("Generated response failed length validation")
-                return "💅 Tea's brewing but not quite ready... spill that question again? ✨"
+                fallback = self._get_fallback_response()
+                self._store_response(fallback)
+                return fallback
 
         except Exception as e:
             self.logger.error(f"Error generating response: {e}")
-            return "✨ Oops, the tea got cold! Let's try brewing a fresh cup! 💅"
+            fallback = self._get_fallback_response()
+            self._store_response(fallback)
+            return fallback

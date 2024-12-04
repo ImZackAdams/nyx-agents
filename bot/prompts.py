@@ -81,7 +81,7 @@ MEME_CAPTIONS = [
     "This meme called you out, didn't it? Share your story below! 😂📈 #CryptoMemes",
     "Make it a meme! Drop your best caption below! 🚀🔥 #Tetherballcoin",
     "Market's dipping but your meme game never does! Show us what you've got! 💃📉",
-    "It's giving financial advice... but make it viral! Remix this! 💅💫",
+    "It's not giving financial advice... but make it viral! Remix this! 💅💫",
     "Your portfolio saw this meme and took it personally! Tag yourself! ☕️✨"
 ]
 
