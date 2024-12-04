@@ -1,3 +1,5 @@
+# reply_handler.py
+
 import os
 import time
 import logging
@@ -5,9 +7,11 @@ from typing import Optional
 from bot.twitter_client import search_replies_to_tweet
 from bot.config import (
     REPLY_DELAY_SECONDS,
-    RETRY_DELAY,
-    POST_COOLDOWN,
-    REPLIES_PER_CYCLE
+    REPLIES_PER_CYCLE,
+    INITIAL_REPLY_DELAY,
+    REPLY_CYCLE_DELAY,
+    REPLY_CYCLES,
+    FINAL_CHECK_DELAY
 )
 
 class ReplyHandler:
@@ -18,7 +22,7 @@ class ReplyHandler:
         self.tweet_generator = tweet_generator
         self.logger = logger or logging.getLogger(__name__)
         self.bot_user_id = os.getenv("BOT_USER_ID")
-        
+
     def _get_new_replies(self, tweet_id: str, since_id: Optional[str] = None):
         """Get new replies to a tweet, sorted by ID."""
         try:
@@ -56,7 +60,6 @@ class ReplyHandler:
                 self.logger.info("No new replies found")
                 return since_id
 
-            # Use REPLIES_PER_CYCLE from config
             latest_replies = new_replies[-REPLIES_PER_CYCLE:]
             
             for reply in latest_replies:
@@ -72,7 +75,6 @@ class ReplyHandler:
                         in_reply_to_tweet_id=reply.id
                     )
                     
-                    # Use REPLY_DELAY_SECONDS from config
                     time.sleep(REPLY_DELAY_SECONDS)
                     
                 except Exception as e:
@@ -85,25 +87,39 @@ class ReplyHandler:
             self.logger.error(f"Error in reply process: {str(e)}", exc_info=True)
             return since_id
 
-    def monitor_tweet(self, tweet_id: str, cycles: int = 3) -> None:
-        """Monitor a tweet for replies over multiple cycles.
+    def monitor_tweet(self, tweet_id: str) -> None:
+        """Monitor a tweet for replies following specific timing pattern.
         
-        Args:
-            tweet_id: The ID of the tweet to monitor
-            cycles: Number of cycles to monitor for (default: 3)
+        Cycle:
+        1. Wait 10 minutes after posting
+        2. Check replies
+        3. Do 3 cycles of 15-minute checks
+        4. Wait 1 hour
+        5. Final check
         """
         since_id = None
         
-        # Use POST_COOLDOWN for initial wait calculation
-        initial_wait = POST_COOLDOWN // 9
-        self.logger.info(f"Waiting {initial_wait // 60} minutes before starting reply cycles...")
-        time.sleep(initial_wait)
+        # Initial 10-minute wait
+        self.logger.info(f"Waiting {INITIAL_REPLY_DELAY // 60} minutes before first reply check...")
+        time.sleep(INITIAL_REPLY_DELAY)
         
-        for cycle in range(cycles):
-            self.logger.info(f"Starting reply cycle {cycle + 1}/{cycles}")
+        # First reply check
+        self.logger.info("Performing initial reply check...")
+        since_id = self.process_replies(tweet_id, since_id)
+        
+        # 3 cycles of 15-minute checks
+        for cycle in range(REPLY_CYCLES):
+            self.logger.info(f"Waiting {REPLY_CYCLE_DELAY // 60} minutes before cycle {cycle + 1}/{REPLY_CYCLES}")
+            time.sleep(REPLY_CYCLE_DELAY)
+            
+            self.logger.info(f"Starting reply cycle {cycle + 1}")
             since_id = self.process_replies(tweet_id, since_id)
             self.logger.info(f"Completed reply cycle {cycle + 1}")
-            
-            if cycle < cycles - 1:  # Don't sleep after the last cycle
-                self.logger.info(f"Sleeping for {RETRY_DELAY // 60} minutes...")
-                time.sleep(RETRY_DELAY)
+        
+        # Final check after 1 hour
+        self.logger.info(f"Waiting {FINAL_CHECK_DELAY // 60} minutes before final check...")
+        time.sleep(FINAL_CHECK_DELAY)
+        
+        self.logger.info("Performing final reply check...")
+        self.process_replies(tweet_id, since_id)
+        self.logger.info("Reply monitoring complete")

@@ -10,23 +10,15 @@ from bot.bot import PersonalityBot
 from bot.utilities import setup_logger
 from bot.twitter_client import setup_twitter_client
 from bot.rate_limiter import RateLimitTracker
-from bot.prompts import get_all_prompts
+from bot.prompts import get_all_prompts, FALLBACK_TWEETS
 from bot.tweet_generator import TweetGenerator
 from bot.reply_handler import ReplyHandler
 from bot.meme_handler import MemeHandler
 from bot.config import (
-    REPLY_DELAY_SECONDS,
     POST_COOLDOWN,
-    RETRY_DELAY
+    RETRY_DELAY,
+    MAX_PROMPT_ATTEMPTS
 )
-
-# Suppress specific warnings
-warnings.filterwarnings("ignore", message=".*MatMul8bitLt.*")
-warnings.filterwarnings("ignore", message=".*quantization_config.*")
-warnings.filterwarnings("ignore", message=".*Unused kwargs.*")
-
-# Load environment variables
-load_dotenv()
 
 class TwitterBot:
     """Main Twitter bot implementation."""
@@ -51,7 +43,11 @@ class TwitterBot:
         self.rate_limit_tracker = RateLimitTracker()
         
         # Initialize personality bot and handlers
-        personality_bot = PersonalityBot(model_path="athena_8bit_model", logger=self.logger)
+        personality_bot = PersonalityBot(
+            model_path="athena_8bit_model", 
+            logger=self.logger
+        )
+        
         self.tweet_generator = TweetGenerator(personality_bot, self.logger)
         self.reply_handler = ReplyHandler(self.client, self.tweet_generator, self.logger)
         self.meme_handler = MemeHandler(self.client, self.api, self.logger)
@@ -80,25 +76,26 @@ class TwitterBot:
             prompts = get_all_prompts()
             all_prompts = [p for prompts_list in prompts.values() for p in prompts_list]
             
-            # Try up to 3 different prompts before falling back
-            for _ in range(3):
+            # Try prompts up to MAX_PROMPT_ATTEMPTS times
+            for attempt in range(MAX_PROMPT_ATTEMPTS):
                 if not all_prompts:
                     break
                     
                 prompt = random.choice(all_prompts)
                 all_prompts.remove(prompt)
                 
-                self.logger.info(f"Trying prompt: {prompt}")
+                self.logger.info(f"Trying prompt {attempt + 1}/{MAX_PROMPT_ATTEMPTS}: {prompt}")
                 tweet = self.tweet_generator.generate_tweet(prompt)
                 
                 if tweet:
                     result = self.client.create_tweet(text=tweet)
                     return result.data.get('id')
                     
-                self.logger.warning("Tweet generation failed, trying another prompt...")
+                self.logger.warning("Tweet generation failed, trying next prompt...")
             
             # If all prompts fail, use fallback
-            tweet = self.tweet_generator.get_fallback_tweet()
+            tweet = random.choice(FALLBACK_TWEETS)
+            self.logger.info(f"Using fallback tweet: {tweet}")
             result = self.client.create_tweet(text=tweet)
             return result.data.get('id')
 
@@ -116,14 +113,15 @@ class TwitterBot:
                 if tweet_id:
                     self.logger.info(f"Posted tweet: {tweet_id}")
                     
-                    # Monitor for replies
+                    # Monitor for replies following the configured cycle pattern
                     self.reply_handler.monitor_tweet(tweet_id)
                     
-                    self.logger.info(f"Cooling down for {POST_COOLDOWN // 60} minutes...")
+                    # Wait for next main cycle
+                    self.logger.info(f"Main cycle complete. Waiting {POST_COOLDOWN // 60} minutes until next cycle...")
                     time.sleep(POST_COOLDOWN)
                 else:
-                    self.logger.error("Tweet posting failed. Retrying after cooldown...")
-                    time.sleep(POST_COOLDOWN)
+                    self.logger.error("Tweet posting failed. Retrying after delay...")
+                    time.sleep(RETRY_DELAY)
 
             except Exception as e:
                 self.logger.error("Error in main loop", exc_info=True)
@@ -133,6 +131,14 @@ class TwitterBot:
 def main():
     """Main entry point for the bot."""
     try:
+        # Suppress specific warnings
+        warnings.filterwarnings("ignore", message=".*MatMul8bitLt.*")
+        warnings.filterwarnings("ignore", message=".*quantization_config.*")
+        warnings.filterwarnings("ignore", message=".*Unused kwargs.*")
+
+        # Load environment variables
+        load_dotenv()
+        
         bot = TwitterBot()
         bot.run()
     except Exception as e:

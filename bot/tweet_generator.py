@@ -16,27 +16,24 @@ class TweetGenerator:
         self.bot = personality_bot
         self.logger = logger or logging.getLogger(__name__)
         self.tweet_cleaner = TextCleaner()
-        # Use config constants instead of hardcoded values
-        self.max_length = MAX_TWEET_LENGTH
-        self.min_length = MIN_TWEET_LENGTH
 
     def _is_valid_tweet(self, tweet: str) -> Tuple[bool, str]:
         """
         Check if the tweet meets our criteria.
         Returns (is_valid, reason_if_invalid)
         """
-        if len(tweet) < self.min_length:
+        if len(tweet) < MIN_TWEET_LENGTH:
             return False, f"Tweet too short ({len(tweet)} chars)"
-        if len(tweet) > self.max_length:
+        if len(tweet) > MAX_TWEET_LENGTH:
             return False, f"Tweet too long ({len(tweet)} chars)"
         if not any(char.isalpha() for char in tweet):
             return False, "Tweet contains no letters"
             
         return True, ""
         
-    def generate_tweet(self, prompt: str, max_attempts: int = MAX_GENERATION_ATTEMPTS) -> str:
+    def generate_tweet(self, prompt: str) -> str:
         """Generate a tweet response with retry logic."""
-        for attempt in range(max_attempts):
+        for attempt in range(MAX_GENERATION_ATTEMPTS):
             try:
                 response = self.bot.generate_response(prompt)
                 if not response:

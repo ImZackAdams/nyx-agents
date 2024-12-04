@@ -14,10 +14,17 @@ class MemeHandler:
     """Handles the selection and posting of memes."""
     
     def __init__(self, client, api, logger: Optional[logging.Logger] = None):
+        """Initialize MemeHandler.
+        
+        Args:
+            client: Twitter client for API v2
+            api: Twitter API v1.1 for media uploads
+            logger: Optional logger instance
+        """
         self.client = client
         self.api = api
         self.logger = logger or logging.getLogger(__name__)
-        self.supported_formats = SUPPORTED_MEME_FORMATS
+        # Build memes folder path at initialization
         self.memes_folder = os.path.join(os.getcwd(), MEMES_FOLDER_NAME)
         
     def _validate_memes_folder(self) -> bool:
@@ -34,7 +41,7 @@ class MemeHandler:
             
         return [
             f for f in os.listdir(self.memes_folder) 
-            if f.lower().endswith(self.supported_formats)
+            if f.lower().endswith(SUPPORTED_MEME_FORMATS)
         ]
         
     def _select_meme(self) -> Tuple[Optional[str], Optional[str]]:
@@ -87,5 +94,5 @@ class MemeHandler:
             return None
             
     def should_post_meme(self) -> bool:
-        """Determine if we should post a meme based on MEME_POSTING_CHANCE."""
+        """Determine if we should post a meme based on configuration."""
         return random.random() < MEME_POSTING_CHANCE
