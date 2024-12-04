@@ -14,11 +14,11 @@ from bot.rate_limiter import RateLimitTracker
 from bot.prompts import get_all_prompts, MEME_CAPTIONS, FALLBACK_TWEETS
 
 # Configuration Constants
-MAX_TWEET_LENGTH = 100
-MIN_TWEET_LENGTH = 30
+MAX_TWEET_LENGTH = 220
+MIN_TWEET_LENGTH = 180
 MAX_GENERATION_ATTEMPTS = 3
 REPLY_DELAY_SECONDS = 2
-MEME_POSTING_CHANCE = 0.1
+MEME_POSTING_CHANCE = 0.2
 
 # Suppress specific warnings
 warnings.filterwarnings("ignore", message=".*MatMul8bitLt.*")
