@@ -30,14 +30,31 @@ def setup_twitter_client():
 def post_image_with_tweet(client, api, tweet_text, image_path, logger):
     """
     Posts a tweet with an image attachment.
+    
+    Args:
+        client: Twitter v2 API client
+        api: Twitter v1.1 API instance
+        tweet_text: Text content for the tweet
+        image_path: Path to the image file
+        logger: Logger instance
     """
     try:
+        # Upload media using v1.1 API
         media = api.media_upload(image_path)
         logger.info(f"Image uploaded. Media ID: {media.media_id}")
-        client.create_tweet(text=tweet_text, media_ids=[media.media_id])
+        
+        # Create tweet with media using v2 API
+        # Convert media_id to string as required by v2 API
+        result = client.create_tweet(
+            text=tweet_text, 
+            media_ids=[str(media.media_id)]
+        )
         logger.info("Tweet with image posted successfully.")
+        return result.data.get('id')
+        
     except Exception as e:
         logger.error("Failed to post tweet with image.", exc_info=True)
+        return None
 
 
 def search_replies_to_tweet(client, tweet_id, bot_user_id):
