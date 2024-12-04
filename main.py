@@ -15,8 +15,8 @@ from bot.prompts import get_all_prompts, MEME_CAPTIONS, FALLBACK_TWEETS
 
 # Configuration Constants
 MAX_TWEET_LENGTH = 220
-MIN_TWEET_LENGTH = 180
-MAX_GENERATION_ATTEMPTS = 3
+MIN_TWEET_LENGTH = 100
+MAX_GENERATION_ATTEMPTS = 5
 REPLY_DELAY_SECONDS = 2
 MEME_POSTING_CHANCE = 0.2
 
@@ -114,7 +114,7 @@ class TwitterBot:
             self.logger.error(f"Memes folder not found at {memes_folder}")
             return None
 
-        supported_formats = ('.jpg', '.jpeg', '.png', '.gif')
+        supported_formats = ('.jpg', '.jpeg', '.png', '.gif', 'JPG')
         images = [f for f in os.listdir(memes_folder) if f.lower().endswith(supported_formats)]
         
         if not images:

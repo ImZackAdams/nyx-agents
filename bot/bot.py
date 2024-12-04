@@ -89,7 +89,7 @@ User: {context}"""
             
             # Format response using TextProcessor and remove any system instructions
             processed_text = self.text_processor.process_tweet(prompt, generated_text)
-            return processed_text.replace("System: Response must be detailed and between 180-220 characters. Include hashtags and emojis.", "").strip()
+            return processed_text.replace("System: Response must be detailed and between 100-220 characters. Include hashtags and emojis.", "").strip()
 
         except Exception as e:
             self.logger.error(f"Error generating response: {e}")
