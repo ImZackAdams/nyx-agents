@@ -208,7 +208,7 @@ class TwitterBot:
         since_id = None
         reply_check_interval = 60 * 15  # 15 minutes
         reply_cycles = 3
-        post_cooldown = 60 * 90  # 45 minutes
+        post_cooldown = 60 * 90  # 90 minutes
         initial_wait = 60 * 10  # 10 minutes
 
         while True:
