@@ -18,7 +18,7 @@ MAX_TWEET_LENGTH = 220
 MIN_TWEET_LENGTH = 100
 MAX_GENERATION_ATTEMPTS = 5
 REPLY_DELAY_SECONDS = 2
-MEME_POSTING_CHANCE = 0.2
+MEME_POSTING_CHANCE = 0.1
 
 # Suppress specific warnings
 warnings.filterwarnings("ignore", message=".*MatMul8bitLt.*")
@@ -208,7 +208,7 @@ class TwitterBot:
         since_id = None
         reply_check_interval = 60 * 15  # 15 minutes
         reply_cycles = 3
-        post_cooldown = 60 * 60  # 45 minutes
+        post_cooldown = 60 * 90  # 45 minutes
         initial_wait = 60 * 10  # 10 minutes
 
         while True:
