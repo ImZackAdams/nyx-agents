@@ -1,8 +1,13 @@
-from typing import Optional
+from typing import Optional, Tuple
 import random
 import logging
 from bot.text_cleaner import TextCleaner
 from bot.prompts import FALLBACK_TWEETS
+from bot.config import (
+    MAX_TWEET_LENGTH,
+    MIN_TWEET_LENGTH,
+    MAX_GENERATION_ATTEMPTS
+)
 
 class TweetGenerator:
     """Handles tweet generation and cleaning logic."""
@@ -11,25 +16,25 @@ class TweetGenerator:
         self.bot = personality_bot
         self.logger = logger or logging.getLogger(__name__)
         self.tweet_cleaner = TextCleaner()
-        self.max_length = 220
-        self.min_length = 100
+        # Use config constants instead of hardcoded values
+        self.max_length = MAX_TWEET_LENGTH
+        self.min_length = MIN_TWEET_LENGTH
+
+    def _is_valid_tweet(self, tweet: str) -> Tuple[bool, str]:
+        """
+        Check if the tweet meets our criteria.
+        Returns (is_valid, reason_if_invalid)
+        """
+        if len(tweet) < self.min_length:
+            return False, f"Tweet too short ({len(tweet)} chars)"
+        if len(tweet) > self.max_length:
+            return False, f"Tweet too long ({len(tweet)} chars)"
+        if not any(char.isalpha() for char in tweet):
+            return False, "Tweet contains no letters"
+            
+        return True, ""
         
-    def _extract_tweet_content(self, text: str) -> str:
-        """Extract the actual tweet content from the generated text."""
-        # Split by "Tweet:" if present
-        if "Tweet:" in text:
-            text = text.split("Tweet:")[-1].strip()
-            # Take only the first line
-            text = text.split('\n')[0].strip()
-        
-        # Remove any generated usernames
-        text = text.strip('"').strip()
-        text = text.split("-Athena")[0].strip() if "-Athena" in text else text
-        text = text.split("#CryptoTeaWithAthena")[0].strip()
-        
-        return text.strip()
-        
-    def generate_tweet(self, prompt: str, max_attempts: int = 3) -> str:
+    def generate_tweet(self, prompt: str, max_attempts: int = MAX_GENERATION_ATTEMPTS) -> str:
         """Generate a tweet response with retry logic."""
         for attempt in range(max_attempts):
             try:
@@ -38,15 +43,14 @@ class TweetGenerator:
                     continue
                     
                 cleaned_response = self.tweet_cleaner.clean_text(response)
-                extracted_tweet = self._extract_tweet_content(cleaned_response)
+                is_valid, reason = self._is_valid_tweet(cleaned_response)
                 
-                if (self.min_length <= len(extracted_tweet) <= self.max_length and
-                    any(char.isalpha() for char in extracted_tweet)):
-                    self.logger.info(f"Successfully generated tweet: {extracted_tweet}")
-                    return extracted_tweet
+                if is_valid:
+                    self.logger.info(f"Successfully generated tweet: {cleaned_response}")
+                    return cleaned_response
                     
                 self.logger.warning(
-                    f"Generated response failed validation - Length: {len(extracted_tweet)}"
+                    f"Generated response failed validation - {reason}"
                 )
                 
             except Exception as e:

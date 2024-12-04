@@ -2,9 +2,12 @@
 
 # Meme settings
 MEME_POSTING_CHANCE = 0.20  # 20% chance to post memes
+SUPPORTED_MEME_FORMATS = ('.jpg', '.jpeg', '.png', '.gif', 'JPG')
+MEMES_FOLDER_NAME = 'memes'  # relative to cwd
 
 # Reply settings
 REPLY_DELAY_SECONDS = 2
+REPLIES_PER_CYCLE = 3    # Number of replies to process in each cycle
 
 # Tweet generation settings
 MAX_TWEET_LENGTH = 220

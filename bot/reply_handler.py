@@ -3,6 +3,12 @@ import time
 import logging
 from typing import Optional
 from bot.twitter_client import search_replies_to_tweet
+from bot.config import (
+    REPLY_DELAY_SECONDS,
+    RETRY_DELAY,
+    POST_COOLDOWN,
+    REPLIES_PER_CYCLE
+)
 
 class ReplyHandler:
     """Handles monitoring and responding to replies on tweets."""
@@ -12,7 +18,6 @@ class ReplyHandler:
         self.tweet_generator = tweet_generator
         self.logger = logger or logging.getLogger(__name__)
         self.bot_user_id = os.getenv("BOT_USER_ID")
-        self.reply_delay = 2  # seconds between replies
         
     def _get_new_replies(self, tweet_id: str, since_id: Optional[str] = None):
         """Get new replies to a tweet, sorted by ID."""
@@ -42,15 +47,7 @@ class ReplyHandler:
             return None
 
     def process_replies(self, tweet_id: str, since_id: Optional[str] = None) -> Optional[str]:
-        """Process new replies to a tweet and respond to them.
-        
-        Args:
-            tweet_id: The ID of the tweet to check replies for
-            since_id: Only process replies newer than this ID
-            
-        Returns:
-            The ID of the latest reply processed, or None if no replies were processed
-        """
+        """Process new replies to a tweet and respond to them."""
         try:
             self.logger.info(f"Checking replies for tweet {tweet_id}")
             new_replies = self._get_new_replies(tweet_id, since_id)
@@ -59,8 +56,8 @@ class ReplyHandler:
                 self.logger.info("No new replies found")
                 return since_id
 
-            # Take the last 3 replies to process
-            latest_replies = new_replies[-3:]
+            # Use REPLIES_PER_CYCLE from config
+            latest_replies = new_replies[-REPLIES_PER_CYCLE:]
             
             for reply in latest_replies:
                 try:
@@ -75,8 +72,8 @@ class ReplyHandler:
                         in_reply_to_tweet_id=reply.id
                     )
                     
-                    # Sleep between replies to avoid rate limits
-                    time.sleep(self.reply_delay)
+                    # Use REPLY_DELAY_SECONDS from config
+                    time.sleep(REPLY_DELAY_SECONDS)
                     
                 except Exception as e:
                     self.logger.error(f"Error replying to tweet {reply.id}: {str(e)}")
@@ -88,18 +85,17 @@ class ReplyHandler:
             self.logger.error(f"Error in reply process: {str(e)}", exc_info=True)
             return since_id
 
-    def monitor_tweet(self, tweet_id: str, cycles: int = 3, cycle_interval: int = 900) -> None:
+    def monitor_tweet(self, tweet_id: str, cycles: int = 3) -> None:
         """Monitor a tweet for replies over multiple cycles.
         
         Args:
             tweet_id: The ID of the tweet to monitor
             cycles: Number of cycles to monitor for (default: 3)
-            cycle_interval: Seconds between cycles (default: 900 [15 minutes])
         """
         since_id = None
         
-        # Wait initial period before starting reply cycles
-        initial_wait = 600  # 10 minutes
+        # Use POST_COOLDOWN for initial wait calculation
+        initial_wait = POST_COOLDOWN // 9
         self.logger.info(f"Waiting {initial_wait // 60} minutes before starting reply cycles...")
         time.sleep(initial_wait)
         
@@ -109,5 +105,5 @@ class ReplyHandler:
             self.logger.info(f"Completed reply cycle {cycle + 1}")
             
             if cycle < cycles - 1:  # Don't sleep after the last cycle
-                self.logger.info(f"Sleeping for {cycle_interval // 60} minutes...")
-                time.sleep(cycle_interval)
+                self.logger.info(f"Sleeping for {RETRY_DELAY // 60} minutes...")
+                time.sleep(RETRY_DELAY)
