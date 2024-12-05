@@ -11,10 +11,10 @@ from bot.utilities import setup_logger
 from bot.twitter_client import setup_twitter_client
 from bot.rate_limiter import RateLimitTracker
 from bot.prompts import get_all_prompts, FALLBACK_TWEETS
-from bot.tweet_generator import TweetGenerator
-from bot.reply_handler import ReplyHandler
-from bot.meme_handler import MemeHandler
-from bot.config import (
+from bot.services.tweet_generator import TweetGenerator
+from bot.services.reply_handler import ReplyHandler
+from bot.services.meme_handler import MemeHandler
+from bot.services.config import (
     POST_COOLDOWN,
     RETRY_DELAY,
     MAX_PROMPT_ATTEMPTS

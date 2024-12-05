@@ -4,7 +4,7 @@ import logging
 from typing import Optional, Tuple
 from bot.prompts import MEME_CAPTIONS
 from bot.twitter_client import post_image_with_tweet
-from bot.config import (
+from bot.services.config import (
     MEME_POSTING_CHANCE,
     SUPPORTED_MEME_FORMATS,
     MEMES_FOLDER_NAME
