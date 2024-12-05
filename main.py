@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from bot.bot import PersonalityBot
 from bot.utilities import setup_logger
 from bot.twitter_client import setup_twitter_client
-from bot.rate_limiter import RateLimitTracker
+from bot.services.rate_limiter import RateLimitTracker
 from bot.prompts import get_all_prompts, FALLBACK_TWEETS
 from bot.services.tweet_generator import TweetGenerator
 from bot.services.reply_handler import ReplyHandler
