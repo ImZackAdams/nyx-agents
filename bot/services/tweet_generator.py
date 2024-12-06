@@ -3,7 +3,7 @@ import random
 import logging
 from bot.processors.text_cleaner import TextCleaner
 from bot.prompts import FALLBACK_TWEETS
-from bot.services.config import (
+from bot.config import (
     MAX_TWEET_LENGTH,
     MIN_TWEET_LENGTH,
     MAX_GENERATION_ATTEMPTS

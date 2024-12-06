@@ -14,7 +14,7 @@ from bot.prompts import get_all_prompts, FALLBACK_TWEETS
 from bot.services.tweet_generator import TweetGenerator
 from bot.services.reply_handler import ReplyHandler
 from bot.services.meme_handler import MemeHandler
-from bot.services.config import (
+from bot.config import (
     POST_COOLDOWN,
     RETRY_DELAY,
     MAX_PROMPT_ATTEMPTS

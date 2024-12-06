@@ -6,15 +6,13 @@ Handles response generation and management using the pre-trained model.
 from typing import List, Optional, Tuple
 import random
 
-from .processors.text_processor import (
-    TextProcessor,
-    StyleConfig,
-    Category,
-    ContentAnalyzer
-)
+from .processors.text_processor import TextProcessor
+from .processors.content_analyzer import ContentAnalyzer
+from .processors.prompt_templates import PromptManager
+from .style_config import StyleConfig, Category
 from .utilities import log_resource_usage
 from .model_config import ModelManager
-from .processors.prompt_templates import PromptManager, PersonalityConfig
+from .config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH  # Add this import
 
 class PersonalityBot:
     def __init__(self, model_path: str, logger, style_config: Optional[StyleConfig] = None):
@@ -62,8 +60,8 @@ class PersonalityBot:
             category=category
         )
         
-        # Move constraints to a separate system instruction section
-        return f"""System: Response must be detailed and between 180-220 characters. Include hashtags and emojis.
+        # Use config values for system instruction
+        return f"""System: Response must be detailed and between {MIN_TWEET_LENGTH}-{MAX_TWEET_LENGTH} characters. Include hashtags and emojis.
 User: {context}"""
 
     def generate_response(self, prompt: str) -> str:
@@ -88,8 +86,17 @@ User: {context}"""
             self.logger.info(f"Generated raw response: {generated_text}")
             
             # Format response using TextProcessor and remove any system instructions
-            processed_text = self.text_processor.process_tweet(prompt, generated_text)
-            return processed_text.replace("System: Response must be detailed and between 100-220 characters. Include hashtags and emojis.", "").strip()
+            processed_text, error = self.text_processor.process_tweet(prompt, generated_text)
+            if error:
+                self.logger.error(f"Error processing tweet: {error}")
+                return ""
+            
+            if processed_text:
+                # Use config values in the replacement string
+                system_instruction = f"System: Response must be detailed and between {MIN_TWEET_LENGTH}-{MAX_TWEET_LENGTH} characters. Include hashtags and emojis."
+                return processed_text.replace(system_instruction, "").strip()
+            
+            return ""
 
         except Exception as e:
             self.logger.error(f"Error generating response: {e}")
