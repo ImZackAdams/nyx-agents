@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 import random
 import logging
-from bot.text_cleaner import TextCleaner
+from bot.processors.text_cleaner import TextCleaner
 from bot.prompts import FALLBACK_TWEETS
 from bot.services.config import (
     MAX_TWEET_LENGTH,

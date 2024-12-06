@@ -6,7 +6,7 @@ Handles response generation and management using the pre-trained model.
 from typing import List, Optional, Tuple
 import random
 
-from .text_processor import (
+from .processors.text_processor import (
     TextProcessor,
     StyleConfig,
     Category,
@@ -14,7 +14,7 @@ from .text_processor import (
 )
 from .utilities import log_resource_usage
 from .model_config import ModelManager
-from .prompt_templates import PromptManager, PersonalityConfig
+from .processors.prompt_templates import PromptManager, PersonalityConfig
 
 class PersonalityBot:
     def __init__(self, model_path: str, logger, style_config: Optional[StyleConfig] = None):

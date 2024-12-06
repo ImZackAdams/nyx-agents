@@ -7,7 +7,7 @@ import re
 from typing import Optional
 from collections import deque
 
-from .style_config import StyleConfig, Category  # Added Category import
+from ..style_config import StyleConfig, Category  # Added Category import
 from .text_cleaner import TextCleaner
 from .content_analyzer import ContentAnalyzer
 
