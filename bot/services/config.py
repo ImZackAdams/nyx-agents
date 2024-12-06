@@ -1,7 +1,7 @@
 # Bot configuration constants
 
 # Meme settings
-MEME_POSTING_CHANCE = 0.10  # 20% chance to post memes
+MEME_POSTING_CHANCE = 0.20  # 20% chance to post memes
 SUPPORTED_MEME_FORMATS = ('.jpg', '.jpeg', '.png', '.gif', 'JPG')
 MEMES_FOLDER_NAME = 'memes'  # relative to cwd
 
@@ -11,8 +11,8 @@ REPLIES_PER_CYCLE = 3        # Number of replies to process per check
 REPLY_CYCLES = 3             # Number of 15-minute cycles
 
 # Tweet generation settings
-MAX_TWEET_LENGTH = 220
-MIN_TWEET_LENGTH = 100
+MAX_TWEET_LENGTH = 180
+MIN_TWEET_LENGTH = 80
 MAX_GENERATION_ATTEMPTS = 5
 MAX_PROMPT_ATTEMPTS = 3      # Number of different prompts to try before fallback
 

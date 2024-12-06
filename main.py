@@ -113,18 +113,18 @@ class TwitterBot:
                 if tweet_id:
                     self.logger.info(f"Posted tweet: {tweet_id}")
                     
-                    # Monitor for replies following the configured cycle pattern
+                    # Monitor for replies (this will do the 3 cycles + 60 min final check)
                     self.reply_handler.monitor_tweet(tweet_id)
                     
-                    # Wait for next main cycle
-                    self.logger.info(f"Main cycle complete. Waiting {POST_COOLDOWN // 60} minutes until next cycle...")
-                    time.sleep(POST_COOLDOWN)
+                    # After final check, immediately start next cycle
+                    self.logger.info("Reply monitoring complete")
+                    # No sleep here - go straight to next tweet
                 else:
                     self.logger.error("Tweet posting failed. Retrying after delay...")
                     time.sleep(RETRY_DELAY)
 
             except Exception as e:
-                self.logger.error("Error in main loop", exc_info=True)
+                self.logger.error(f"Error in main loop: {str(e)}", exc_info=True)
                 self.logger.info(f"Retrying after {RETRY_DELAY // 60} minutes...")
                 time.sleep(RETRY_DELAY)
 
