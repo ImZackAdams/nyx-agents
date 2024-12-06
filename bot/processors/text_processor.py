@@ -7,9 +7,11 @@ import re
 from typing import Optional
 from collections import deque
 
-from ..style_config import StyleConfig, Category  # Added Category import
+from ..style_config import StyleConfig, Category
+from ..config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
 from .text_cleaner import TextCleaner
 from .content_analyzer import ContentAnalyzer
+from .validators import validate_tweet_length, clean_tweet_text
 
 class TextProcessor:
     """Main text processing class for tweet content"""
@@ -31,7 +33,7 @@ class TextProcessor:
         self.recent_hashtags = deque(maxlen=max_history)
         self.recent_openers = deque(maxlen=max_history)
     
-    def process_tweet(self, prompt: str, text: str) -> str:
+    def process_tweet(self, prompt: str, text: str) -> tuple[Optional[str], Optional[str]]:
         """
         Process and style tweet content
         
@@ -40,64 +42,37 @@ class TextProcessor:
             text (str): Raw tweet text
             
         Returns:
-            str: Processed and styled tweet
+            tuple[Optional[str], Optional[str]]: (processed_tweet, error_message)
         """
         try:
-            # Extract and clean tweet
-            tweet = self._extract_tweet(text)
+            # Clean and validate initial text
+            tweet = clean_tweet_text(text)
+            is_valid, error_msg = validate_tweet_length(tweet)
+            
+            if not is_valid:
+                return None, error_msg
+            
+            # Clean text
             tweet = self.cleaner.clean_text(tweet)
             
-            if len(tweet) < 20:
-                return self._get_fallback_response()
-            
-            # Handle length constraints
-            if len(tweet) > 240:
-                tweet = self._truncate_tweet(tweet)
+            # Revalidate after cleaning
+            is_valid, error_msg = validate_tweet_length(tweet)
+            if not is_valid:
+                return None, error_msg
             
             # Add styling
             category = self.analyzer.categorize_prompt(prompt)
             tweet = self._add_style(tweet, category.name.lower())
             
-            return tweet
+            # Final length validation after styling
+            is_valid, error_msg = validate_tweet_length(tweet)
+            if not is_valid:
+                return None, error_msg
+            
+            return tweet, None
             
         except Exception as e:
-            print(f"Error processing tweet: {str(e)}")
-            return self._get_fallback_response()
-    
-    def _extract_tweet(self, text: str) -> str:
-        """Extract tweet content from text"""
-        return text.split("Tweet:")[-1].strip().split('\n')[0].strip()
-    
-    def _get_fallback_response(self) -> str:
-        """Get random fallback response"""
-        return random.choice(self.config.fallback_responses)
-    
-    def _truncate_tweet(self, tweet: str) -> str:
-        """
-        Smartly truncate tweet to fit length limit
-        
-        Args:
-            tweet (str): Original tweet text
-            
-        Returns:
-            str: Truncated tweet
-        """
-        sentences = re.split(r'(?<=[.!?])\s+', tweet)
-        result = []
-        current_length = 0
-        
-        for sentence in sentences:
-            if current_length + len(sentence) <= 237:
-                result.append(sentence)
-                current_length += len(sentence) + 1
-            else:
-                break
-        
-        truncated_tweet = ' '.join(result).strip()
-        if len(truncated_tweet) < len(tweet):
-            truncated_tweet += '...'
-        
-        return truncated_tweet
+            return None, f"Error processing tweet: {str(e)}"
     
     def _add_style(self, text: str, category: str) -> str:
         """
@@ -110,7 +85,9 @@ class TextProcessor:
         Returns:
             str: Styled text
         """
-        if len(text) >= 220:
+        # Leave room for styling elements
+        style_limit = MAX_TWEET_LENGTH - 20
+        if len(text) >= style_limit:
             return text
         
         # Clean redundant hashtags
@@ -123,7 +100,7 @@ class TextProcessor:
             text = self._place_emoji(text, emoji)
         
         # Add hashtag if space allows
-        if len(text) <= 200:
+        if len(text) <= MAX_TWEET_LENGTH - 40:  # Leave room for hashtag
             hashtag = self._select_hashtag(category)
             if hashtag:
                 text = f"{text} {hashtag}"
@@ -149,15 +126,7 @@ class TextProcessor:
         return text.strip()
     
     def _select_emoji(self, category: str) -> str:
-        """
-        Select appropriate emoji based on category and history
-        
-        Args:
-            category (str): Content category
-            
-        Returns:
-            str: Selected emoji
-        """
+        """Select appropriate emoji based on category and history"""
         available = [e for e in self.config.emojis[category] 
                     if e not in self.recent_emojis]
         if not available:
@@ -168,15 +137,7 @@ class TextProcessor:
         return emoji
     
     def _select_hashtag(self, category: str) -> Optional[str]:
-        """
-        Select appropriate hashtag based on category and history
-        
-        Args:
-            category (str): Content category
-            
-        Returns:
-            Optional[str]: Selected hashtag or None
-        """
+        """Select appropriate hashtag based on category and history"""
         available = [t for t in self.config.hashtags[category] 
                     if t not in self.recent_hashtags]
         if not available:
@@ -187,16 +148,7 @@ class TextProcessor:
         return hashtag
     
     def _place_emoji(self, text: str, emoji: str) -> str:
-        """
-        Determine emoji placement in text
-        
-        Args:
-            text (str): Original text
-            emoji (str): Emoji to place
-            
-        Returns:
-            str: Text with placed emoji
-        """
+        """Determine emoji placement in text"""
         placement = random.random()
         if placement < 0.3:
             return f"{emoji} {text}"
