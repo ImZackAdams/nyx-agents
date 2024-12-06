@@ -3,7 +3,7 @@ Handles tweet text cleaning and formatting.
 """
 import re
 from typing import Optional, List, Tuple
-from bot.processors.patterns import CleaningPatterns
+from bot.processors.cleaning_patterns import CleaningPatterns
 
 class TextCleaner:
     """Handles tweet text cleaning and formatting."""
@@ -82,12 +82,9 @@ class TextCleaner:
     
     def _final_cleanup(self, text: str) -> str:
         """Perform final cleanup operations."""
-        # Final TBALL formatting
-        text = re.sub(r'\$TBALL[sS]\b', '$TBALL', text)
-        text = re.sub(r'\$Tball\b', '$TBALL', text, flags=re.IGNORECASE)
-        text = re.sub(r'(\$TBALL)\s+', r'\1 ', text)
-        
-        text = text.strip(' "\'')
+        # Apply final cleanup patterns
+        text = self._apply_patterns(text, self.patterns.FINAL_CLEANUP)
+        text = self._apply_patterns(text, self.patterns.TEXT_STANDARDIZATION)
         
         if not text.endswith(('.', '!', '?')):
             text += '!'

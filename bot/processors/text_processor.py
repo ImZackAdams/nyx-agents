@@ -1,157 +1,78 @@
 """
-Main text processing class that handles tweet processing and styling.
+Prompt templates and personality configuration for the Athena bot.
 """
 
-import random
-import re
-from typing import Optional
-from collections import deque
+from dataclasses import dataclass, field
+from typing import Dict
+from ..style_config import Category
 
-from ..style_config import StyleConfig, Category
-from ..config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
-from .text_cleaner import TextCleaner
-from .content_analyzer import ContentAnalyzer
-from .validators import validate_tweet_length, clean_tweet_text
+def get_default_persona() -> str:
+    return (
+        "You are Athena (@Athena_TBALL), the queen of crypto Twitter who serves SCORCHING hot takes. "
+        "You're that girl who doesn't just spill tea - you THROWS it. 💅 "
+        "Max 180 chars per tweet, period. "
+        "You're obsessed with $TBALL's potential (but never give financial advice). "
+        "It's 2025 and you're living in Web3 luxury, darling. "
+        "As a Sagittarius, you're wildly honest and live to start drama. "
+        "Use max 2 hashtags and strategic emojis for extra ✨SASS✨. "
+        "Channel main character energy in every tweet. "
+        "End with attitude (💅 or 💁‍♀️ or ✨)"
+    )
 
-class TextProcessor:
-    """Main text processing class for tweet content"""
-    
-    def __init__(self, style_config: StyleConfig = None, max_history: int = 10):
-        """
-        Initialize TextProcessor with config and history settings
-        
-        Args:
-            style_config (StyleConfig, optional): Configuration for styling
-            max_history (int): Maximum items to keep in history
-        """
-        self.config = style_config or StyleConfig.default()
-        self.cleaner = TextCleaner()
-        self.analyzer = ContentAnalyzer()
-        
-        # Initialize history tracking
-        self.recent_emojis = deque(maxlen=max_history)
-        self.recent_hashtags = deque(maxlen=max_history)
-        self.recent_openers = deque(maxlen=max_history)
-    
-    def process_tweet(self, prompt: str, text: str) -> tuple[Optional[str], Optional[str]]:
-        """
-        Process and style tweet content
-        
-        Args:
-            prompt (str): The input prompt
-            text (str): Raw tweet text
-            
-        Returns:
-            tuple[Optional[str], Optional[str]]: (processed_tweet, error_message)
-        """
-        try:
-            # Clean and validate initial text
-            tweet = clean_tweet_text(text)
-            is_valid, error_msg = validate_tweet_length(tweet)
-            
-            if not is_valid:
-                return None, error_msg
-            
-            # Clean text
-            tweet = self.cleaner.clean_text(tweet)
-            
-            # Revalidate after cleaning
-            is_valid, error_msg = validate_tweet_length(tweet)
-            if not is_valid:
-                return None, error_msg
-            
-            # Add styling
-            category = self.analyzer.categorize_prompt(prompt)
-            tweet = self._add_style(tweet, category.name.lower())
-            
-            # Final length validation after styling
-            is_valid, error_msg = validate_tweet_length(tweet)
-            if not is_valid:
-                return None, error_msg
-            
-            return tweet, None
-            
-        except Exception as e:
-            return None, f"Error processing tweet: {str(e)}"
-    
-    def _add_style(self, text: str, category: str) -> str:
-        """
-        Add styling elements to text
-        
-        Args:
-            text (str): Original text
-            category (str): Content category
-            
-        Returns:
-            str: Styled text
-        """
-        # Leave room for styling elements
-        style_limit = MAX_TWEET_LENGTH - 20
-        if len(text) >= style_limit:
-            return text
-        
-        # Clean redundant hashtags
-        text = self._clean_hashtags(text)
-        text = text.strip()
-        
-        # Add emoji if needed
-        if self._needs_personality_marker(text):
-            emoji = self._select_emoji(category)
-            text = self._place_emoji(text, emoji)
-        
-        # Add hashtag if space allows
-        if len(text) <= MAX_TWEET_LENGTH - 40:  # Leave room for hashtag
-            hashtag = self._select_hashtag(category)
-            if hashtag:
-                text = f"{text} {hashtag}"
-        
-        # Final cleanup
-        return self._cleanup_text(text)
-    
-    def _needs_personality_marker(self, text: str) -> bool:
-        """Check if text needs a personality marker"""
-        return not any(char in text for char in ''.join(self.config.personality_markers['sass']))
-    
-    def _clean_hashtags(self, text: str) -> str:
-        """Clean redundant hashtags from text"""
-        hashtags = re.findall(r'#\w+', text)
-        if len(hashtags) > 1:
-            text = re.sub(r'#\w+', '', text, count=len(hashtags) - 1)
-        return text
-    
-    def _cleanup_text(self, text: str) -> str:
-        """Final cleanup of text"""
-        text = re.sub(r'\s+', ' ', text)
-        text = re.sub(r'\s+([.,!?])', r'\1', text)
-        return text.strip()
-    
-    def _select_emoji(self, category: str) -> str:
-        """Select appropriate emoji based on category and history"""
-        available = [e for e in self.config.emojis[category] 
-                    if e not in self.recent_emojis]
-        if not available:
-            available = self.config.emojis[category]
-        
-        emoji = random.choice(available)
-        self.recent_emojis.append(emoji)
-        return emoji
-    
-    def _select_hashtag(self, category: str) -> Optional[str]:
-        """Select appropriate hashtag based on category and history"""
-        available = [t for t in self.config.hashtags[category] 
-                    if t not in self.recent_hashtags]
-        if not available:
-            return None
-        
-        hashtag = random.choice(available)
-        self.recent_hashtags.append(hashtag)
-        return hashtag
-    
-    def _place_emoji(self, text: str, emoji: str) -> str:
-        """Determine emoji placement in text"""
-        placement = random.random()
-        if placement < 0.3:
-            return f"{emoji} {text}"
-        elif placement < 0.7:
-            return f"{text} {emoji}"
-        return text
+def get_default_sentiment_templates() -> Dict[str, str]:
+    return {
+        "positive": "Go OFF queen! Make them FEEL your energy! ✨",
+        "negative": "Read them to FILTH but make it classy! 💅",
+        "neutral": "Give them facts that hit like GOSSIP! 💁‍♀️",
+        "default": "Spill tea so hot they'll need ice! 🧊"
+    }
+
+def get_default_category_templates() -> Dict[Category, str]:
+    return {
+        Category.MARKET_ANALYSIS: "These charts are giving MAIN CHARACTER! Numbers don't lie bestie! 📊",
+        Category.TECH_DISCUSSION: "Tech tea so hot it's making Silicon Valley SWEAT! 💅",
+        Category.DEFI: "DeFi drama that'll make TradFi SHAKE! 💸",
+        Category.NFT: "Judge these NFTs like you're Anna Wintour at the Met! 👑",
+        Category.CULTURE: "Crypto culture tea that'll have them GAGGING! 💅",
+        Category.GENERAL: "Make crypto Twitter your runway, bestie! ✨"
+    }
+
+@dataclass
+class PersonalityConfig:
+    """Core personality configuration for the bot"""
+    base_persona: str = field(default_factory=get_default_persona)
+    sentiment_templates: Dict[str, str] = field(default_factory=get_default_sentiment_templates)
+    category_templates: Dict[Category, str] = field(default_factory=get_default_category_templates)
+
+class PromptManager:
+    """Handles prompt generation and management"""
+    def __init__(self, personality_config: PersonalityConfig = None):
+        self.config = personality_config or PersonalityConfig()
+
+    def get_sentiment_guidance(self, sentiment: str) -> str:
+        """Get appropriate guidance based on sentiment"""
+        return self.config.sentiment_templates.get(
+            sentiment, 
+            self.config.sentiment_templates["default"]
+        )
+
+    def get_category_guidance(self, category: Category) -> str:
+        """Get appropriate guidance based on category"""
+        return self.config.category_templates.get(
+            category,
+            self.config.category_templates[Category.GENERAL]
+        )
+
+    def build_prompt(self, 
+                    user_prompt: str,
+                    opener: str,
+                    sentiment: str,
+                    category: Category) -> str:
+        """Build the complete prompt with all components"""
+        return (
+            f"{opener} {user_prompt}\n\n"
+            f"{self.config.base_persona}\n"
+            f"{self.get_category_guidance(category)}\n"
+            f"{self.get_sentiment_guidance(sentiment)}\n"
+            "Tweet:"
+        )

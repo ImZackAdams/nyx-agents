@@ -1,7 +1,7 @@
-# cleaning_patterns.py
 """
 Patterns used for text cleaning and formatting.
 """
+import re
 from dataclasses import dataclass
 
 @dataclass
@@ -77,6 +77,21 @@ class CleaningPatterns:
     ]
     
     # Final cleanup patterns
+    FINAL_CLEANUP = [
+        (r'\$TBALL[sS]\b', '$TBALL'),
+        (r'\$Tball\b', '$TBALL'),
+        (r'(\$TBALL)\s+', r'\1 '),
+        (r'^\s*"|"\s*$', ''),  # Remove quotes at start/end
+        (r'^\s*\'|\'\s*$', '')  # Remove single quotes at start/end
+    ]
+
+    # Text standardization patterns
+    TEXT_STANDARDIZATION = [
+        (r'\s+', ' '),  # Normalize spaces
+        (r'\s+([.,!?])', r'\1'),  # Fix spacing before punctuation
+    ]
+    
+    # Cleanup patterns
     CLEANUP = [
         (r'\[.*?\]', ''),  # Remove square bracket content
         (r'@\w+\s?', ''),  # Remove @ mentions
