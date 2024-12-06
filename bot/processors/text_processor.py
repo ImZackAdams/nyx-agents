@@ -7,8 +7,8 @@ import re
 from typing import Optional, Tuple
 from collections import deque
 
-from ..style_config import StyleConfig, Category
-from ..config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
+from ..configs.style_config import StyleConfig, Category
+from ..configs.config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
 from .text_cleaner import TextCleaner
 from .content_analyzer import ContentAnalyzer
 from .validators import validate_tweet_length, clean_tweet_text

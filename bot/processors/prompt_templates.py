@@ -4,7 +4,7 @@ Prompt templates and personality configuration for the Athena bot.
 
 from dataclasses import dataclass, field
 from typing import Dict
-from ..style_config import Category
+from ..configs.style_config import Category
 
 def get_default_persona() -> str:
     return (

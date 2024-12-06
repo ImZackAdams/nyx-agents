@@ -4,7 +4,7 @@ Handles content analysis including sentiment analysis and content categorization
 
 from nltk.sentiment import SentimentIntensityAnalyzer
 from typing import Dict
-from ..style_config import Category
+from ..configs.style_config import Category
 
 class ContentAnalyzer:
     """Analyzes content sentiment and categories"""

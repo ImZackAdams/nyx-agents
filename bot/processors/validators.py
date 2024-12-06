@@ -5,7 +5,7 @@ Validation utilities for tweet processing.
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from ..config import MIN_TWEET_LENGTH, MAX_TWEET_LENGTH
+from ..configs.config import MIN_TWEET_LENGTH, MAX_TWEET_LENGTH
 
 @dataclass
 class TweetValidation:

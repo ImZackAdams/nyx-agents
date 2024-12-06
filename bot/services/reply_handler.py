@@ -3,7 +3,7 @@ import time
 import logging
 from typing import Optional
 from bot.twitter_client import search_replies_to_tweet
-from bot.config import (
+from bot.configs.config import (
     REPLY_DELAY_SECONDS,
     REPLIES_PER_CYCLE,
     INITIAL_REPLY_DELAY,
