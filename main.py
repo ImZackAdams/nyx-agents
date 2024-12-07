@@ -4,11 +4,11 @@ import random
 import logging
 import warnings
 import tweepy
-from typing import Optional
+from typing import Optional  # Add this line
 from dotenv import load_dotenv
 from bot.bot import PersonalityBot
 from bot.utilities import setup_logger
-from bot.twitter_client import setup_twitter_client
+from bot.services.utils import setup_twitter_client
 from bot.services.rate_limiter import RateLimitTracker
 from bot.prompts import get_all_prompts, FALLBACK_TWEETS
 from bot.services.tweet_generator import TweetGenerator
@@ -19,6 +19,7 @@ from bot.configs.posting_config import (
     RETRY_DELAY,
     MAX_PROMPT_ATTEMPTS
 )
+
 
 class TwitterBot:
     """Main Twitter bot implementation."""
@@ -48,9 +49,9 @@ class TwitterBot:
             logger=self.logger
         )
         
-        self.tweet_generator = TweetGenerator(personality_bot, self.logger)
-        self.reply_handler = ReplyHandler(self.client, self.tweet_generator, self.logger)
-        self.meme_handler = MemeHandler(self.client, self.api, self.logger)
+        self.tweet_generator = TweetGenerator(personality_bot, logger=self.logger)  # Fixed
+        self.reply_handler = ReplyHandler(self.client, self.tweet_generator, logger=self.logger)
+        self.meme_handler = MemeHandler(client=self.client, api=self.api, logger=self.logger)
 
     def _validate_env_variables(self) -> None:
         """Ensure all required environment variables are set."""

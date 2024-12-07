@@ -1,7 +1,7 @@
 # Bot configuration constants
 
 # Meme settings
-MEME_POSTING_CHANCE = 0.20  # 20% chance to post memes
+MEME_POSTING_CHANCE = 0.10  # % chance to post memes
 SUPPORTED_MEME_FORMATS = ('.jpg', '.jpeg', '.png', '.gif', 'JPG')
 MEMES_FOLDER_NAME = 'memes'  # relative to cwd
 

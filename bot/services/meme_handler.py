@@ -1,98 +1,65 @@
 import os
 import random
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 from bot.prompts import MEME_CAPTIONS
-from bot.twitter_client import post_image_with_tweet
 from bot.configs.posting_config import (
     MEME_POSTING_CHANCE,
     SUPPORTED_MEME_FORMATS,
-    MEMES_FOLDER_NAME
+    MEMES_FOLDER_NAME,
 )
 
+
+def post_image_with_tweet(client, api, tweet_text, image_path, logger):
+    """Posts a tweet with an image attachment."""
+    try:
+        media = api.media_upload(image_path)
+        logger.info(f"Image uploaded. Media ID: {media.media_id}")
+
+        result = client.create_tweet(
+            text=tweet_text,
+            media_ids=[str(media.media_id)],
+        )
+        logger.info("Tweet with image posted successfully.")
+        return result.data.get("id")
+    except Exception as e:
+        logger.error("Failed to post tweet with image.", exc_info=True)
+        return None
+
+
+def get_meme_files(folder: str, formats: tuple) -> list:
+    """Fetch valid meme files from a folder."""
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder {folder} does not exist.")
+    return [f for f in os.listdir(folder) if f.lower().endswith(formats)]
+
+
 class MemeHandler:
-    """Handles the selection and posting of memes."""
-    
-    def __init__(self, client, api, logger: Optional[logging.Logger] = None):
-        """Initialize MemeHandler.
-        
-        Args:
-            client: Twitter client for API v2
-            api: Twitter API v1.1 for media uploads
-            logger: Optional logger instance
-        """
+    def __init__(self, client, api, meme_folder=MEMES_FOLDER_NAME, logger=None):
         self.client = client
         self.api = api
+        self.meme_folder = os.path.abspath(meme_folder)
         self.logger = logger or logging.getLogger(__name__)
-        # Build memes folder path at initialization
-        self.memes_folder = os.path.join(os.getcwd(), MEMES_FOLDER_NAME)
-        
-    def _validate_memes_folder(self) -> bool:
-        """Check if memes folder exists and is accessible."""
-        if not os.path.exists(self.memes_folder):
-            self.logger.error(f"Memes folder not found at {self.memes_folder}")
-            return False
-        return True
-        
-    def _get_available_memes(self) -> list:
-        """Get list of available meme files."""
-        if not self._validate_memes_folder():
-            return []
-            
-        return [
-            f for f in os.listdir(self.memes_folder) 
-            if f.lower().endswith(SUPPORTED_MEME_FORMATS)
-        ]
-        
-    def _select_meme(self) -> Tuple[Optional[str], Optional[str]]:
-        """Select a random meme and caption.
-        
-        Returns:
-            Tuple of (meme_path, caption) or (None, None) if no memes available
-        """
-        available_memes = self._get_available_memes()
-        
-        if not available_memes:
-            self.logger.warning("No memes available to post")
-            return None, None
-            
-        selected_meme = random.choice(available_memes)
-        caption = random.choice(MEME_CAPTIONS)
-        meme_path = os.path.join(self.memes_folder, selected_meme)
-        
-        return meme_path, caption
-        
+
     def post_meme(self) -> Optional[str]:
-        """Post a meme with a caption.
-        
-        Returns:
-            str: Tweet ID if successful, None otherwise
-        """
+        """Post a random meme with a caption."""
         try:
-            meme_path, caption = self._select_meme()
-            if not meme_path:
+            meme_files = get_meme_files(self.meme_folder, SUPPORTED_MEME_FORMATS)
+            if not meme_files:
+                self.logger.warning("No memes available.")
                 return None
-                
-            self.logger.info(f"Posting meme: {os.path.basename(meme_path)}")
-            result = post_image_with_tweet(
-                self.client,
-                self.api,
-                caption,
-                meme_path,
-                self.logger
+
+            meme = random.choice(meme_files)
+            caption = random.choice(MEME_CAPTIONS)
+            meme_path = os.path.join(self.meme_folder, meme)
+
+            return post_image_with_tweet(
+                self.client, self.api, caption, meme_path, self.logger
             )
-            
-            if result:
-                self.logger.info("Meme posted successfully")
-                return result
-                
-            self.logger.error("Failed to post meme")
-            return None
-            
         except Exception as e:
-            self.logger.error(f"Error posting meme: {str(e)}", exc_info=True)
+            self.logger.error(f"Error posting meme: {e}", exc_info=True)
             return None
-            
+
     def should_post_meme(self) -> bool:
-        """Determine if we should post a meme based on configuration."""
+        """Determine if the bot should post a meme."""
         return random.random() < MEME_POSTING_CHANCE
