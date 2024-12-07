@@ -4,7 +4,7 @@ import random
 import logging
 import warnings
 import tweepy
-from typing import Optional  # Add this line
+from typing import Optional
 from dotenv import load_dotenv
 from bot.bot import PersonalityBot
 from bot.utilities import setup_logger
@@ -49,7 +49,7 @@ class TwitterBot:
             logger=self.logger
         )
         
-        self.tweet_generator = TweetGenerator(personality_bot, logger=self.logger)  # Fixed
+        self.tweet_generator = TweetGenerator(personality_bot, logger=self.logger)
         self.reply_handler = ReplyHandler(self.client, self.tweet_generator, logger=self.logger)
         self.meme_handler = MemeHandler(client=self.client, api=self.api, logger=self.logger)
 
@@ -106,6 +106,8 @@ class TwitterBot:
 
     def run(self):
         """Main bot running loop."""
+        posted_tweet_ids = []  # Track all tweets for reply monitoring
+
         while True:
             try:
                 self.logger.info("Starting new bot cycle...")
@@ -113,13 +115,13 @@ class TwitterBot:
                 
                 if tweet_id:
                     self.logger.info(f"Posted tweet: {tweet_id}")
+                    posted_tweet_ids.append(tweet_id)
                     
-                    # Monitor for replies (this will do the 3 cycles + 60 min final check)
-                    self.reply_handler.monitor_tweet(tweet_id)
+                    # Monitor replies for all tweets
+                    self.reply_handler.monitor_tweets(posted_tweet_ids)
                     
-                    # After final check, immediately start next cycle
+                    # After monitoring, move to next cycle
                     self.logger.info("Reply monitoring complete")
-                    # No sleep here - go straight to next tweet
                 else:
                     self.logger.error("Tweet posting failed. Retrying after delay...")
                     time.sleep(RETRY_DELAY)
