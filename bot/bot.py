@@ -12,7 +12,7 @@ from .processors.prompt_templates import PromptManager
 from .configs.style_config import StyleConfig, Category
 from .utilities import log_resource_usage
 from .configs.model_config import ModelManager
-from .configs.config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH  # Add this import
+from .configs.posting_config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH  # Add this import
 
 class PersonalityBot:
     def __init__(self, model_path: str, logger, style_config: Optional[StyleConfig] = None):

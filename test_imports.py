@@ -7,7 +7,7 @@ except ImportError as e:
     print(f"✗ Failed to import TextProcessor: {str(e)}")
     
 try:
-    from bot.style_config import StyleConfig, Category
+    from bot.configs.style_config import StyleConfig, Category
     print("✓ Successfully imported StyleConfig and Category")
 except ImportError as e:
     print(f"✗ Failed to import StyleConfig and Category: {str(e)}")
