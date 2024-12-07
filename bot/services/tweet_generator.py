@@ -12,7 +12,9 @@ from bot.configs.posting_config import (
 
 def validate_tweet(tweet: str) -> bool:
     """Validate the tweet's length and content."""
-    return MIN_TWEET_LENGTH <= len(tweet) <= MAX_TWEET_LENGTH
+    if MIN_TWEET_LENGTH <= len(tweet) <= MAX_TWEET_LENGTH:
+        return True
+    return False
 
 
 class TweetGenerator:
@@ -23,14 +25,31 @@ class TweetGenerator:
 
     def generate_tweet(self, prompt: str) -> str:
         """Generate a tweet response with retry logic."""
-        for _ in range(MAX_GENERATION_ATTEMPTS):
+        for attempt in range(MAX_GENERATION_ATTEMPTS):
             try:
+                self.logger.info(f"Generating tweet, attempt {attempt + 1}...")
                 response = self.bot.generate_response(prompt)
                 cleaned_response = self.cleaner.clean_text(response)
+
                 if len(cleaned_response) > MAX_TWEET_LENGTH:
-                    cleaned_response = cleaned_response[:MAX_TWEET_LENGTH]  # Truncate long tweets
+                    self.logger.warning(
+                        f"Generated tweet too long ({len(cleaned_response)} chars). Truncating..."
+                    )
+                    cleaned_response = cleaned_response[:MAX_TWEET_LENGTH].strip()
+
                 if validate_tweet(cleaned_response):
+                    self.logger.info(
+                        f"Generated valid tweet: {cleaned_response} ({len(cleaned_response)} chars)"
+                    )
                     return cleaned_response
+                else:
+                    self.logger.warning(
+                        f"Generated tweet invalid: {cleaned_response} ({len(cleaned_response)} chars)"
+                    )
             except Exception as e:
                 self.logger.warning(f"Error generating tweet: {e}", exc_info=True)
-        return random.choice(FALLBACK_TWEETS)
+
+        # If all attempts fail, use a fallback tweet
+        fallback_tweet = random.choice(FALLBACK_TWEETS)
+        self.logger.info(f"Using fallback tweet: {fallback_tweet}")
+        return fallback_tweet
