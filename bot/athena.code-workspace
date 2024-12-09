@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../Athena2/athena_8bit_model"
+		}
+	],
+	"settings": {}
+}

@@ -4,7 +4,7 @@ results/
 .env
 
 .DS_Store
-
+mistral_qlora_finetuned
 fine_tuned_personality_bot.tar.gz
 
 athena_8bit_model

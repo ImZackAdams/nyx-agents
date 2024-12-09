@@ -43,9 +43,9 @@ class TwitterBot:
         ))
         self.rate_limit_tracker = RateLimitTracker()
         
-        # Initialize personality bot and handlers
+        # Initialize personality bot with Mistral model
         personality_bot = PersonalityBot(
-            model_path="athena_8bit_model", 
+            model_path="./mistral_qlora_finetuned",  # Updated path to your fine-tuned model
             logger=self.logger
         )
         
@@ -134,10 +134,12 @@ class TwitterBot:
 def main():
     """Main entry point for the bot."""
     try:
-        # Suppress specific warnings
-        warnings.filterwarnings("ignore", message=".*MatMul8bitLt.*")
-        warnings.filterwarnings("ignore", message=".*quantization_config.*")
-        warnings.filterwarnings("ignore", message=".*Unused kwargs.*")
+        # Updated warnings for Mistral model
+        warnings.filterwarnings("ignore", message=".*The model weights are not tied.*")
+        warnings.filterwarnings("ignore", message=".*You are using a model that was converted to safetensors.*")
+        warnings.filterwarnings("ignore", message=".*You have modified the pretrained model configuration.*")
+        warnings.filterwarnings("ignore", message=".*Consider increasing the value of the max_position_embeddings attribute.*")
+        warnings.filterwarnings("ignore", category=UserWarning)
 
         # Load environment variables
         load_dotenv()
