@@ -16,6 +16,7 @@ def get_full_article_text(url):
 
     soup = BeautifulSoup(response.text, 'html.parser')
 
+
     # Uncomment the below line if you need to debug:
     # print(soup.prettify())
 
