@@ -11,7 +11,7 @@ REPLIES_PER_CYCLE = 5       # Number of replies to process per check
 REPLY_CYCLES =  3          # Number of 15-minute cycles
 
 # Tweet generation settings
-MAX_TWEET_LENGTH = 180
+MAX_TWEET_LENGTH = 240
 MIN_TWEET_LENGTH = 80
 MAX_GENERATION_ATTEMPTS = 10
 MAX_PROMPT_ATTEMPTS = 3      # Number of different prompts to try before fallback
