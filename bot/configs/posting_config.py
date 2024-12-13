@@ -1,5 +1,10 @@
 # Bot configuration constants
 
+# News settings
+NEWS_CHECK_INTERVAL = 60 * 30    # Check for news every 30 minutes
+NEWS_POSTING_PRIORITY = True     # Prioritize news posts when available
+NEWS_MAX_SUMMARY_LENGTH = 240    # Maximum length for news summaries
+
 # Meme settings
 MEME_POSTING_CHANCE = 0.20  # % chance to post memes
 SUPPORTED_MEME_FORMATS = ('.jpg', '.jpeg', '.png', '.gif', 'JPG')
@@ -8,7 +13,7 @@ MEMES_FOLDER_NAME = 'memes'  # relative to cwd
 # Reply settings
 REPLY_DELAY_SECONDS = 60      # Delay between individual replies
 REPLIES_PER_CYCLE = 5       # Number of replies to process per check
-REPLY_CYCLES =  3          # Number of 15-minute cycles
+REPLY_CYCLES = 3          # Number of 15-minute cycles
 
 # Tweet generation settings
 MAX_TWEET_LENGTH = 240
