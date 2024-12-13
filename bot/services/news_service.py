@@ -75,14 +75,18 @@ class CointelegraphExtractor(BaseExtractor):
 class TheBlockExtractor(BaseExtractor):
     def extract(self, soup: BeautifulSoup) -> Optional[str]:
         selectors = [
+            # Existing selectors
             "article[class*='Post_article']",
             "div[class*='Post_content']",
             "div.article__content",
             "div[class*='ArticleContent']",
             "article div[class*='content']",
-            "article"
+            "article",
+
+            # New selector targeting the specific element you identified
+            "#articleContent"
         ]
-        
+
         for selector in selectors:
             if article_body := soup.select_one(selector):
                 self._clean_unwanted_elements(article_body)
@@ -90,6 +94,7 @@ class TheBlockExtractor(BaseExtractor):
                     return self._clean_text(text)
                     
         return self._fallback_extraction(soup)
+
     
     @staticmethod
     def _clean_unwanted_elements(article_body):
@@ -136,13 +141,22 @@ class ContentExtractionService:
                     if logger:
                         logger.error(f"Failed to fetch {url}: Status {response.status if response else 'No Response'}")
                     return None
-                    
+
+                # Give the page a moment to load additional content
                 page.wait_for_timeout(3000)
+
                 html = page.content()
                 soup = BeautifulSoup(html, 'html.parser')
                 domain = urlparse(url).netloc.lower()
-                
+                if domain.startswith('www.'):
+                    domain = domain[4:]
+
                 extractor = self.extractors.get(domain, BaseExtractor())
+
+                # Optional: Add debug logs
+                if logger:
+                    logger.debug(f"Using extractor for domain: {domain}")
+
                 return extractor.extract(soup)
                 
             except Exception as e:
@@ -151,6 +165,7 @@ class ContentExtractionService:
                 return None
             finally:
                 browser.close()
+
 
 class NewsService:
     """Service for fetching and processing crypto news articles."""
