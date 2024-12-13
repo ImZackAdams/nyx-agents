@@ -256,7 +256,7 @@ class TwitterBot:
                     self.reply_handler.monitor_tweets(posted_tweet_ids)
                     
                     self.logger.info("Reply monitoring complete")
-                    
+                    self.logger.info(f"Entering cooldown for {POST_COOLDOWN} seconds before starting next cycle...")
                     time.sleep(POST_COOLDOWN)
                 else:
                     self.logger.error("Tweet posting failed. Retrying after delay...")
