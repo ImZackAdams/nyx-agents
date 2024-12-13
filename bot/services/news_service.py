@@ -21,7 +21,8 @@ class NewsService:
     
     FEED_URLS = [
         "https://www.coindesk.com/arc/outboundfeeds/rss/?",
-        "https://cointelegraph.com/rss"
+        "https://cointelegraph.com/rss",
+        "https://www.theblock.co/rss.xml"
     ]
     
     def __init__(self, logger=None, storage_file: str = "posted_articles.json"):
@@ -149,6 +150,8 @@ class NewsService:
             return self._extract_coindesk(soup)
         elif "cointelegraph.com" in domain:
             return self._extract_cointelegraph(soup)
+        elif "theblock.co" in domain:
+            return self._extract_theblock(soup)
         return self._extract_generic(soup)
     
     def _extract_coindesk(self, soup: BeautifulSoup) -> Optional[str]:
@@ -172,6 +175,45 @@ class NewsService:
         
         article_body = soup.find("article") or soup.find("main") or soup.find("body")
         return self._extract_paragraphs(article_body)
+    
+    def _extract_theblock(self, soup: BeautifulSoup) -> Optional[str]:
+            """Extract content specifically from The Block articles."""
+            # Try to find the content using different possible selectors
+            selectors = [
+                "article[class*='Post_article']",  # Main article container
+                "div[class*='Post_content']",      # Content container
+                "div.article__content",            # Alternative content container
+                "div[class*='ArticleContent']",    # Another possible content container
+                "article div[class*='content']",   # Generic content container within article
+                "article"                          # Fallback to main article tag
+            ]
+            
+            for selector in selectors:
+                if article_body := soup.select_one(selector):
+                    # Clean up unwanted elements
+                    for unwanted in article_body.select(
+                        '.premium-content, .subscription-block, .paywall, .article-paywall, '
+                        'div[class*="Premium"], div[class*="premium"], div[class*="Paywall"], '
+                        'script, style, nav, header, footer'
+                    ):
+                        unwanted.decompose()
+                    
+                    # Try to extract text from paragraphs
+                    if text := self._extract_paragraphs(article_body):
+                        # Remove any remaining unwanted text markers
+                        text = text.replace('[Premium Content]', '').replace('[Subscribe]', '').strip()
+                        if len(text) > 100:  # Only return if we have substantial content
+                            return text
+            
+            # If we couldn't find content through regular selectors, try a more aggressive approach
+            all_paragraphs = soup.select('article p, div[class*="content"] p, div[class*="article"] p')
+            if all_paragraphs:
+                text = "\n\n".join(p.get_text(strip=True) for p in all_paragraphs if p.get_text(strip=True))
+                text = text.replace('[Premium Content]', '').replace('[Subscribe]', '').strip()
+                if len(text) > 100:
+                    return text
+                    
+            return None
     
     def _extract_generic(self, soup: BeautifulSoup) -> Optional[str]:
         """Generic content extraction for unknown domains."""
