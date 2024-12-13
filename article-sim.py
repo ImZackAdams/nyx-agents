@@ -17,6 +17,10 @@ from bot.bot import PersonalityBot
 from bot.utilities import setup_logger
 from bot.configs.posting_config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
 
+# Define new constants for articles, allowing even more room for detail
+ARTICLE_MAX_TWEET_LENGTH = 400  
+ARTICLE_MIN_TWEET_LENGTH = 50  
+
 def fetch_latest_article(feed_url="https://www.coindesk.com/arc/outboundfeeds/rss/?"):
     feed = feedparser.parse(feed_url)
     if feed.entries:
@@ -54,7 +58,7 @@ def get_full_article_text(url):
             text_blocks = []
             for p in container.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
                 text = p.get_text(strip=True)
-                if text and len(text) > 20:
+                if text and len(text) > 10:
                     text_blocks.append(text)
             if text_blocks:
                 return "\n\n".join(text_blocks)
@@ -78,11 +82,11 @@ def simulate_bot_responses():
 
         print("Fetching the latest article from CoinDesk...")
         latest_article = fetch_latest_article()
-        
+
         if latest_article:
             title = latest_article.get("title", "No title provided")
             link = latest_article.get("link", "No link provided")
-            
+
             print("\n----------------------------------------")
             print("          LATEST ARTICLE DETAILS")
             print("----------------------------------------\n")
@@ -92,15 +96,25 @@ def simulate_bot_responses():
             print("\nExtracting article content. Please wait...")
             full_content = get_full_article_text(link)
 
+            current_max_tweet_length = ARTICLE_MAX_TWEET_LENGTH
+            current_min_tweet_length = ARTICLE_MIN_TWEET_LENGTH
+
+            # Include an excerpt of the article content for context
+            excerpt = full_content[:1000] if full_content and isinstance(full_content, str) else ""
+
             prompt = (
-                f"Summarize the following headline into a single tweet focusing on developer growth and adoption:\n\n"
+                "You are Athena (@Athena_TBALL), a queen of crypto Twitter known for detail and insight. "
+                "Summarize the following headline and content into a single tweet focusing on developer growth, "
+                "adoption, and key insights from the article. Include numbers mentioned, relevant chain hashtags, "
+                "and start with 🚀. Provide a more detailed perspective than just one sentence.\n\n"
                 f"Title: {title}\n\n"
+                f"Article Excerpt:\n{excerpt}\n\n"
                 f"Requirements:\n"
                 f"1. Start with 🚀\n"
-                f"2. Include any numbers mentioned\n"
+                f"2. Include any important numbers or stats from the excerpt\n"
                 f"3. Include a chain-specific hashtag if a chain is mentioned\n"
-                f"4. One clear statement, no extra fluff\n"
-                f"5. Keep length under {MAX_TWEET_LENGTH} characters."
+                f"4. Be detailed but still concise—pack multiple facts in one tweet\n"
+                f"5. Keep length under {current_max_tweet_length} characters.\n"
             )
 
             print("\n----------------------------------------")
@@ -109,26 +123,21 @@ def simulate_bot_responses():
 
             summary = bot.generate_response(prompt)
 
-            # Always attempt to include the link, even if we must truncate.
-            if summary and MIN_TWEET_LENGTH <= len(summary) <= MAX_TWEET_LENGTH:
+            # Attempt to include the link
+            if summary and current_min_tweet_length <= len(summary) <= current_max_tweet_length:
                 candidate = f"{summary.strip()} {link}"
-                if len(candidate) > MAX_TWEET_LENGTH:
+                if len(candidate) > current_max_tweet_length:
                     # Need to truncate the summary to make room for the link
-                    # Calculate how many characters we can use for the summary
-                    allowed_summary_length = MAX_TWEET_LENGTH - (len(link) + 1)
-                    
-                    # Truncate the summary portion
+                    allowed_summary_length = current_max_tweet_length - (len(link) + 1)
                     truncated_summary = candidate[:allowed_summary_length].rstrip()
                     final_tweet = f"{truncated_summary} {link}"
 
-                    if len(final_tweet) > MAX_TWEET_LENGTH:
-                        # This should be very unlikely now, but just in case:
+                    if len(final_tweet) > current_max_tweet_length:
                         print("Even after truncation, we couldn't fit the link. Consider using a shorter link or summary.")
                         return
                     else:
                         summary = final_tweet
                 else:
-                    # Candidate fits as is
                     summary = candidate
 
                 print("Here is the summarized tweet with the link:\n")
