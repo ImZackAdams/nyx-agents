@@ -22,6 +22,9 @@ class Category(Enum):
 @dataclass
 class StyleConfig:
     """Configuration for text styling elements"""
+    # Add a flag for whether we are currently summarizing an article
+    is_summarizing: bool = False
+
     emojis: Dict[str, List[str]] = field(default_factory=lambda: {
         Category.MARKET_ANALYSIS.get_key(): ["📈", "💰", "💎", "🚀", "💅"],
         Category.TECH_DISCUSSION.get_key(): ["💻", "⚡️", "🔧", "💅", "✨"],
@@ -98,6 +101,13 @@ class StyleConfig:
         "but wait", "what's your take", "share your",
         "meanwhile", "but first", "lets talk about"
     ])
+
+    def should_enforce_tweet_length(self) -> bool:
+        """
+        Determine whether to enforce the strict tweet length constraints.
+        If we are summarizing an article, we allow more expanded text.
+        """
+        return not self.is_summarizing
 
     @classmethod
     def default(cls) -> 'StyleConfig':

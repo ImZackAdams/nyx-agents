@@ -1,12 +1,12 @@
 import os
 import sys
-import gc
-import logging
-from pathlib import Path
 import warnings
+from pathlib import Path
 import feedparser
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse, urlunparse
+from playwright.sync_api import sync_playwright
 
 warnings.filterwarnings("ignore")
 
@@ -15,143 +15,155 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from bot.bot import PersonalityBot
 from bot.utilities import setup_logger
-from bot.configs.posting_config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
+from bot.configs.style_config import StyleConfig  # Ensure this matches your file structure
 
-# Define new constants for articles, allowing even more room for detail
-ARTICLE_MAX_TWEET_LENGTH = 400  
-ARTICLE_MIN_TWEET_LENGTH = 50  
-
-def fetch_latest_article(feed_url="https://www.coindesk.com/arc/outboundfeeds/rss/?"):
-    feed = feedparser.parse(feed_url)
-    if feed.entries:
-        return feed.entries[0]
-    return None
-
-def get_full_article_text(url):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-    except Exception as e:
-        return f"Failed to retrieve article: {str(e)}"
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    # Remove non-content elements
-    for element in soup.find_all(['script', 'style', 'nav', 'header', 'footer']):
-        element.decompose()
-
-    content_selectors = [
-        ('article', None),
-        ('main', None),
-        ('div', 'article-content'),
-        ('div', 'post-content'),
-        ('div', 'entry-content'),
-        ('div', 'content-body'),
+def get_latest_article():
+    feed_urls = [
+        "https://www.coindesk.com/arc/outboundfeeds/rss/?",
+        "https://cointelegraph.com/rss"
     ]
+    
+    latest_article = None
+    latest_time = None
 
-    for tag, class_name in content_selectors:
-        container = soup.find(tag, class_=class_name) if class_name else soup.find(tag)
-        if container:
-            text_blocks = []
-            for p in container.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
-                text = p.get_text(strip=True)
-                if text and len(text) > 10:
-                    text_blocks.append(text)
-            if text_blocks:
-                return "\n\n".join(text_blocks)
+    for url in feed_urls:
+        feed = feedparser.parse(url)
+        if not feed.entries:
+            continue
+            
+        for entry in feed.entries:
+            pub_time = entry.get('published_parsed') or entry.get('updated_parsed')
+            if pub_time and (latest_time is None or pub_time > latest_time):
+                latest_time = pub_time
+                latest_article = entry
 
-    return "Could not find main content."
+    if not latest_article:
+        return None, None
+
+    title = latest_article.get('title', '')
+    article_url = latest_article.get('link', '')
+    parsed = urlparse(article_url)
+    clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
+
+    return title, clean_url
+
+def get_full_article_content(url):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+        page = context.new_page()
+        try:
+            response = page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        except Exception as e:
+            browser.close()
+            return f"Could not retrieve the article content (Navigation Error: {e})."
+
+        if not response or response.status != 200:
+            browser.close()
+            return f"Could not retrieve the article content (Status Code: {response.status if response else 'No Response'})."
+        
+        page.wait_for_timeout(3000)
+        html = page.content()
+        browser.close()
+
+        soup = BeautifulSoup(html, 'html.parser')
+        domain = urlparse(url).netloc.lower()
+        content = extract_content(soup, domain)
+        return content if content else "No full content found."
+
+def extract_content(soup, domain):
+    if "coindesk.com" in domain:
+        article_body = soup.find("div", class_="article-pharagraphs") or soup.find("article")
+        return extract_paragraphs(article_body)
+    elif "cointelegraph.com" in domain:
+        possible_selectors = [
+            "div.post-content", 
+            "div.post-content__text",
+            "div.article__body",
+            "div.post-page__article-content"
+        ]
+        for selector in possible_selectors:
+            article_body = soup.select_one(selector)
+            if article_body:
+                text = extract_paragraphs(article_body)
+                if text:
+                    return text
+        article_body = soup.find("article") or soup.find("main") or soup.find("body")
+        return extract_paragraphs(article_body)
+
+    article_body = soup.find("article") or soup.find("main") or soup.find("body")
+    return extract_paragraphs(article_body)
+
+def extract_paragraphs(container):
+    if not container:
+        return None
+    paragraphs = container.find_all("p")
+    text = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+    return text.strip() if text.strip() else None
 
 def simulate_bot_responses():
     print("\n" + "="*80)
-    print("      CRYPTO NEWS HEADLINE SUMMARIZER")
+    print("  CRYPTO NEWS HEADLINE SUMMARIZER - TWEET FORMAT")
     print("="*80 + "\n")
 
     model_path = "./mistral_qlora_finetuned"
     if not Path(model_path).exists():
-        print("Sorry, the model could not be found at the specified path.")
+        print("Model not found at the specified path.")
         return
 
     logger = setup_logger("article_sim")
+    bot = PersonalityBot(model_path=model_path, logger=logger)
 
-    try:
-        bot = PersonalityBot(model_path=model_path, logger=logger)
+    print("Fetching the latest article...")
+    title, url = get_latest_article()
 
-        print("Fetching the latest article from CoinDesk...")
-        latest_article = fetch_latest_article()
+    if title and url:
+        print("\n----------------------------------------")
+        print("       LATEST ARTICLE DETAILS")
+        print("----------------------------------------\n")
+        print(f"Title: {title}")
+        print(f"Link:  {url}")
 
-        if latest_article:
-            title = latest_article.get("title", "No title provided")
-            link = latest_article.get("link", "No link provided")
+        print("\nExtracting article content, please wait...")
+        full_content = get_full_article_content(url)
 
-            print("\n----------------------------------------")
-            print("          LATEST ARTICLE DETAILS")
-            print("----------------------------------------\n")
-            print(f"Title: {title}")
-            print(f"Link:  {link}")
+        # We'll just provide a brief excerpt to keep it focused
+        excerpt = full_content[:800] if full_content and isinstance(full_content, str) else ""
 
-            print("\nExtracting article content. Please wait...")
-            full_content = get_full_article_text(link)
+        # Create a style config instance
+        config = StyleConfig.default()
+        config.is_summarizing = True
 
-            current_max_tweet_length = ARTICLE_MAX_TWEET_LENGTH
-            current_min_tweet_length = ARTICLE_MIN_TWEET_LENGTH
+        # Updated prompt for a concise tweet that meets the character requirements
+        prompt = (
+            "You are Athena, a knowledgeable crypto analyst. "
+            "Summarize the following excerpt into a single tweet that is:\n"
+            "- At least 80 characters and under 280 characters\n"
+            "- Includes at least one hashtag and one emoji\n"
+            "- Presents the key point of the news in a punchy, engaging style\n\n"
+            f"Title: {title}\n\n"
+            f"Article Excerpt:\n{excerpt}"
+        )
 
-            # Include an excerpt of the article content for context
-            excerpt = full_content[:1000] if full_content and isinstance(full_content, str) else ""
+        print("\n----------------------------------------")
+        print("         GENERATING TWEET SUMMARY")
+        print("----------------------------------------\n")
 
-            prompt = (
-                "You are Athena (@Athena_TBALL), a queen of crypto Twitter known for detail and insight. "
-                "Summarize the following headline and content into a single tweet focusing on developer growth, "
-                "adoption, and key insights from the article. Include numbers mentioned, relevant chain hashtags, "
-                "and start with 🚀. Provide a more detailed perspective than just one sentence.\n\n"
-                f"Title: {title}\n\n"
-                f"Article Excerpt:\n{excerpt}\n\n"
-                f"Requirements:\n"
-                f"1. Start with 🚀\n"
-                f"2. Include any important numbers or stats from the excerpt\n"
-                f"3. Include a chain-specific hashtag if a chain is mentioned\n"
-                f"4. Be detailed but still concise—pack multiple facts in one tweet\n"
-                f"5. Keep length under {current_max_tweet_length} characters.\n"
-            )
+        tweet_summary = bot.generate_response(prompt)
 
-            print("\n----------------------------------------")
-            print("           GENERATING SUMMARY")
-            print("----------------------------------------\n")
+        if tweet_summary:
+            # Print the tweet-style summary
+            print("Tweet Summary:\n")
+            print(tweet_summary)
+            
+            # After finishing summarizing, print the link to the article again
 
-            summary = bot.generate_response(prompt)
-
-            # Attempt to include the link
-            if summary and current_min_tweet_length <= len(summary) <= current_max_tweet_length:
-                candidate = f"{summary.strip()} {link}"
-                if len(candidate) > current_max_tweet_length:
-                    # Need to truncate the summary to make room for the link
-                    allowed_summary_length = current_max_tweet_length - (len(link) + 1)
-                    truncated_summary = candidate[:allowed_summary_length].rstrip()
-                    final_tweet = f"{truncated_summary} {link}"
-
-                    if len(final_tweet) > current_max_tweet_length:
-                        print("Even after truncation, we couldn't fit the link. Consider using a shorter link or summary.")
-                        return
-                    else:
-                        summary = final_tweet
-                else:
-                    summary = candidate
-
-                print("Here is the summarized tweet with the link:\n")
-                print(summary)
-                print(f"\nTweet length: {len(summary)} characters")
-            else:
-                print("No valid summary could be generated that met the length requirements.")
-                if summary:
-                    print(f"\nGenerated (but invalid): {summary}")
+            print(f"Read more: {url}")
+            
         else:
-            print("No article found. Please try again later.")
-
-    except Exception as e:
-        print(f"\nAn error occurred during the simulation: {str(e)}")
+            print("No tweet summary could be generated.")
+    else:
+        print("No article found at this time.")
 
     print("\n" + "="*80)
 
