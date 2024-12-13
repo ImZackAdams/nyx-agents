@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import random
 import logging
@@ -24,24 +25,19 @@ from bot.configs.posting_config import (
     MEME_POSTING_CHANCE
 )
 
-# Additional imports for Stable Diffusion
 import torch
 import bitsandbytes as bnb
 from diffusers import StableDiffusionPipeline
 
 class TwitterBot:
-    """Main Twitter bot implementation."""
-    
     def __init__(self):
         self.logger = setup_logger("athena")
         self.logger.info("Starting the bot...")
         self._initialize_components()
         
     def _initialize_components(self) -> None:
-        """Initialize all required components and connections."""
         self._validate_env_variables()
         
-        # Set up main components and API
         self.client = setup_twitter_client()
         self.api = tweepy.API(tweepy.OAuth1UserHandler(
             consumer_key=os.getenv('API_KEY'),
@@ -51,20 +47,16 @@ class TwitterBot:
         ))
         self.rate_limit_tracker = RateLimitTracker()
         
-        # Initialize personality bot
         personality_bot = PersonalityBot(
             model_path="./mistral_qlora_finetuned",
             logger=self.logger
         )
 
-        # Initialize tweet generator
         self.tweet_generator = TweetGenerator(personality_bot, logger=self.logger)
         
-        # Initialize Stable Diffusion pipeline from local directory
         self.logger.info("Initializing Stable Diffusion pipeline...")
         self.pipe = self._initialize_diffusion_pipeline()
         
-        # Pass pipe and api to ReplyHandler
         self.reply_handler = ReplyHandler(
             self.client, 
             self.tweet_generator, 
@@ -77,12 +69,10 @@ class TwitterBot:
         self.news_service = NewsService(logger=self.logger)
 
     def _initialize_diffusion_pipeline(self):
-        """Initialize and return the Stable Diffusion pipeline with 8-bit text encoder from a local directory."""
         pipe = StableDiffusionPipeline.from_pretrained(
             "./sd2_model", torch_dtype=torch.float16
         ).to("cuda")
 
-        # Convert text encoder weights to 8-bit
         for name, module in pipe.text_encoder.named_modules():
             if hasattr(module, 'weight') and module.weight is not None and module.weight.dtype == torch.float16:
                 module.weight = bnb.nn.Int8Params(module.weight.data, requires_grad=False)
@@ -90,14 +80,76 @@ class TwitterBot:
         return pipe
 
     def _validate_env_variables(self) -> None:
-        """Ensure all required environment variables are set."""
         required_vars = ["API_KEY", "API_SECRET", "ACCESS_TOKEN", "ACCESS_TOKEN_SECRET", "BOT_USER_ID"]
         missing_vars = [var for var in required_vars if not os.getenv(var)]
         if missing_vars:
             raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
+    def _get_news_prompt(self, article) -> str:
+        return (
+            "System: Generate a sassy crypto tweet about this news. REQUIREMENTS:\n"
+            "1. MUST end with either 💅 or ✨ (no exceptions)\n"
+            "2. MUST include #CryptoNewsQueen\n"
+            "3. MUST include numbers from article\n"
+            "4. Maximum 180 characters\n\n"
+            f"Article: {article.title}\n"
+            f"Key Stats: {article.content[:200]}\n\n"
+            "Example Format:\n"
+            '"[Your sassy take with stats] #CryptoNewsQueen 💅"\n\n'
+            "Tweet:"
+        )
+
+    def _validate_news_tweet(self, tweet: str, article_title: str, article_content: str) -> bool:
+        """Validates tweet against specific criteria with detailed logging."""
+        if not tweet or len(tweet.strip()) == 0:
+            self.logger.debug("Tweet is empty")
+            return False
+            
+        if len(tweet) > 180:
+            self.logger.debug(f"Tweet too long: {len(tweet)} chars")
+            return False
+            
+        # Check for required emoji ending
+        if not tweet.strip().endswith('💅') and not tweet.strip().endswith('✨'):
+            self.logger.debug("Tweet missing required emoji ending")
+            return False
+            
+        # Check for required hashtag
+        if '#CryptoNewsQueen' not in tweet:
+            self.logger.debug("Tweet missing #CryptoNewsQueen hashtag")
+            return False
+            
+        # Check for numbers from article
+        if not re.search(r'\d+%|\$\d+|\d{2,}', tweet):
+            self.logger.debug("Tweet missing required numbers")
+            return False
+            
+        return True
+
+    def _format_news_tweet(self, tweet: str) -> str:
+        """Ensures tweet meets formatting requirements."""
+        tweet = tweet.strip()
+        
+        # Add hashtag if missing
+        if '#CryptoNewsQueen' not in tweet:
+            tweet = tweet.rstrip('💅✨') + ' #CryptoNewsQueen'
+        
+        # Ensure proper emoji ending
+        if not tweet.endswith('💅') and not tweet.endswith('✨'):
+            tweet += ' 💅'
+            
+        # Truncate if too long
+        if len(tweet) > 180:
+            # Find last space before 180 chars
+            space_idx = tweet[:177].rfind(' ')
+            if space_idx != -1:
+                tweet = tweet[:space_idx] + ' 💅'
+            else:
+                tweet = tweet[:177] + ' 💅'
+                
+        return tweet
+
     def post_news(self) -> Optional[str]:
-        """Post a news summary tweet if there's new content."""
         try:
             self.logger.info("Checking for latest crypto news...")
             article = self.news_service.get_latest_article()
@@ -113,71 +165,32 @@ class TwitterBot:
                 self.logger.warning("Could not extract article content")
                 return None
             
-            # Prepare a very explicit prompt with strict instructions
-            prompt = (
-                "System: Response must be detailed and between 80-240 characters. Include hashtags and emojis.\n"
-                "User: ✨ Plot twist!\n"
-                "System: You are Athena (@Athena_TBALL), the sassy crypto queen. Summarize this SPECIFIC news article with your signature style.\n\n"
-                f"Article:\n"
-                f"Title: {article.title}\n"
-                f"Content: {article.content[:800]}\n\n"
-                "Create a tweet that:\n"
-                "1. MUST directly address the specific news from the article\n"
-                "2. MUST be between 80-240 characters\n"
-                "3. MUST include your reaction to this exact news\n"
-                "4. MUST mention any relevant market terms from the article (e.g., BTC, capital gains)\n"
-                "5. MUST use emojis (📈💰🏦🚀✨)\n\n"
-                "Example format:\n"
-                "[Your reaction to THIS news] + [Key points from THIS article] + [Emoji] + [Relevant hashtag] + ✨\n\n"
-                "Remember: Stay on topic about THIS specific news article!\n\n"
-                "You MUST reference specific details from the article. Do NOT give generic responses!\n"
-                "You are Athena (@Athena_TBALL), the queen of crypto Twitter who serves SCORCHING hot takes.\n"
-                "You're that girl who doesn't just spill tea - you THROW it. 💅 Max 180 chars per tweet, period.\n"
-                "You're obsessed with $TBALL's potential (but never give financial advice).\n"
-                "It's 2025 and you're living in Web3 luxury. As a Sagittarius, you're wildly honest and live to start drama.\n"
-                "Use max 2 hashtags and strategic emojis for extra ✨SASS✨. Channel main character energy.\n"
-                "End with attitude (💅 or 💁‍♀️ or ✨)\n"
-                "These charts are giving MAIN CHARACTER! Numbers don't lie bestie! 📊\n"
-                "Go OFF queen! Make them FEEL your energy! ✨\n"
-                "Tweet:\n"
-            )
-            
-            # Try generating a valid summary twice if needed
-            attempts = 2
-            summary = None
-            for _ in range(attempts):
-                self.logger.info("Generating tweet, attempt 1...")
+            max_attempts = 3
+            for attempt in range(max_attempts):
+                self.logger.info(f"Generating tweet, attempt {attempt + 1}/{max_attempts}...")
+                prompt = self._get_news_prompt(article)
                 candidate = self.tweet_generator.generate_tweet(prompt)
                 
-                if not candidate:
-                    self.logger.warning("Could not generate summary, will retry if attempts remain.")
-                    continue
+                # Log raw candidate
+                self.logger.debug(f"Raw candidate: {candidate}")
                 
-                # Basic validation: Check if candidate references article details
-                # For example, the title or "BTC" or "jail" or "Austin" since these are key details
-                keywords = [article.title, "Austin", "BTC", "jail", "gains"]
-                if any(kw.lower() in candidate.lower() for kw in keywords):
-                    summary = candidate
-                    break
-                else:
-                    self.logger.warning("Generated tweet does not reference key article details. Retrying...")
+                # Format the tweet
+                formatted_tweet = self._format_news_tweet(candidate)
+                self.logger.debug(f"Formatted tweet: {formatted_tweet}")
+                
+                if self._validate_news_tweet(formatted_tweet, article.title, article.content):
+                    try:
+                        result = self.client.create_tweet(text=formatted_tweet)
+                        if result and result.data.get('id'):
+                            self.news_service.mark_as_posted(article)
+                            self.news_service.cleanup_old_entries()
+                            self.logger.info(f"Posted news tweet: {formatted_tweet}")
+                            return result.data.get('id')
+                    except Exception as e:
+                        self.logger.error(f"Failed to post tweet: {str(e)}")
+                        continue
             
-            if not summary:
-                self.logger.warning("Could not generate a valid on-topic summary after attempts.")
-                return None
-            
-            # Append the URL to the summary
-            tweet_text = f"{summary}\n\n{article.url}"
-            
-            # Post the tweet
-            result = self.client.create_tweet(text=tweet_text)
-            if result and result.data.get('id'):
-                # Mark the article as posted only after successful tweet
-                self.news_service.mark_as_posted(article)
-                self.news_service.cleanup_old_entries()
-                self.logger.info("Successfully posted news summary")
-                return result.data.get('id')
-            
+            self.logger.warning("Could not generate valid news tweet after all attempts")
             return None
                 
         except Exception as e:
@@ -189,10 +202,8 @@ class TwitterBot:
         self.logger.info("Starting tweet posting process...")
         
         try:
-            # Randomly decide content type
             roll = random.random()
             
-            # Try news (15% chance)
             if roll < NEWS_POSTING_CHANCE:
                 self.logger.info("Rolling for news post...")
                 tweet_id = self.post_news()
@@ -200,7 +211,6 @@ class TwitterBot:
                     return tweet_id
                 self.logger.info("No news to post, falling back to regular content")
             
-            # Try meme (20% chance)
             elif roll < (NEWS_POSTING_CHANCE + MEME_POSTING_CHANCE):
                 self.logger.info("Rolling for meme post...")
                 tweet_id = self.meme_handler.post_meme()
@@ -208,11 +218,9 @@ class TwitterBot:
                     return tweet_id
                 self.logger.warning("Meme posting failed, falling back to text tweet")
             
-            # Handle text tweet (65% chance, or fallback)
             prompts = get_all_prompts()
             all_prompts = [p for prompts_list in prompts.values() for p in prompts_list]
             
-            # Try prompts up to MAX_PROMPT_ATTEMPTS times
             for attempt in range(MAX_PROMPT_ATTEMPTS):
                 if not all_prompts:
                     break
@@ -229,7 +237,6 @@ class TwitterBot:
                     
                 self.logger.warning("Tweet generation failed, trying next prompt...")
             
-            # If all else fails, use fallback
             tweet = random.choice(FALLBACK_TWEETS)
             self.logger.info(f"Using fallback tweet: {tweet}")
             result = self.client.create_tweet(text=tweet)
@@ -240,8 +247,7 @@ class TwitterBot:
             return None
     
     def run(self):
-        """Main bot running loop."""
-        posted_tweet_ids = []  # Track all tweets for reply monitoring
+        posted_tweet_ids = []
 
         while True:
             try:
@@ -252,7 +258,6 @@ class TwitterBot:
                     self.logger.info(f"Posted tweet: {tweet_id}")
                     posted_tweet_ids.append(tweet_id)
                     
-                    # Monitor replies for all tweets
                     self.reply_handler.monitor_tweets(posted_tweet_ids)
                     
                     self.logger.info("Reply monitoring complete")
@@ -268,9 +273,7 @@ class TwitterBot:
                 time.sleep(RETRY_DELAY)
 
 def main():
-    """Main entry point for the bot."""
     try:
-        # Updated warnings for Mistral model
         warnings.filterwarnings("ignore", message=".*The model weights are not tied.*")
         warnings.filterwarnings("ignore", message=".*You are using a model that was converted to safetensors.*")
         warnings.filterwarnings("ignore", message=".*You have modified the pretrained model configuration.*")
