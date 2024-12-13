@@ -6,6 +6,7 @@ import warnings
 import tweepy
 from typing import Optional
 from dotenv import load_dotenv
+
 from bot.bot import PersonalityBot
 from bot.utilities import setup_logger
 from bot.services.utils import setup_twitter_client
@@ -23,6 +24,10 @@ from bot.configs.posting_config import (
     MEME_POSTING_CHANCE
 )
 
+# Additional imports for Stable Diffusion
+import torch
+import bitsandbytes as bnb
+from diffusers import StableDiffusionPipeline
 
 class TwitterBot:
     """Main Twitter bot implementation."""
@@ -46,16 +51,43 @@ class TwitterBot:
         ))
         self.rate_limit_tracker = RateLimitTracker()
         
-        # Initialize personality bot with Mistral model
+        # Initialize personality bot
         personality_bot = PersonalityBot(
             model_path="./mistral_qlora_finetuned",
             logger=self.logger
         )
-        
+
+        # Initialize tweet generator
         self.tweet_generator = TweetGenerator(personality_bot, logger=self.logger)
-        self.reply_handler = ReplyHandler(self.client, self.tweet_generator, logger=self.logger)
+        
+        # Initialize Stable Diffusion pipeline
+        self.logger.info("Initializing Stable Diffusion pipeline...")
+        self.pipe = self._initialize_diffusion_pipeline()
+        
+        # Pass pipe and api to ReplyHandler
+        self.reply_handler = ReplyHandler(
+            self.client, 
+            self.tweet_generator, 
+            logger=self.logger,
+            pipe=self.pipe,
+            api=self.api
+        )
+
         self.meme_handler = MemeHandler(client=self.client, api=self.api, logger=self.logger)
         self.news_service = NewsService(logger=self.logger)
+
+    def _initialize_diffusion_pipeline(self):
+        """Initialize and return the Stable Diffusion pipeline with 8-bit text encoder."""
+        pipe = StableDiffusionPipeline.from_pretrained(
+            "runwayml/stable-diffusion-v1-5", torch_dtype=torch.float16
+        ).to("cuda")
+
+        # Convert text encoder weights to 8-bit
+        for name, module in pipe.text_encoder.named_modules():
+            if hasattr(module, 'weight') and module.weight is not None and module.weight.dtype == torch.float16:
+                module.weight = bnb.nn.Int8Params(module.weight.data, requires_grad=False)
+        
+        return pipe
 
     def _validate_env_variables(self) -> None:
         """Ensure all required environment variables are set."""
