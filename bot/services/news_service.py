@@ -1,9 +1,11 @@
+import json
+import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 import feedparser
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
-from typing import Optional, Tuple
+from typing import Optional, Dict
 from urllib.parse import urlparse, urlunparse
 import random
 
@@ -15,16 +17,60 @@ class Article:
     published_at: Optional[datetime] = None
 
 class NewsService:
+    """Service for fetching and processing crypto news articles."""
+    
     FEED_URLS = [
         "https://www.coindesk.com/arc/outboundfeeds/rss/?",
         "https://cointelegraph.com/rss"
     ]
     
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, storage_file: str = "posted_articles.json"):
         self.logger = logger
+        self.storage_file = storage_file
+        self.posted_articles: Dict[str, str] = {}
+        self._load_posted_articles()
+    
+    def _load_posted_articles(self) -> None:
+        """Load previously posted articles from storage."""
+        if os.path.exists(self.storage_file):
+            try:
+                with open(self.storage_file, 'r') as f:
+                    self.posted_articles = json.load(f)
+            except Exception as e:
+                if self.logger:
+                    self.logger.error(f"Error loading posted articles: {e}")
+                self.posted_articles = {}
+    
+    def _save_posted_articles(self) -> None:
+        """Save posted articles to storage."""
+        try:
+            with open(self.storage_file, 'w') as f:
+                json.dump(self.posted_articles, f)
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Error saving posted articles: {e}")
+    
+    def is_article_posted(self, url: str) -> bool:
+        """Check if an article has been posted before."""
+        return url in self.posted_articles
+    
+    def mark_as_posted(self, article: Article) -> None:
+        """Mark an article as posted."""
+        self.posted_articles[article.url] = datetime.now().isoformat()
+        self._save_posted_articles()
+    
+    def cleanup_old_entries(self, days: int = 30) -> None:
+        """Remove entries older than specified days."""
+        cutoff = datetime.now() - timedelta(days=days)
+        self.posted_articles = {
+            url: timestamp
+            for url, timestamp in self.posted_articles.items()
+            if datetime.fromisoformat(timestamp) > cutoff
+        }
+        self._save_posted_articles()
     
     def get_latest_article(self) -> Optional[Article]:
-        """Fetch the latest article from configured RSS feeds."""
+        """Fetch the latest unposted article from configured RSS feeds."""
         latest_article = None
         latest_time = None
         
@@ -35,6 +81,14 @@ class NewsService:
                     continue
                     
                 for entry in feed.entries:
+                    # Skip if we've already posted this article
+                    article_url = entry.get('link', '')
+                    parsed = urlparse(article_url)
+                    clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
+                    
+                    if self.is_article_posted(clean_url):
+                        continue
+                    
                     pub_time = entry.get('published_parsed') or entry.get('updated_parsed')
                     if pub_time and (latest_time is None or pub_time > latest_time):
                         latest_time = pub_time
@@ -131,7 +185,7 @@ class NewsService:
         paragraphs = container.find_all("p")
         text = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
         return text.strip() if text.strip() else None
-
+    
     def generate_summary_prompt(self, article: Article, style_config) -> str:
         """Generate the summary prompt using the style configuration."""
         min_len, max_len = style_config.get_length_constraints()
