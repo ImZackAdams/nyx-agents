@@ -31,12 +31,12 @@ def setup_logger(name):
 @dataclass
 class GenerationConfig:
     """Configuration for text generation parameters"""
-    max_new_tokens: int = 75  # Reduced to force conciseness
-    min_new_tokens: int = 30  # Reduced to avoid fluff
-    temperature: float = 0.3  # Reduced significantly to stay on topic
-    top_k: int = 20  # Reduced for more focused output
-    top_p: float = 0.8  # Reduced for more conservative sampling
-    repetition_penalty: float = 1.5  # Increased to avoid repetition
+    max_new_tokens: int = 75   # Force conciseness
+    min_new_tokens: int = 30   # Avoid very short outputs
+    temperature: float = 0.3   # Keep low for more controlled output
+    top_k: int = 20            # Reduced for more focused output
+    top_p: float = 0.8         # More conservative sampling
+    repetition_penalty: float = 1.5 # Avoid repetition
 
 class StyleConfig:
     @staticmethod
@@ -111,20 +111,10 @@ class ModelManager:
         return model, tokenizer
 
     def generate(self, context: str) -> str:
+        """Generate text from the provided context (prompt)."""
         try:
-            system_prefix = """You are a crypto news bot. Extract and summarize ONLY the main headline from the article title. Rules:
-1. Start with 🚀 for positive growth news
-2. Must include ALL specific numbers mentioned in the title
-3. Focus ONLY on the main story about developer growth/adoption
-4. REQUIRED hashtags for any chains mentioned
-5. Keep to NEWS HEADLINE style - clear, direct statement
-6. ONLY discuss the main news point, no secondary details
-7. Maximum 180 characters (to leave room for hashtags)"""
-            
-            context_with_constraint = f"{system_prefix}\n\n{context}"
-            
             inputs = self.tokenizer(
-                context_with_constraint,
+                context,
                 return_tensors="pt",
                 truncation=True,
                 padding=True,
@@ -153,8 +143,9 @@ class ModelManager:
                 clean_up_tokenization_spaces=True
             ).strip()
             
-            # Smart tweet cleanup
+            # Length check/trim if needed
             if len(generated_text) > 280:
+                # Try trimming at punctuation
                 for punct in ['. ', '! ', '? ']:
                     last_break = generated_text[:280].rfind(punct)
                     if last_break != -1:
@@ -163,11 +154,12 @@ class ModelManager:
                 if len(generated_text) > 280:
                     generated_text = generated_text[:277] + "..."
             
-            # Smart hashtag addition
+            # Add chain-specific hashtags if mentioned
             if 'solana' in generated_text.lower() and '#solana' not in generated_text.lower():
                 generated_text += " #Solana"
             if 'ethereum' in generated_text.lower() and '#eth' not in generated_text.lower():
                 generated_text += " #ETH"
+            # If no known chain hashtag present, add #crypto
             if not any(tag in generated_text.lower() for tag in ['#solana', '#eth', '#btc']):
                 generated_text += " #crypto"
             
@@ -191,26 +183,12 @@ class PersonalityBot:
     def __init__(self, model_path: str, logger: Optional[logging.Logger] = None, style_config: StyleConfig = None):
         self.model_manager = ModelManager(model_path, logger=logger)
         self.style_config = style_config or StyleConfig.default()
-        self.recent_openers = []
-        self.max_history = 10
-
-    def _prepare_context(self, prompt: str) -> str:
-        opener = random.choice([op for op in self.style_config.openers 
-                              if op not in self.recent_openers])
-        self.recent_openers.append(opener)
-        if len(self.recent_openers) > self.max_history:
-            self.recent_openers.pop(0)
-        
-        return f"{opener} {prompt}"
 
     def generate_response(self, prompt: str) -> str:
         if not prompt.strip():
             return ""
-
         try:
-            context = self._prepare_context(prompt)
-            return self.model_manager.generate(context)
-
+            return self.model_manager.generate(prompt)
         except Exception as e:
             print(f"❌ Error generating response: {e}")
             return ""
@@ -238,7 +216,6 @@ def get_full_article_text(url):
     for element in soup.find_all(['script', 'style', 'nav', 'header', 'footer']):
         element.decompose()
 
-    # Try different selectors to find the article content
     content_selectors = [
         ('article', None),
         ('main', None),
@@ -251,38 +228,15 @@ def get_full_article_text(url):
     for tag, class_name in content_selectors:
         container = soup.find(tag, class_=class_name) if class_name else soup.find(tag)
         if container:
-            # Get all text blocks
             text_blocks = []
             for p in container.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
                 text = p.get_text(strip=True)
-                if text and len(text) > 20:  # Filter out short snippets
+                if text and len(text) > 20:
                     text_blocks.append(text)
-            
             if text_blocks:
                 return "\n\n".join(text_blocks)
 
     return "Could not find main content. Try updating selectors."
-
-def create_summary_prompt(article_text, title):
-    return f"""WRITE ONE TWEET ABOUT THIS EXACT HEADLINE:
-
-{title}
-
-REQUIRED FORMAT:
-🚀 [Main News Fact] + [Key Number/Metric] #Hashtags
-
-EXAMPLE GOOD TWEETS:
-"🚀 Solana leads crypto dev growth in 2024 with massive 83% surge in new developers #Solana"
-"🚀 Ethereum hits new milestone with 5,000 monthly active developers in Q4 2024 #ETH"
-
-Rules:
-1. USE THE EXACT NUMBERS from the title/first paragraph
-2. Focus ONLY on developer growth/numbers
-3. Chain-specific hashtags required
-4. ONE clear statement, no extra details
-5. Maximum 180 chars (leaves room for hashtags)
-
-Generate ONE tweet that captures ONLY the headline news about developer activity."""
 
 def simulate_bot_responses():
     print("\n" + "="*80)
@@ -312,51 +266,37 @@ def simulate_bot_responses():
             print("\n📝 Extracting content...")
             full_content = get_full_article_text(link)
             
-            if "Could not find main content" in full_content or full_content.startswith("Failed to"):
-                print("❌ Error: Could not retrieve article content")
-                return
-            
-            prompt = create_summary_prompt(full_content, title)
-            
-            print("\n🎯 GENERATING SUMMARIES")
-            print("-" * 40)
-            
-            summaries = []
-            for attempt in range(3):
-                print(f"\nAttempt {attempt + 1}:")
-                summary = bot.generate_response(prompt)
-                if summary and 50 <= len(summary) <= 280:
-                    print(f"{summary}")
-                    print(f"Length: {len(summary)} characters")
-                    print("-" * 40)
-                    summaries.append(summary)
-            
-            if summaries:
-                # Score summaries based on relevance and quality
-                def score_summary(summary):
-                    score = 0
-                    if any(chain in summary.lower() for chain in ['solana', 'ethereum', 'btc']):
-                        score += 1
-                    if any(tag in summary for tag in ['#Solana', '#ETH', '#BTC']):
-                        score += 1
-                    if any(char.isdigit() for char in summary):
-                        score += 1
-                    if 'developer' in summary.lower() or 'dev' in summary.lower():
-                        score += 1
-                    return score
+            # We don't really need the full article text for the final summary, 
+            # just the title as per instructions.
 
-                best_summary = max(summaries, key=score_summary)
-                
-                print("\n✨ BEST GENERATED TWEET")
+            if "Could not find main content" in full_content or full_content.startswith("Failed to"):
+                print("❌ Error: Could not retrieve article content (but we only really need the title).")
+
+            # Strict and clear instructions:
+            instructions = """You are a crypto news headline summarizer bot.
+Your goal: Given the article title, output ONE tweet.
+Requirements:
+1. Start with "🚀"
+2. Include ALL specific numbers mentioned in the title (years, counts, etc.)
+3. Focus ONLY on developer growth/adoption from the title.
+4. Include chain-specific hashtags if a chain is mentioned (e.g., #Solana)
+5. Be a single, clear NEWS HEADLINE style statement, no extra fluff.
+6. Under 180 characters total.
+7. No extra commentary, return only the final headline.
+"""
+            prompt = f"{instructions}\n\nArticle Title: {title}\n\nHeadline:"
+
+            print("\n🎯 GENERATING SUMMARY")
+            print("-" * 40)
+
+            summary = bot.generate_response(prompt)
+            if summary and 50 <= len(summary) <= 280 and summary.startswith("🚀"):
+                print(f"{summary}")
+                print(f"Length: {len(summary)} characters")
                 print("-" * 40)
-                print(f"{best_summary}")
-                print(f"\nCharacter count: {len(best_summary)}/280")
-                
-                hashtags = ' '.join(word for word in best_summary.split() if word.startswith('#'))
-                if hashtags:
-                    print(f"Hashtags used: {hashtags}")
             else:
-                print("\n❌ No valid summaries generated")
+                print("❌ No valid summary generated or did not follow instructions.")
+                print(f"Generated: {summary}")
         else:
             print("❌ No article found")
 
