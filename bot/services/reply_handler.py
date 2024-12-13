@@ -85,31 +85,91 @@ class ReplyHandler:
         text_lower = text.lower()
         return "generate image" in text_lower or "make an image" in text_lower
 
+    import re
+
     def _extract_prompt(self, text: str) -> str:
         """
-        Extract the prompt from the user's reply.
-        Assumes the text contains a trigger phrase like "generate image" or "make an image".
-        
-        Example:
-        "@YourBot Please generate image of a golden retriever playing chess"
-        => prompt: "a golden retriever playing chess"
+        Extracts the prompt from the user's message by identifying a wide range of trigger phrases
+        that indicate the user wants to generate an image or something visually represented.
+
+        The function:
+        - Strips out bot mentions (e.g., "@YourBot")
+        - Looks for any combination of synonyms and phrases that mean:
+        "generate/make/create/show/draw/render/illustrate/etc. me an/a/the image/picture/photo/etc. of/about X"
+        - Returns the substring after that trigger phrase as the prompt.
+
+        Examples:
+        "@YourBot Please generate an image of a golden retriever playing chess"
+            => "a golden retriever playing chess"
+
+        "@YourBot Could you show me a picture featuring a futuristic city?"
+            => "a futuristic city"
+
+        "make me a drawing of an alien landscape"
+            => "an alien landscape"
+
+        Customization:
+        To add or remove synonyms, simply update `verb_synonyms` or `image_synonyms`.
         """
+
         # Remove bot mentions
         text = re.sub(r"@\w+", "", text).strip()
 
-        # Remove the trigger phrases
-        triggers = ["generate image of", "generate image", "make an image of", "make an image"]
-        for trigger in triggers:
-            if trigger in text.lower():
-                # Find the index where trigger phrase ends and extract the rest
-                idx = text.lower().find(trigger)
-                # Extract the substring after the trigger
-                prompt_part = text[idx + len(trigger):].strip()
-                return prompt_part
+        # Define sets of synonyms. We use a large set to cover many user phrasings.
+        # The pattern aims to capture phrases like:
+        # - generate me an image of
+        # - create a picture about
+        # - show me a photo featuring
+        # - produce an illustration depicting
+        # - etc.
+        verb_synonyms = (
+            "generate", "make", "create", "produce", "show", "render", "draw", 
+            "illustrate", "visualize", "depict", "design", "conjure", "whip(?: up)?", 
+            "come up with", "show me", "give me", "get me", "craft"
+        )
+        image_synonyms = (
+            "image", "picture", "photo", "artwork", "drawing", "illustration", 
+            "sketch", "graphic", "portrait", "photograph"
+        )
+        
+        # Prepositions or linking words that might appear after "image/picture"
+        # like "of", "about", "featuring", "depicting".
+        # This makes the pattern more flexible.
+        linking_words = "(?:of|about|featuring|depicting|showing|portraying)?"
 
-        # If no specific trigger found but we matched _is_image_request,
-        # return the text after removing known phrases.
+        # Optional words before the noun: e.g., "an image", "a picture", "the photo"
+        optional_articles = "(?:me )?(?:an? |the )?"
+
+        # Build the regex pattern dynamically from synonyms
+        # We join them using `|` to create a single capturing group that can match any synonym.
+        verb_pattern = "(?:" + "|".join(verb_synonyms) + ")"
+        image_pattern = "(?:" + "|".join(image_synonyms) + ")"
+
+        # Construct the full trigger pattern:
+        # Explanation:
+        # - `verb_pattern`: Matches any of the verb synonyms.
+        # - `(?: me)?`: The word "me" might appear after the verb, e.g., "show me".
+        # - `optional_articles`: Matches optional "me", "an", "a", or "the".
+        # - `image_pattern`: Matches any of the image synonyms.
+        # - `(?: " + linking_words + ")`: Matches an optional linking word (of, about, featuring...)
+        # - We allow some whitespace flexibility `\s+` around optional parts.
+        trigger_regex = rf"({verb_pattern})\s*(?:me\s*)?(?:an?\s*|the\s*)?({image_pattern})\s*(?:{linking_words})\s*"
+
+        # Compile the regex as case-insensitive.
+        trigger_pattern = re.compile(trigger_regex, re.IGNORECASE)
+
+        # Search for the first occurrence of the trigger phrase in the text
+        match = trigger_pattern.search(text)
+        if match:
+            # Extract everything after the matched phrase
+            # `match.end()` gives the index in `text` right after the matched portion.
+            prompt_part = text[match.end():].strip()
+            return prompt_part
+
+        # If no trigger was found, we can simply return the original text as a fallback,
+        # or handle it differently if needed.
         return text
+
 
     def _reply_with_image(self, prompt: str, reply_to_tweet_id: str):
         """
@@ -134,7 +194,7 @@ class ReplyHandler:
                 os.remove(temp_filename)
             return
 
-        reply_text = "Here's your image! ✨"
+        reply_text = ""
         result = self.client.create_tweet(
             text=reply_text,
             media_ids=[media.media_id],

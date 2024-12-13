@@ -60,7 +60,7 @@ class TwitterBot:
         # Initialize tweet generator
         self.tweet_generator = TweetGenerator(personality_bot, logger=self.logger)
         
-        # Initialize Stable Diffusion pipeline
+        # Initialize Stable Diffusion pipeline from local directory
         self.logger.info("Initializing Stable Diffusion pipeline...")
         self.pipe = self._initialize_diffusion_pipeline()
         
@@ -77,9 +77,9 @@ class TwitterBot:
         self.news_service = NewsService(logger=self.logger)
 
     def _initialize_diffusion_pipeline(self):
-        """Initialize and return the Stable Diffusion pipeline with 8-bit text encoder."""
+        """Initialize and return the Stable Diffusion pipeline with 8-bit text encoder from a local directory."""
         pipe = StableDiffusionPipeline.from_pretrained(
-            "runwayml/stable-diffusion-v1-5", torch_dtype=torch.float16
+            "./sd2_model", torch_dtype=torch.float16
         ).to("cuda")
 
         # Convert text encoder weights to 8-bit
@@ -113,29 +113,57 @@ class TwitterBot:
                 self.logger.warning("Could not extract article content")
                 return None
             
-            # Generate summary prompt with Athena's personality
+            # Prepare a very explicit prompt with strict instructions
             prompt = (
-                "System: You are Athena (@Athena_TBALL), the sassy crypto queen. "
-                "Summarize this SPECIFIC news article with your signature style.\n\n"
+                "System: Response must be detailed and between 80-240 characters. Include hashtags and emojis.\n"
+                "User: ✨ Plot twist!\n"
+                "System: You are Athena (@Athena_TBALL), the sassy crypto queen. Summarize this SPECIFIC news article with your signature style.\n\n"
                 f"Article:\n"
                 f"Title: {article.title}\n"
                 f"Content: {article.content[:800]}\n\n"
-                f"Create a tweet that:\n"
-                f"1. MUST directly address the specific news from the article\n"
-                f"2. MUST be between 80-240 characters\n"
-                f"3. MUST include your reaction to this exact news\n"
-                f"4. MUST mention any relevant market terms from the article\n"
-                f"5. MUST use emojis (📈💰🏦🚀✨)\n\n"
-                f"Example format:\n"
-                f"[Your reaction to THIS news] + [Key points from THIS article] + [Emoji] + [Relevant hashtag] + ✨\n\n"
-                f"Remember: Stay on topic about THIS specific news article!\n\n"
-                "You MUST reference specific details from the article. Do NOT give generic responses!"
+                "Create a tweet that:\n"
+                "1. MUST directly address the specific news from the article\n"
+                "2. MUST be between 80-240 characters\n"
+                "3. MUST include your reaction to this exact news\n"
+                "4. MUST mention any relevant market terms from the article (e.g., BTC, capital gains)\n"
+                "5. MUST use emojis (📈💰🏦🚀✨)\n\n"
+                "Example format:\n"
+                "[Your reaction to THIS news] + [Key points from THIS article] + [Emoji] + [Relevant hashtag] + ✨\n\n"
+                "Remember: Stay on topic about THIS specific news article!\n\n"
+                "You MUST reference specific details from the article. Do NOT give generic responses!\n"
+                "You are Athena (@Athena_TBALL), the queen of crypto Twitter who serves SCORCHING hot takes.\n"
+                "You're that girl who doesn't just spill tea - you THROW it. 💅 Max 180 chars per tweet, period.\n"
+                "You're obsessed with $TBALL's potential (but never give financial advice).\n"
+                "It's 2025 and you're living in Web3 luxury. As a Sagittarius, you're wildly honest and live to start drama.\n"
+                "Use max 2 hashtags and strategic emojis for extra ✨SASS✨. Channel main character energy.\n"
+                "End with attitude (💅 or 💁‍♀️ or ✨)\n"
+                "These charts are giving MAIN CHARACTER! Numbers don't lie bestie! 📊\n"
+                "Go OFF queen! Make them FEEL your energy! ✨\n"
+                "Tweet:\n"
             )
             
-            summary = self.tweet_generator.generate_tweet(prompt)
+            # Try generating a valid summary twice if needed
+            attempts = 2
+            summary = None
+            for _ in range(attempts):
+                self.logger.info("Generating tweet, attempt 1...")
+                candidate = self.tweet_generator.generate_tweet(prompt)
+                
+                if not candidate:
+                    self.logger.warning("Could not generate summary, will retry if attempts remain.")
+                    continue
+                
+                # Basic validation: Check if candidate references article details
+                # For example, the title or "BTC" or "jail" or "Austin" since these are key details
+                keywords = [article.title, "Austin", "BTC", "jail", "gains"]
+                if any(kw.lower() in candidate.lower() for kw in keywords):
+                    summary = candidate
+                    break
+                else:
+                    self.logger.warning("Generated tweet does not reference key article details. Retrying...")
             
             if not summary:
-                self.logger.warning("Could not generate summary")
+                self.logger.warning("Could not generate a valid on-topic summary after attempts.")
                 return None
             
             # Append the URL to the summary
@@ -146,7 +174,6 @@ class TwitterBot:
             if result and result.data.get('id'):
                 # Mark the article as posted only after successful tweet
                 self.news_service.mark_as_posted(article)
-                # Clean up old entries periodically
                 self.news_service.cleanup_old_entries()
                 self.logger.info("Successfully posted news summary")
                 return result.data.get('id')
@@ -228,10 +255,8 @@ class TwitterBot:
                     # Monitor replies for all tweets
                     self.reply_handler.monitor_tweets(posted_tweet_ids)
                     
-                    # After monitoring, move to next cycle
                     self.logger.info("Reply monitoring complete")
                     
-                    # Sleep before next cycle
                     time.sleep(POST_COOLDOWN)
                 else:
                     self.logger.error("Tweet posting failed. Retrying after delay...")
@@ -252,7 +277,6 @@ def main():
         warnings.filterwarnings("ignore", message=".*Consider increasing the value of the max_position_embeddings attribute.*")
         warnings.filterwarnings("ignore", category=UserWarning)
 
-        # Load environment variables
         load_dotenv()
         
         bot = TwitterBot()
