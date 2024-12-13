@@ -1,5 +1,6 @@
 import os
 import sys
+import random
 import warnings
 from pathlib import Path
 import feedparser
@@ -101,9 +102,38 @@ def extract_paragraphs(container):
     text = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
     return text.strip() if text.strip() else None
 
+def generate_summary(title, excerpt, config):
+    """
+    Generate a summary based on the style configuration
+    """
+    min_len, max_len = config.get_length_constraints()
+    personality = config.get_personality_prompt()
+    hooks = config.get_appropriate_hooks()
+    hook = random.choice(hooks) if hooks else ""
+    
+    # Combined prompt with clear instructions
+    prompt = (
+        f"System: You are summarizing a crypto news article. "
+        f"Response must be {min_len}-{max_len} characters, "
+        f"include at least one hashtag and emoji, and focus on the key points.\n\n"
+        f"{personality}\n\n"
+        f"Article to summarize:\n"
+        f"Title: {title}\n\n"
+        f"Content:\n{excerpt}\n\n"
+        f"Create a single summary that:\n"
+        f"1. Captures the key points\n"
+        f"2. Uses appropriate market terms\n"
+        f"3. Includes strategic emojis\n"
+        f"4. Ends with a relevant hashtag"
+    )
+    
+    return prompt
+    
+    return prompt
+
 def simulate_bot_responses():
     print("\n" + "="*80)
-    print("  CRYPTO NEWS HEADLINE SUMMARIZER - TWEET FORMAT")
+    print("  CRYPTO NEWS HEADLINE SUMMARIZER")
     print("="*80 + "\n")
 
     model_path = "./mistral_qlora_finetuned"
@@ -130,20 +160,12 @@ def simulate_bot_responses():
         # We'll just provide a brief excerpt to keep it focused
         excerpt = full_content[:800] if full_content and isinstance(full_content, str) else ""
 
-        # Create a style config instance
+        # Create a style config instance and enable summarization mode
         config = StyleConfig.default()
         config.is_summarizing = True
 
-        # Updated prompt for a concise tweet that meets the character requirements
-        prompt = (
-            "You are Athena, a knowledgeable crypto analyst. "
-            "Summarize the following excerpt into a single tweet that is:\n"
-            "- At least 80 characters and under 280 characters\n"
-            "- Includes at least one hashtag and one emoji\n"
-            "- Presents the key point of the news in a punchy, engaging style\n\n"
-            f"Title: {title}\n\n"
-            f"Article Excerpt:\n{excerpt}"
-        )
+        # Generate the prompt using the style configuration
+        prompt = generate_summary(title, excerpt, config)
 
         print("\n----------------------------------------")
         print("         GENERATING TWEET SUMMARY")
@@ -152,16 +174,11 @@ def simulate_bot_responses():
         tweet_summary = bot.generate_response(prompt)
 
         if tweet_summary:
-            # Print the tweet-style summary
-            print("Tweet Summary:\n")
-            print(tweet_summary)
-            
-            # After finishing summarizing, print the link to the article again
-
-            print(f"Read more: {url}")
-            
+            # Print just the summary and link, no extra labels
+            print(tweet_summary.strip())
+            print(f"\n{url}")
         else:
-            print("No tweet summary could be generated.")
+            print("No summary could be generated.")
     else:
         print("No article found at this time.")
 
