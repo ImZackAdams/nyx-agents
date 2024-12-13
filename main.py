@@ -14,10 +14,13 @@ from bot.prompts import get_all_prompts, FALLBACK_TWEETS
 from bot.services.tweet_generator import TweetGenerator
 from bot.services.reply_handler import ReplyHandler
 from bot.services.meme_handler import MemeHandler
+from bot.services.news_service import NewsService
 from bot.configs.posting_config import (
     POST_COOLDOWN,
     RETRY_DELAY,
-    MAX_PROMPT_ATTEMPTS
+    MAX_PROMPT_ATTEMPTS,
+    NEWS_POSTING_CHANCE,
+    MEME_POSTING_CHANCE
 )
 
 
@@ -45,13 +48,14 @@ class TwitterBot:
         
         # Initialize personality bot with Mistral model
         personality_bot = PersonalityBot(
-            model_path="./mistral_qlora_finetuned",  # Updated path to your fine-tuned model
+            model_path="./mistral_qlora_finetuned",
             logger=self.logger
         )
         
         self.tweet_generator = TweetGenerator(personality_bot, logger=self.logger)
         self.reply_handler = ReplyHandler(self.client, self.tweet_generator, logger=self.logger)
         self.meme_handler = MemeHandler(client=self.client, api=self.api, logger=self.logger)
+        self.news_service = NewsService(logger=self.logger)
 
     def _validate_env_variables(self) -> None:
         """Ensure all required environment variables are set."""
@@ -60,20 +64,92 @@ class TwitterBot:
         if missing_vars:
             raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
+    def post_news(self) -> Optional[str]:
+        """Post a news summary tweet if there's new content."""
+        try:
+            self.logger.info("Checking for latest crypto news...")
+            article = self.news_service.get_latest_article()
+            
+            if not article:
+                self.logger.info("No new articles found")
+                return None
+                    
+            self.logger.info(f"Found article: {article.title}")
+            article.content = self.news_service.get_article_content(article.url)
+            
+            if not article.content:
+                self.logger.warning("Could not extract article content")
+                return None
+            
+            # Generate summary prompt with Athena's personality
+            prompt = (
+                "System: You are Athena (@Athena_TBALL), the sassy crypto queen. "
+                "Summarize this SPECIFIC news article with your signature style.\n\n"
+                f"Article:\n"
+                f"Title: {article.title}\n"
+                f"Content: {article.content[:800]}\n\n"
+                f"Create a tweet that:\n"
+                f"1. MUST directly address the specific news from the article\n"
+                f"2. MUST be between 80-240 characters\n"
+                f"3. MUST include your reaction to this exact news\n"
+                f"4. MUST mention any relevant market terms from the article\n"
+                f"5. MUST use emojis (📈💰🏦🚀✨)\n\n"
+                f"Example format:\n"
+                f"[Your reaction to THIS news] + [Key points from THIS article] + [Emoji] + [Relevant hashtag] + ✨\n\n"
+                f"Remember: Stay on topic about THIS specific news article!\n\n"
+                "You MUST reference specific details from the article. Do NOT give generic responses!"
+            )
+            
+            summary = self.tweet_generator.generate_tweet(prompt)
+            
+            if not summary:
+                self.logger.warning("Could not generate summary")
+                return None
+            
+            # Append the URL to the summary
+            tweet_text = f"{summary}\n\n{article.url}"
+            
+            # Post the tweet
+            result = self.client.create_tweet(text=tweet_text)
+            if result and result.data.get('id'):
+                # Mark the article as posted only after successful tweet
+                self.news_service.mark_as_posted(article)
+                # Clean up old entries periodically
+                self.news_service.cleanup_old_entries()
+                self.logger.info("Successfully posted news summary")
+                return result.data.get('id')
+            
+            return None
+                
+        except Exception as e:
+            self.logger.error(f"Error posting news: {str(e)}", exc_info=True)
+            return None
+
     def post_tweet(self) -> Optional[str]:
-        """Post a new tweet, either text or meme."""
+        """Post a new tweet - randomly choose between news, meme, or text."""
         self.logger.info("Starting tweet posting process...")
         
         try:
-            # Check if we should post a meme
-            if self.meme_handler.should_post_meme():
-                self.logger.info("Attempting to post a meme...")
+            # Randomly decide content type
+            roll = random.random()
+            
+            # Try news (15% chance)
+            if roll < NEWS_POSTING_CHANCE:
+                self.logger.info("Rolling for news post...")
+                tweet_id = self.post_news()
+                if tweet_id:
+                    return tweet_id
+                self.logger.info("No news to post, falling back to regular content")
+            
+            # Try meme (20% chance)
+            elif roll < (NEWS_POSTING_CHANCE + MEME_POSTING_CHANCE):
+                self.logger.info("Rolling for meme post...")
                 tweet_id = self.meme_handler.post_meme()
                 if tweet_id:
                     return tweet_id
                 self.logger.warning("Meme posting failed, falling back to text tweet")
             
-            # Handle text tweet
+            # Handle text tweet (65% chance, or fallback)
             prompts = get_all_prompts()
             all_prompts = [p for prompts_list in prompts.values() for p in prompts_list]
             
@@ -94,7 +170,7 @@ class TwitterBot:
                     
                 self.logger.warning("Tweet generation failed, trying next prompt...")
             
-            # If all prompts fail, use fallback
+            # If all else fails, use fallback
             tweet = random.choice(FALLBACK_TWEETS)
             self.logger.info(f"Using fallback tweet: {tweet}")
             result = self.client.create_tweet(text=tweet)
@@ -103,7 +179,7 @@ class TwitterBot:
         except Exception as e:
             self.logger.error(f"Error posting tweet: {str(e)}", exc_info=True)
             return None
-
+    
     def run(self):
         """Main bot running loop."""
         posted_tweet_ids = []  # Track all tweets for reply monitoring
@@ -122,6 +198,9 @@ class TwitterBot:
                     
                     # After monitoring, move to next cycle
                     self.logger.info("Reply monitoring complete")
+                    
+                    # Sleep before next cycle
+                    time.sleep(POST_COOLDOWN)
                 else:
                     self.logger.error("Tweet posting failed. Retrying after delay...")
                     time.sleep(RETRY_DELAY)
