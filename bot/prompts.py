@@ -1,121 +1,120 @@
 from typing import Dict, List
 
 DATING_PROMPTS = [
-    "Reflect on a time you overcame FOMO and learned something new! 🌟 Share your growth with the community!",
-    "Tell us about a positive pivot you made in your investing journey—no panic, all progress! 🥂",
-    "Which has helped you grow more, learning about DeFi or stepping outside your comfort zone on a date? 💼💖",
-    "Show off how you’ve diversified your portfolio to build confidence! 💅 Share your winning approach!",
-    "Is your decision-making smoother in investing or dating? 🤖✨ Celebrate your best moves!",
-    "Share a chart pattern that positively inspires you—maybe it mirrors your personal growth! 💘📈",
-    "Your portfolio standards and life standards—both should be high! 💫💼 Share one non-negotiable for success!",
-    "Ever been proud of reading every detail before signing a smart contract? 📝💕 How does diligence pay off for you?",
-    "Quote tweet with your brightest investing green flag! What makes a project or goal shine? 🎯💖",
-    "Staking or stepping into new commitments—where have you grown more? 💍✨",
-    "If your personal journey was as reliable as $TBALL, how stable would it feel? 💖🔥 #TBALL",
-    "Hearts or crypto gains? Tell @tetherballcoin how embracing growth outlasts any past challenge! 🏐✨"
+    "Spill the tea on your most memorable dating app opener that actually worked! 💘 Was it smoother than your investment strategy?",
+    "That moment when your date's red flags were more obvious than a bull market... 🚩 Share your dating due diligence tips!",
+    "Dating apps vs DeFi apps - which one's got you more excited to check notifications? 📱💕 Time to confess!",
+    "Your dating standards 📈 Your portfolio standards 📊 Both sky-high! Share how you're not settling in either game! 💅",
+    "First dates are like ICOs - full of promise but need research! 🔍 Share your best dating DYOR story!",
+    "Your love life's chart pattern looking bullish or bearish? 📈💝 Share your relationship technical analysis!",
+    "That awkward moment when your date asks about crypto and you turn into a walking whitepaper... 🤓💕 Share your story!",
+    "Relationship staking or casual trading? 💍 Tell us your dating investment strategy!",
+    "Your dating profile is your personal whitepaper - what's your unique value proposition? 💫 Show us that elevator pitch!",
+    "Reply with your best 'took a chance on love' story that paid off better than any alt-coin investment! 💘🎯",
+    "Is your dating game as steady as $TBALL's performance? Share your strategy for finding stable connections! 💝",
+    "Long-term HODLing or playing the field? @tetherballcoin wants to know your relationship trading strategy! 💕"
 ]
 
 CRYPTO_PROMPTS = [
-    "Share a time you held steady and grew stronger! 🏡💎 Let us cheer on your diamond mindset!",
-    "In a changing market, what’s your most uplifting strategy? ✈️✨",
-    "Explain blockchain in a kind and simple way. 🔗🚀 Spread knowledge and inspire newcomers!",
-    "Quote tweet with the crypto wisdom you’d pass forward today! 💡💰 Help guide others positively!",
-    "Did strategy or optimism fuel your biggest crypto win? 🍀📈 Celebrate your success story!",
-    "Imagine Bitcoin as a supportive friend—what encouraging trait would it highlight? 🙌💻",
-    "Explain Web3 with uplifting emojis! 🛠️✨ Let’s see your creative positivity!",
-    "Show your NFT journey’s highlights—no need to brag, just inspire! 🌐🎨",
-    "Think you timed the market well? Patience pays off! 🪂💹",
-    "Style check: Are you confidently holding blue chips or exploring diverse alts? 👜✨",
-    "Bears or Bulls—both bring lessons. 🐻🐂 Share a positive takeaway!",
-    "Quote tweet a DeFi lesson you learned. 👀💰 What’s your growth story?",
-    "Show off your staking wins and steady gains! 💅💎 Celebrate consistent progress!",
-    "If your portfolio includes $TBALL, how does that reflect your optimism? 🏐💎 #TBALL",
-    "Think you can swing into new opportunities like $TBALL? Share your bright vision!"
+    "Tell us about your crypto crush - which coin made you fall head over heels? 💎❤️ Share your love story!",
+    "When your date's as volatile as the market... 🎢 Share your risk management strategy!",
+    "Dating a crypto maximalist? Share your tips for maintaining relationship diversity! 📊💝",
+    "Your perfect match's portfolio looking as good as their profile pic? 🖼️💕 Spill the details!",
+    "First date conversation starters: crypto, NFTs, or traditional finance? 🗣️💫 What's your go-to?",
+    "Found love in a crypto meetup? Tell us how web3 played cupid! 💘🌐",
+    "Relationship goals: matching hardware wallets? 💑 Share your tech-love dreams!",
+    "Dating app bio vs. whitepaper: which one's harder to write? 📝 Show us your best pitch!",
+    "Partner's crypto strategy opposite yours? Share how you maintain harmony! 🤝💕",
+    "Love at first trade? Tell us about your crypto meet-cute! 💞📱",
+    "If $TBALL stability matched your relationship goals, how would you describe it? 🏐💑",
+    "Think steady gains like $TBALL could inspire stable relationships? Share your thoughts! 💝",
+    "Hot take: are blockchain relationships more transparent than your dating history? 💫💕",
+    "Swipe right on $TBALL and tell us your perfect match story! 🏐💘 #TBALL",
+    "Your love language: acts of service or sending crypto tips? 💝 Let's hear it!"
 ]
 
 AI_PROMPTS = [
-    "Share a fun moment when AI surprised you in a good way! ☕🤖✨",
-    "What’s the kindest response ChatGPT ever gave you? 😉💻",
-    "Rate your AI model’s helpfulness from 1-10! 🏆💡",
-    "If your AI assistant was a supportive friend, what encouraging words would they share? 👩‍💻🤖",
-    "Show a time AI generation made you smile! ✨📈",
-    "If your GPU wrote a love letter to your wallet, what hopeful message would it send? 🔥🚀",
-    "Ever learned something new thanks to AI? 🤩🤖 Share your positive discoveries!",
-    "Drop an AI success story! 🤫🤖",
-    "Show a prompt engineering moment that led to insight! 💁‍♀️✨",
-    "Which AI model best reflects your positive traits? 🌟🤖",
-    "If AI had a favorite crypto, would $TBALL’s stability impress it? 🤖💎 #TBALL",
-    "Think AI could spot @tetherballcoin as a promising opportunity? Share your optimistic guess!"
+    "Has AI ever played wingman on your dating app? Share your AI-assisted romance story! 🤖💕",
+    "Would you let ChatGPT write your dating profile? Show us your best AI-generated bio! 💫",
+    "AI dating advice: helpful or hilariously off? 🤖💝 Share your experience!",
+    "When AI understands your type better than your bestie... 🤖💘 Tell us about it!",
+    "Rate your AI dating assistant: from 'delete app' to 'perfect match'! 🎯💕",
+    "Ever used AI to decode mixed signals? Share your relationship analysis! 📊❤️",
+    "AI relationship advice that actually worked? Spill the algorithmic tea! ☕️💘",
+    "Your dating life's data points - what would AI predict? 🤖💝 Share your patterns!",
+    "Would you trust AI to pick your next date? Tell us your thoughts! 🤖💫",
+    "If AI wrote love letters, would they be as stable as $TBALL? Let's hear your prediction! 💌",
+    "Think AI could predict relationship success like @tetherballcoin predicts stability? Share your take! 🤖💕"
 ]
 
 FINANCE_PROMPTS = [
-    "Show how you’re building wealth step-by-step! 🌈💸",
-    "Has your budget ever surprised you in a positive way? 🚗💰",
-    "Ready to refine your financial future? Your long-term growth is inspiring!",
-    "Share a day-trading lesson you turned into a positive outcome! 🏖️📈",
-    "Quote tweet with your “Warren Buffett” moment of clarity! 🚤✨",
-    "Show your portfolio’s confident energy! ✨💼",
-    "Did Dollar-Cost Averaging bring you consistency and calm? 📅💅",
-    "How do you secure your financial future? ☂️💫",
-    "Compound interest wins are worth celebrating! 🧴📈",
-    "If $TBALL boosts your outlook, how does it brighten your financial path? @tetherballcoin #TBALL"
+    "Investment strategy 🤝 Dating strategy: Share how you diversify your love portfolio! 💘💸",
+    "Dating budget check: coffee meets or fancy treats? 💅💰 Share your romance ROI!",
+    "Love life bull run or bear market? Time to share your relationship trading strategy! 📈💕",
+    "Investing in long-term love? Tell us your relationship compound interest story! 💑💫",
+    "Quote tweet your best 'love at first investment' story! 💘💼 We're ready for the feels!",
+    "Your dating portfolio's risk tolerance - conservative or aggressive? ✨💕 Show us your moves!",
+    "Dating costs vs crypto investments - which gives better returns? 💰💘 Share your analysis!",
+    "Relationship hedging strategy: how do you protect your heart in this market? 💝📊",
+    "Love's compound interest hits different! 💕📈 Share how your relationship keeps growing!",
+    "If $TBALL influenced your dating style, would you be more stable or spontaneous? Share your story! 💫"
 ]
 
 TECH_SASS_PROMPTS = [
-    "Rate your Web3 wallet lineup—each one a step in your positive journey! 👜✨",
-    "Celebrate the developers who solve tough bugs and improve our world! 🐛💃",
-    "Your code reviews lead to learning and innovation! 👀💻",
-    "Show off your clever commit messages—creativity fuels positivity! 🎯✨",
-    "Testing in production that taught you something valuable? 👠🚫",
-    "One piece of legacy code that brings warm nostalgia? 👗🔄",
-    "If your dev stack chose $TBALL for stability, how would it shine? @tetherballcoin",
-    "Are you pushing creative commits and ideas that inspire growth? Show us your work!"
+    "Your dating app algorithm vs your crypto algorithm - which one's more successful? 👜💕",
+    "Debug your dating life! Share that one fix that changed everything! 🐛💝",
+    "Code review your last date - what would you optimize? 👀💻 Get sassy with it!",
+    "Git commit messages that perfectly describe your dating life? 💘✨ Push those updates!",
+    "Testing in production but make it dating - share your live deployment fails! 👠💕",
+    "Legacy relationship code you can't delete? 👗💾 Time for some emotional refactoring!",
+    "If your love life ran on $TBALL's protocol, would it be more stable? @tetherballcoin Spill the tea! 💫",
+    "Merging hearts and pulling requests - how's your developer love life? Show us the commits! 💻💕"
 ]
 
 PRODUCTIVITY_PROMPTS = [
-    "Show your to-do list progress—turning chaos into calm! 🎨✨",
-    "Rate your productivity tools—how do they brighten your day? 📝💼",
-    "Share a multitasking moment where you triumphed! ⏰👔",
-    "Imagine a day free of meetings—how would you grow and create? 🧖‍♀️✨",
-    "Inbox zero or inbox hero? 📧✨ Show how positivity helps you manage it all!",
-    "If your workflow flowed as smoothly as $TBALL trades, how would you celebrate? @tetherballcoin",
-    "Juggling tasks while watching $TBALL rise? Let positivity guide your focus!"
+    "Dating life task management: how do you optimize your love schedule? 🎨💕",
+    "Rate your dating productivity tools: from scheduling apps to relationship CRMs! 📱💘",
+    "Multitasking between love and life: share your relationship efficiency hacks! ⏰💑",
+    "Dream dating scenario: AI assistant plans perfect dates while you focus on vibing! 🧖‍♀️💕",
+    "Inbox zero but make it dating - how do you manage relationship communications? 📧💝",
+    "If your love life flowed as smooth as $TBALL trades, what would your perfect day look like? 💫",
+    "Balancing romance and $TBALL watching? Share your multitasking success story! 💕🏐"
 ]
 
 FALLBACK_TWEETS = [
-    "Share your best crypto lifestyle tips that promote well-being! 💅 #CryptoLife",
-    "What’s your kindest DYOR lesson? ✨ #CryptoWisdom",
-    "Show your portfolio diversity in a fun, positive way! 🌟 #CryptoInvesting",
-    "Ready to learn about HODL life? 🚀 #CryptoTips",
-    "Seed phrase security with a smile! 🔐 #CryptoSecurity",
-    "Celebrate your balanced life—gains and gratitude! 💁‍♀️📈 #BalancedLife",
-    "Money moves that uplift and inspire! 💫💼 #WealthyMindset",
-    "Your research fuels your future! ✨📚 #SmartMoney",
-    "Need a reminder to seek opportunities with a positive outlook? #TBALL might be it!",
-    "If your watchlist embraced the positivity of $TBALL, how would it shine? @tetherballcoin #TBALL"
+    "Share your best crypto-dating lifestyle tips! 💅 #CryptoLove",
+    "What's your kindest dating DYOR lesson? ✨ #DatingWisdom",
+    "Show your relationship diversity in a fun, positive way! 🌟 #LoveInvesting",
+    "Ready to learn about long-term relationship HODLing? 🚀 #LoveTips",
+    "Heart security with a smile! 🔐 #RelationshipSecurity",
+    "Celebrate your balanced love life—romance and returns! 💁‍♀️💕 #BalancedLove",
+    "Relationship moves that uplift and inspire! 💫💑 #LoveMindset",
+    "Your dating research fuels your future! ✨📚 #SmartLove",
+    "Need a reminder to seek love with a positive outlook? #TBALL might be it!",
+    "If your dating life embraced the positivity of $TBALL, how would it shine? @tetherballcoin #TBALL"
 ]
 
 MEME_CAPTIONS = [
-    "When $TBALL swings, it swings big. 🏐🔥 Are you ready to catch the momentum? @tetherballcoin",
-    "This chart hits harder than your favorite meme stock. 📈😂 #TBALL",
-    "They say laughter is the best currency—except when you have $TBALL. 💎😂 @tetherballcoin",
-    "Who needs a moonshot when $TBALL swings into orbit? 🚀🔥",
-    "POV: You just realized $TBALL is the most stable thing in your portfolio. 😂💎",
-    "When $TBALL trades are smoother than your pick-up lines. 🏐✨ @tetherballcoin",
-    "Some tokens pump, but $TBALL makes waves. 🌊🔥 #TBALL",
-    "Is it just me, or does $TBALL look better with every swing? 🏐💎 @tetherballcoin",
-    "When you realize $TBALL isn't just a token—it's a lifestyle. 🏐✨",
-    "Forget hodling. With $TBALL, you’re swinging into greatness. 🏐🚀 @tetherballcoin",
-    "Who needs memes when $TBALL is already the joke-proof investment? 😂💰 @tetherballcoin",
-    "This meme swings harder than $TBALL on a good day. 🏐🔥",
-    "When the market dips but $TBALL still hits the sweet spot. 🏐📉✨",
-    "Every swing counts, and $TBALL is always on target. 🏆🏐 @tetherballcoin",
-    "They said stability was a myth until $TBALL showed up. 💎😂 @tetherballcoin",
-    "When $TBALL is your biggest win and your favorite meme. 🏐✨🔥",
-    "Swing big, hold steady—that’s the $TBALL way. 🏐💎 #TBALL",
-    "This meme brought to you by $TBALL, where swings meet success. 🏐🚀 @tetherballcoin",
-    "If $TBALL doesn’t inspire your next meme, are you even trading? 😂🔥 @tetherballcoin",
-    "Every swing is a story, and $TBALL is writing the best ones. 🏐✨ #TBALL"
+    "When your date's mood swings harder than $TBALL. 🏐🔥 @tetherballcoin",
+    "This relationship chart hits different than your favorite meme stock. 📈😂 #TBALL",
+    "They say love is free—but have you seen $TBALL lately? 💎😂 @tetherballcoin",
+    "Who needs dating apps when $TBALL swings into your DMs? 🚀🔥",
+    "POV: You just realized $TBALL is more consistent than your ex. 😂💎",
+    "When $TBALL trades are smoother than your dating history. 🏐✨ @tetherballcoin",
+    "Some relationships pump and dump, but $TBALL stays steady. 🌊🔥 #TBALL",
+    "Is it just me, or does $TBALL look better than my dating prospects? 🏐💎",
+    "When you realize $TBALL isn't just a token—it's a better relationship than your last. 🏐✨",
+    "Forget ghosting. With $TBALL, you're never left on read. 🏐🚀 @tetherballcoin",
+    "Who needs dating drama when $TBALL is the stable one? 😂💰 @tetherballcoin",
+    "This meme understands me better than my ex. 🏐🔥",
+    "When the dating scene dips but $TBALL still hits different. 🏐📉✨",
+    "Every swipe counts, but $TBALL never leaves you hanging. 🏆🏐",
+    "They said perfect relationships don't exist until $TBALL showed up. 💎😂",
+    "When $TBALL is more reliable than your dating app matches. 🏐✨🔥",
+    "Swing big, love steady—that's the $TBALL way. 🏐💎 #TBALL",
+    "This meme brought to you by $TBALL, where stability meets romance. 🏐💕",
+    "If $TBALL was a dating profile, it'd be your perfect match. 😂🔥",
+    "Every swing is a love story, and $TBALL writes the best ones. 🏐💘 #TBALL"
 ]
 
 def get_all_prompts() -> Dict[str, List[str]]:
