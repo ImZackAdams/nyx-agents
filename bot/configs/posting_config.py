@@ -1,8 +1,8 @@
 # Bot configuration constants
 
 # Content type chances
-NEWS_POSTING_CHANCE = 0.90   # 20% chance to check and post news
-MEME_POSTING_CHANCE = 0.10   # 20% chance to post memes
+NEWS_POSTING_CHANCE = 0.20   # 20% chance to check and post news
+MEME_POSTING_CHANCE = 0.20   # 20% chance to post memes
 
 # Meme settings
 SUPPORTED_MEME_FORMATS = ('.jpg', '.jpeg', '.png', '.gif', 'JPG')
