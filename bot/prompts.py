@@ -70,9 +70,9 @@ TECH_SASS_PROMPTS = [
     "If your love life ran on $TBALL's protocol, would it be more stable? @tetherballcoin Spill the tea! 💫",
     "Merging hearts and pulling requests - how's your developer love life? Show us the commits! 💻💕"
 ]
-
+              
 PRODUCTIVITY_PROMPTS = [
-    "Dating life task management: how do you optimize your love schedule? 🎨💕",
+    "Dating life task management: how do you opti                                                                                      mize your love schedule? 🎨💕",
     "Rate your dating productivity tools: from scheduling apps to relationship CRMs! 📱💘",
     "Multitasking between love and life: share your relationship efficiency hacks! ⏰💑",
     "Dream dating scenario: AI assistant plans perfect dates while you focus on vibing! 🧖‍♀️💕",
