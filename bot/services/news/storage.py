@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Dict
 import logging
 from functools import wraps
-from article import Article # type: ignore
+from .article import Article # type: ignore
 
 def handle_errors(func):
     """Decorator for consistent error handling"""
