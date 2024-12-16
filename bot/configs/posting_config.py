@@ -1,7 +1,7 @@
 # Bot configuration constants
 
 # Content type chances
-NEWS_POSTING_CHANCE = 0.90   # 20% chance to check and post news
+NEWS_POSTING_CHANCE = 0.50   # 20% chance to check and post news
 MEME_POSTING_CHANCE = 0.20   # 20% chance to post memes
 
 # Meme settings
