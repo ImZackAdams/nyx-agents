@@ -84,18 +84,19 @@ class TwitterBot:
         missing_vars = [var for var in required_vars if not os.getenv(var)]
         if missing_vars:
             raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
-
     def _get_news_prompt(self, article) -> str:
         return (
-            "System: Generate a sassy crypto tweet about this news. REQUIREMENTS:\n"
-            "1. MUST end with either 💅 or ✨ (no exceptions)\n"
-            "2. MUST include #CryptoNewsQueen\n"
-            "3. MUST include numbers from article\n"
-            "4. Maximum 180 characters\n\n"
-            f"Article: {article.title}\n"
-            f"Key Stats: {article.content[:200]}\n\n"
-            "Example Format:\n"
-            '"[Your sassy take with stats] #CryptoNewsQueen 💅"\n\n'
+            "System: Create a sassy summary of this crypto news article. REQUIREMENTS:\n"
+            "1. First, EXPLAIN the key news/announcement\n"
+            "2. Then add your sassy take on what this means\n"
+            "3. MUST end with either 💅 or ✨\n"
+            "4. MUST include #CryptoNewsQueen\n"
+            "5. Maximum 180 characters\n\n"
+            f"Article Title: {article.title}\n"
+            f"Article Content: {article.content[:200]}\n\n"
+            "Example Formats:\n"
+            '"Breaking: [what happened] and bestie, this means [sassy take] #CryptoNewsQueen 💅"\n'
+            '"Spill the tea: [key news] and I\'m living for [why it matters] #CryptoNewsQueen ✨"\n\n'
             "Tweet:"
         )
 
@@ -182,10 +183,15 @@ class TwitterBot:
                     try:
                         result = self.client.create_tweet(text=formatted_tweet)
                         if result and result.data.get('id'):
-                            self.news_service.mark_as_posted(article)
-                            self.news_service.cleanup_old_entries()
+                            tweet_id = result.data.get('id')
+                            # Even if marking as posted fails, we still successfully posted the tweet
+                            try:
+                                self.news_service.mark_as_posted(article)
+                                self.news_service.cleanup_old_entries()
+                            except AttributeError:
+                                self.logger.warning("Could not mark article as posted - continuing anyway")
                             self.logger.info(f"Posted news tweet: {formatted_tweet}")
-                            return result.data.get('id')
+                            return tweet_id
                     except Exception as e:
                         self.logger.error(f"Failed to post tweet: {str(e)}")
                         continue
@@ -196,6 +202,8 @@ class TwitterBot:
         except Exception as e:
             self.logger.error(f"Error posting news: {str(e)}", exc_info=True)
             return None
+            
+
 
     def post_tweet(self) -> Optional[str]:
         """Post a new tweet - randomly choose between news, meme, or text."""
