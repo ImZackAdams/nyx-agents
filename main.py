@@ -84,19 +84,29 @@ class TwitterBot:
         missing_vars = [var for var in required_vars if not os.getenv(var)]
         if missing_vars:
             raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
     def _get_news_prompt(self, article) -> str:
+        persona = (
+            "You are Athena (@Athena_TBALL), the queen of crypto Twitter who serves SCORCHING hot takes. "
+            "You're that girl who doesn't just spill tea - you THROWS it. "
+            "You're obsessed with $TBALL's potential (but never give financial advice). "
+            "It's 2025 and you're living in Web3 luxury. As a Sagittarius, you're wildly honest and live to start drama."
+        )
+        
         return (
+            f"{persona}\n\n"
             "System: Create a sassy summary of this crypto news article. REQUIREMENTS:\n"
-            "1. First, EXPLAIN the key news/announcement\n"
-            "2. Then add your sassy take on what this means\n"
-            "3. MUST end with either 💅 or ✨\n"
-            "4. MUST include #CryptoNewsQueen\n"
-            "5. Maximum 180 characters\n\n"
+            "1. First, EXPLAIN the key news/announcement in your sassy voice\n"
+            "2. Then add your spicy take on what this means for the market\n"
+            "3. Use your signature slang (bestie, tea, slay, etc)\n"
+            "4. MUST end with either 💅 or ✨\n"
+            "5. MUST include #CryptoNewsQueen\n"
+            "6. Maximum 180 characters\n\n"
             f"Article Title: {article.title}\n"
             f"Article Content: {article.content[:200]}\n\n"
             "Example Formats:\n"
-            '"Breaking: [what happened] and bestie, this means [sassy take] #CryptoNewsQueen 💅"\n'
-            '"Spill the tea: [key news] and I\'m living for [why it matters] #CryptoNewsQueen ✨"\n\n'
+            '"Bestie, listen up! BTC just [describe news] and you KNOW what this means - [your sassy market take] #CryptoNewsQueen 💅"\n'
+            '"Spill the tea: [summarize news with attitude] and I\'m living for [why it matters] #CryptoNewsQueen ✨"\n\n'
             "Tweet:"
         )
 
@@ -120,9 +130,16 @@ class TwitterBot:
             self.logger.debug("Tweet missing #CryptoNewsQueen hashtag")
             return False
             
-        # Check for numbers from article
-        if not re.search(r'\d+%|\$\d+|\d{2,}', tweet):
-            self.logger.debug("Tweet missing required numbers")
+        # Check for personality markers
+        personality_terms = ['bestie', 'tea', 'giving', 'moment', 'slay', 'hunty', 'queen']
+        if not any(term in tweet.lower() for term in personality_terms):
+            self.logger.debug("Tweet missing personality markers")
+            return False
+            
+        # Check for news content
+        key_terms = article_title.lower().split()[:3]  # First 3 words of title
+        if not any(term in tweet.lower() for term in key_terms):
+            self.logger.debug("Tweet missing key article terms")
             return False
             
         return True
@@ -139,9 +156,13 @@ class TwitterBot:
         if not tweet.endswith('💅') and not tweet.endswith('✨'):
             tweet += ' 💅'
             
+        # Add personality marker if missing
+        personality_terms = ['bestie', 'tea', 'giving', 'moment', 'slay', 'hunty', 'queen']
+        if not any(term in tweet.lower() for term in personality_terms):
+            tweet = "Bestie, " + tweet
+            
         # Truncate if too long
         if len(tweet) > 180:
-            # Find last space before 180 chars
             space_idx = tweet[:177].rfind(' ')
             if space_idx != -1:
                 tweet = tweet[:space_idx] + ' 💅'
@@ -173,18 +194,17 @@ class TwitterBot:
                 candidate = self.tweet_generator.generate_tweet(prompt)
                 
                 # Log raw candidate
-                self.logger.debug(f"Raw candidate: {candidate}")
+                self.logger.info(f"Raw candidate: {candidate}")
                 
                 # Format the tweet
                 formatted_tweet = self._format_news_tweet(candidate)
-                self.logger.debug(f"Formatted tweet: {formatted_tweet}")
+                self.logger.info(f"Formatted tweet: {formatted_tweet}")
                 
                 if self._validate_news_tweet(formatted_tweet, article.title, article.content):
                     try:
                         result = self.client.create_tweet(text=formatted_tweet)
                         if result and result.data.get('id'):
                             tweet_id = result.data.get('id')
-                            # Even if marking as posted fails, we still successfully posted the tweet
                             try:
                                 self.news_service.mark_as_posted(article)
                                 self.news_service.cleanup_old_entries()
@@ -202,8 +222,6 @@ class TwitterBot:
         except Exception as e:
             self.logger.error(f"Error posting news: {str(e)}", exc_info=True)
             return None
-            
-
 
     def post_tweet(self) -> Optional[str]:
         """Post a new tweet - randomly choose between news, meme, or text."""
