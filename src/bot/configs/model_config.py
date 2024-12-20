@@ -15,8 +15,8 @@ os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:512'
 class GenerationConfig:
     """Configuration for text generation parameters"""
     max_new_tokens: int = 100
-    temperature: float = 0.6
-    top_k: int = 30
+    temperature: float = 0.7
+    top_k: int = 50
     top_p: float = 0.8
     repetition_penalty: float = 2.2
 
