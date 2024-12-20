@@ -1,27 +1,31 @@
 import re
+import logging
 
 def extract_prompt(text: str) -> str:
     # Remove bot mentions
     text = re.sub(r"@\w+", "", text).strip()
+    text_lower = text.lower()
 
-    verb_synonyms = (
-        "generate", "make", "create", "produce", "show", "render", "draw", 
-        "illustrate", "visualize", "depict", "design", "conjure", "whip(?: up)?", 
-        "come up with", "show me", "give me", "get me", "craft"
-    )
-    image_synonyms = (
-        "image", "picture", "photo", "artwork", "drawing", "illustration", 
-        "sketch", "graphic", "portrait", "photograph"
-    )
+    # Define explicit phrases that indicate an image request.
+    # Be very explicit and simple. If you want to expand later, you can.
+    explicit_phrases = [
+        "generate an image of",
+        "generate an image",
+        "make an image of",
+        "make an image",
+        "create an image of",
+        "create an image"
+    ]
 
-    linking_words = "(?:of|about|featuring|depicting|showing|portraying)?"
-    verb_pattern = "(?:" + "|".join(verb_synonyms) + ")"
-    image_pattern = "(?:" + "|".join(image_synonyms) + ")"
-    trigger_regex = rf"({verb_pattern})\s*(?:me\s*)?(?:an?\s*|the\s*)?({image_pattern})\s*(?:{linking_words})\s*"
-    trigger_pattern = re.compile(trigger_regex, re.IGNORECASE)
-
-    match = trigger_pattern.search(text)
-    if match:
-        prompt_part = text[match.end():].strip()
-        return prompt_part
+    for phrase in explicit_phrases:
+        if phrase in text_lower:
+            # Extract the prompt after the phrase
+            start_index = text_lower.find(phrase) + len(phrase)
+            prompt_part = text[start_index:].strip()
+            # If no prompt after phrase, return original text to avoid empty prompt triggers
+            if not prompt_part:
+                return text
+            return prompt_part
+    
+    # If none of the explicit phrases are matched, return the original text
     return text

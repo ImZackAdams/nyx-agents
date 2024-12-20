@@ -1,6 +1,6 @@
 import random
 import logging
-from typing import Optional
+from typing import Optional, List
 from bot.processors.text_cleaner import TextCleaner
 from bot.prompts import FALLBACK_TWEETS
 from bot.configs.posting_config import (
@@ -8,13 +8,11 @@ from bot.configs.posting_config import (
     MIN_TWEET_LENGTH,
     MAX_GENERATION_ATTEMPTS,
 )
-
+from bot.configs.personality_config import AthenaPersonalityConfig
 
 def validate_tweet(tweet: str) -> bool:
     """Validate the tweet's length and content."""
-    if MIN_TWEET_LENGTH <= len(tweet) <= MAX_TWEET_LENGTH:
-        return True
-    return False
+    return MIN_TWEET_LENGTH <= len(tweet) <= MAX_TWEET_LENGTH
 
 
 class TweetGenerator:
@@ -23,12 +21,49 @@ class TweetGenerator:
         self.cleaner = cleaner or TextCleaner()
         self.logger = logger or logging.getLogger(__name__)
 
-    def generate_tweet(self, prompt: str) -> str:
-        """Generate a tweet response with retry logic."""
+        # Load the personality config if needed
+        self.personality_config = AthenaPersonalityConfig.default()
+
+    def generate_tweet(self, user_message: str, conversation_history: Optional[List[str]] = None) -> str:
+        """
+        Generate a tweet response with a structured prompt for Mistral 7B Instruct.
+        
+        :param user_message: The latest user message.
+        :param conversation_history: A list of previous turns, e.g.:
+                                     ["User: Hello Athena!", "Bot: Hey bestie! ✨", "User: How are you today?"]
+        """
+
+        # System message providing the style and constraints
+        # Here we incorporate the persona defined in personality_config if desired.
+        system_message = (
+            "### System:\n"
+            "You are Athena (@Athena_TBALL), a witty, sassy Twitter bot who remembers the previous conversation. "
+            f"Respond in short, coherent tweets between {MIN_TWEET_LENGTH} and {MAX_TWEET_LENGTH} chars. "
+            "Use no more than 2 hashtags and add ✨sass✨. End with a flourish (💅 or ✨).\n\n"
+            f"{self.personality_config.DEFAULT_PERSONALITY}\n"
+        )
+
+        # Format the conversation history
+        # conversation_history is something like: ["User: Hello Athena!", "Bot: Hey bestie! ✨"]
+        # We'll present it under a "### Conversation History:" section if not empty.
+        history_str = ""
+        if conversation_history and len(conversation_history) > 0:
+            history_str = "### Conversation History:\n" + "\n".join(conversation_history)
+
+        # Current user prompt
+        user_section = f"### User:\n{user_message}"
+
+        # Assistant (Bot) response section - the model should continue here
+        assistant_section = "### Assistant (Bot):"
+
+        # Combine all parts into a final prompt
+        combined_prompt = f"{system_message}\n{history_str}\n\n{user_section}\n\n{assistant_section}"
+
         for attempt in range(MAX_GENERATION_ATTEMPTS):
             try:
                 self.logger.info(f"Generating tweet, attempt {attempt + 1}...")
-                response = self.bot.generate_response(prompt)
+                self.logger.debug(f"Final prompt:\n{combined_prompt}")
+                response = self.bot.generate_response(combined_prompt)
                 cleaned_response = self.cleaner.clean_text(response)
 
                 if len(cleaned_response) > MAX_TWEET_LENGTH:
