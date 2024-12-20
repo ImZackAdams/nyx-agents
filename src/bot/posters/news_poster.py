@@ -1,6 +1,5 @@
 from typing import Optional
 import random
-from bot.utilities.tweet_utils import format_tweet, validate_tweet
 from bot.configs.posting_config import MAX_PROMPT_ATTEMPTS
 
 class NewsPoster:
@@ -35,13 +34,12 @@ class NewsPoster:
                 if not raw_tweet:
                     continue
 
-                formatted_tweet = format_tweet(raw_tweet)
-                if validate_tweet(formatted_tweet, article.title, article.content):
-                    tweet_id = self._post_to_twitter(formatted_tweet)
-                    if tweet_id:
-                        self.news_service.mark_as_posted(article)
-                        self.logger.info(f"Successfully posted news tweet: {formatted_tweet}")
-                        return tweet_id
+                # Post raw tweet directly since format_tweet and validate_tweet are removed
+                tweet_id = self._post_to_twitter(raw_tweet)
+                if tweet_id:
+                    self.news_service.mark_as_posted(article)
+                    self.logger.info(f"Successfully posted news tweet: {raw_tweet}")
+                    return tweet_id
 
             self.logger.warning("Failed to generate a valid news tweet.")
             return None
