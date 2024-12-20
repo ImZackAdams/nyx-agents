@@ -25,6 +25,6 @@ MAX_PROMPT_ATTEMPTS = 3      # Number of different prompts to try before fallbac
 # Timing settings (all in seconds)
 POST_COOLDOWN = 60 * 60      # 1 hour between posts
 RETRY_DELAY = 60 * 2        # 15 minutes retry delay
-INITIAL_REPLY_DELAY = 60 * 10  # Wait 10 minutes after posting
+INITIAL_REPLY_DELAY = 60 * 5  # Wait 10 minutes after posting
 REPLY_CYCLE_DELAY = 60 * 15    # 15 minutes between reply cycles
 FINAL_CHECK_DELAY = 60 * 60    # 1 hour wait before final check
