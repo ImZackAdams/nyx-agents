@@ -10,7 +10,6 @@ from bot.services.news.news_service import NewsService
 from bot.posters.tweet_generator import TweetGenerator
 from bot.posters.meme_poster import MemePoster
 from bot.prompts import get_all_prompts, FALLBACK_TWEETS
-from bot.utilities.tweet_utils import format_tweet, validate_tweet
 from bot.configs.posting_config import (
     MAX_PROMPT_ATTEMPTS,
     NEWS_POSTING_CHANCE,
@@ -92,13 +91,12 @@ class PostingService:
                 if not raw_tweet:
                     continue
 
-                formatted_tweet = format_tweet(raw_tweet)
-                if validate_tweet(formatted_tweet, article.title, article.content):
-                    tweet_id = self._post_to_twitter(formatted_tweet)
-                    if tweet_id:
-                        self.news_service.mark_article_as_posted(article)
-                        self.logger.info(f"Successfully posted news tweet: {formatted_tweet}")
-                        return tweet_id
+                # Directly post the raw tweet now that formatting and validation are removed.
+                tweet_id = self._post_to_twitter(raw_tweet)
+                if tweet_id:
+                    self.news_service.mark_article_as_posted(article)
+                    self.logger.info(f"Successfully posted news tweet: {raw_tweet}")
+                    return tweet_id
 
             self.logger.warning("Failed to generate a valid news tweet.")
             return None
