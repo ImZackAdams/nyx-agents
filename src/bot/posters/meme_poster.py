@@ -34,7 +34,7 @@ def get_meme_files(folder: str, formats: tuple) -> list:
     return [f for f in os.listdir(folder) if f.lower().endswith(formats)]
 
 
-class MemeHandler:
+class MemePoster:
     def __init__(self, client, api, meme_folder=MEMES_FOLDER_NAME, logger=None):
         self.client = client
         self.api = api

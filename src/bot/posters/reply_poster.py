@@ -37,7 +37,7 @@ def search_replies_to_tweet(client, tweet_id, bot_user_id, since_id=None, logger
         return []
 
 
-class ReplyHandler:
+class ReplyPoster:
     def __init__(self, client, tweet_generator, logger=None, state_file="reply_state.json", pipe=None, api=None):
         """
         Initialize the ReplyHandler.

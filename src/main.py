@@ -13,9 +13,10 @@ from bot.utilities.logger import setup_logger
 from bot.services.utils import setup_twitter_client
 from bot.services.rate_limiter import RateLimitTracker
 from bot.prompts import get_all_prompts, FALLBACK_TWEETS
-from bot.services.tweet_generator import TweetGenerator
-from bot.services.reply_handler import ReplyHandler
-from bot.services.meme_handler import MemeHandler
+from bot.posters.tweet_generator import TweetGenerator
+from bot.posters.meme_poster import MemePoster
+from bot.posters.reply_poster import ReplyPoster
+
 from bot.services.news.news_service import NewsService
 from bot.configs.posting_config import (
     POST_COOLDOWN,
@@ -55,10 +56,10 @@ class TwitterBot:
         self.tweet_generator = TweetGenerator(self.personality_bot, logger=self.logger)
         self.pipe = initialize_diffusion_pipeline(self.logger)
 
-        self.reply_handler = ReplyHandler(
+        self.reply_handler = ReplyPoster(
             self.client, self.tweet_generator, logger=self.logger, pipe=self.pipe, api=self.api
         )
-        self.meme_handler = MemeHandler(client=self.client, api=self.api, logger=self.logger)
+        self.meme_handler = MemePoster(client=self.client, api=self.api, logger=self.logger)
         self.news_service = NewsService(logger=self.logger)
 
     def post_news(self) -> Optional[str]:
@@ -90,7 +91,8 @@ class TwitterBot:
                 if validate_tweet(formatted_tweet, article.title, article.content):
                     tweet_id = self._post_to_twitter(formatted_tweet)
                     if tweet_id:
-                        self.news_service.mark_as_posted(article)
+                        self.news_service.mark_article_as_posted(article)
+
                         self.logger.info(f"Successfully posted news tweet: {formatted_tweet}")
                         return tweet_id
 

@@ -4,9 +4,10 @@ from typing import Optional
 from urllib.parse import urlparse, urlunparse
 import logging
 from functools import wraps
+
 from .extractors import ContentExtractionService
 from .storage import ArticleStorage
-from .article import Article # type: ignore
+from .article import Article  # type: ignore
 
 # Set up logging
 logging.basicConfig(
@@ -23,7 +24,7 @@ def handle_errors(func):
             return func(self, *args, **kwargs)
         except Exception as e:
             if hasattr(self, 'logger') and self.logger:
-                self.logger.error(f"Error in {func.__name__}: {e}")
+                self.logger.error(f"Error in {func.__name__}: {e}", exc_info=True)
             return None
     return wrapper
 
@@ -89,10 +90,12 @@ class NewsService:
     def mark_article_as_posted(self, article: Article) -> None:
         """Mark an article as posted"""
         self.storage.mark_as_posted(article)
+        self.logger.info(f"Article marked as posted: {article.title}")
     
     def cleanup_old_articles(self, days: int = 30) -> None:
         """Clean up old article entries"""
         self.storage.cleanup_old_entries(days)
+
 
 def main():
     """Main function to demonstrate usage"""
