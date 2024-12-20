@@ -5,14 +5,15 @@ Handles response generation and management using the pre-trained model.
 
 from typing import List, Optional, Tuple
 import random
+from bot.processors.text_processor import TextProcessor
+from bot.processors.content_analyzer import ContentAnalyzer
+from bot.processors.prompt_templates import PromptManager
+from bot.configs.style_config import StyleConfig, Category
+from bot.utilities.resource_monitor import log_resource_usage
 
-from .processors.text_processor import TextProcessor
-from .processors.content_analyzer import ContentAnalyzer
-from .processors.prompt_templates import PromptManager
-from .configs.style_config import StyleConfig, Category
-from .utilities import log_resource_usage
-from .configs.model_config import ModelManager
-from .configs.posting_config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH  # Add this import
+from bot.configs.model_config import ModelManager
+from bot.configs.posting_config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
+
 
 class PersonalityBot:
     def __init__(self, model_path: str, logger, style_config: Optional[StyleConfig] = None):
