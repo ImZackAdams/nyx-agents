@@ -12,7 +12,12 @@ class ImageResponder:
             return
 
         self.logger.info(f"Generating image for prompt: {prompt}")
-        image = self.pipe(prompt, num_inference_steps=30, guidance_scale=7.5).images[0]
+        image = self.pipe(
+            prompt=prompt,
+            num_inference_steps=70,
+            guidance_scale=9.0,
+            negative_prompt="blurry, low quality",
+        ).images[0]
 
         temp_filename = "generated_reply_image.png"
         image.save(temp_filename)
