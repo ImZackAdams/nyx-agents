@@ -7,7 +7,8 @@ import re
 from typing import Optional, Tuple
 from collections import deque
 
-from ..configs.style_config import StyleConfig, Category
+# Import from personality_config instead of style_config
+from ..configs.personality_config import AthenaPersonalityConfig, Category
 from ..configs.posting_config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
 from .text_cleaner import TextCleaner
 from .content_analyzer import ContentAnalyzer
@@ -16,15 +17,16 @@ from .validators import validate_tweet_length, clean_tweet_text
 class TextProcessor:
     """Main text processing class for tweet content"""
     
-    def __init__(self, style_config: StyleConfig = None, max_history: int = 10):
+    def __init__(self, config: AthenaPersonalityConfig = None, max_history: int = 10):
         """
         Initialize TextProcessor with config and history settings
         
         Args:
-            style_config (StyleConfig, optional): Configuration for styling
+            config (AthenaPersonalityConfig, optional): Configuration for styling and personality
             max_history (int): Maximum items to keep in history
         """
-        self.config = style_config or StyleConfig.default()
+        # Use AthenaPersonalityConfig instead of StyleConfig
+        self.config = config or AthenaPersonalityConfig.default()
         self.cleaner = TextCleaner()
         self.analyzer = ContentAnalyzer()
         
@@ -110,6 +112,7 @@ class TextProcessor:
     
     def _needs_personality_marker(self, text: str) -> bool:
         """Check if text needs a personality marker"""
+        # Using the 'sass' markers from the config
         return not any(char in text for char in ''.join(self.config.personality_markers['sass']))
     
     def _clean_hashtags(self, text: str) -> str:
@@ -129,7 +132,7 @@ class TextProcessor:
         """Select appropriate emoji based on category and history"""
         category_key = category.get_key()
         available = [e for e in self.config.emojis[category_key] 
-                    if e not in self.recent_emojis]
+                     if e not in self.recent_emojis]
         if not available:
             available = self.config.emojis[category_key]
         
@@ -141,7 +144,7 @@ class TextProcessor:
         """Select appropriate hashtag based on category and history"""
         category_key = category.get_key()
         available = [t for t in self.config.hashtags[category_key] 
-                    if t not in self.recent_hashtags]
+                     if t not in self.recent_hashtags]
         if not available:
             return None
         

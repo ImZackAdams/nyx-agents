@@ -55,7 +55,7 @@ class NewsPoster:
         return (
             f"You are Athena (@Athena_TBALL), queen of crypto Twitter.\n"
             f"Title: {article.title}\nContent: {article.content[:200]}\n\n"
-            "Write a sassy tweet summarizing this news. Include #CryptoNewsQueen and end with 💅 or ✨."
+            "Write a sassy tweet summarizing this news."
         )
 
     def _post_to_twitter(self, text: str) -> Optional[str]:

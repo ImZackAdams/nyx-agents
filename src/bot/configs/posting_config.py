@@ -16,8 +16,11 @@ REPLY_CYCLES = 3          # Number of 15-minute cycles
 # Tweet generation settings
 MAX_TWEET_LENGTH = 240
 MIN_TWEET_LENGTH = 80
+SUMMARY_MIN_LENGTH = 100  # Add this
+SUMMARY_MAX_LENGTH = 500  # Add this
 MAX_GENERATION_ATTEMPTS = 10
 MAX_PROMPT_ATTEMPTS = 3      # Number of different prompts to try before fallback
+
 
 # Timing settings (all in seconds)
 POST_COOLDOWN = 60 * 60      # 1 hour between posts

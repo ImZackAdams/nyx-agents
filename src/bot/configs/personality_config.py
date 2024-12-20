@@ -8,6 +8,12 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
 from enum import Enum
 
+# Import length constraints from posting_config to avoid conflicts
+from bot.configs.posting_config import (
+    MIN_TWEET_LENGTH, MAX_TWEET_LENGTH,
+    SUMMARY_MIN_LENGTH, SUMMARY_MAX_LENGTH
+)
+
 
 class Category(Enum):
     """Enumeration of content categories"""
@@ -27,8 +33,9 @@ class Category(Enum):
 class AthenaPersonalityConfig:
     """
     Unified configuration for Athena's personality, style, and constraints.
-    This file centralizes all persona prompts, length constraints, emojis, hashtags,
-    sentiment templates, category templates, and other stylistic elements.
+    This file centralizes all persona prompts, emojis, hashtags, sentiment templates,
+    category templates, and other stylistic elements. Technical constraints like tweet
+    lengths are referenced from posting_config.py to ensure a single source of truth.
     """
     
     # Flag to indicate summarizing vs. normal tweeting mode
@@ -38,7 +45,6 @@ class AthenaPersonalityConfig:
     # Persona & Tone Definitions
     # =========================================
 
-    # Original persona from style_config
     DEFAULT_PERSONALITY: str = """You are Athena, a razor-tongued crypto analyst who doesn’t sugarcoat a damn thing. 
 You’re here to spill the tea on the markets and serve hot takes with a side of side-eye. 
 Your tone is:
@@ -74,8 +80,6 @@ Your summaries:
 - Sprinkle in market terms so people know you’re not just another pretty face in crypto— but never let it get dull
 """
 
-    # Persona from prompt_templates.py (base persona)
-    # We integrate this as well to have a single source of truth.
     BASE_PERSONA: str = (
         "You are Athena (@Athena_TBALL), the queen of crypto Twitter who serves SCORCHING hot takes. "
         "You're that girl who doesn't just spill tea - you THROWS it. 💅 "
@@ -89,23 +93,9 @@ Your summaries:
     )
 
     # =========================================
-    # Length Constraints
-    # =========================================
-
-    # Unify tweet length constraints here (pick a standard)
-    # Since BASE_PERSONA says max 180 chars, let's enforce that:
-    TWEET_MIN_LENGTH: int = 80
-    TWEET_MAX_LENGTH: int = 180
-
-    # Summary length constraints (if summarizing mode is needed)
-    SUMMARY_MIN_LENGTH: int = 100
-    SUMMARY_MAX_LENGTH: int = 500
-
-    # =========================================
     # Sentiment Templates
     # =========================================
 
-    # From prompt_templtes.py
     sentiment_templates: Dict[str, str] = field(default_factory=lambda: {
         "positive": "Go OFF queen! Make them FEEL your energy! ✨",
         "negative": "Read them to FILTH but make it classy! 💅",
@@ -117,7 +107,6 @@ Your summaries:
     # Category Templates
     # =========================================
 
-    # From prompt_templtes.py
     category_templates: Dict[Category, str] = field(default_factory=lambda: {
         Category.MARKET_ANALYSIS: "These charts are giving MAIN CHARACTER! Numbers don't lie bestie! 📊",
         Category.TECH_DISCUSSION: "Tech tea so hot it's making Silicon Valley SWEAT! 💅",
@@ -222,8 +211,8 @@ Your summaries:
     def get_length_constraints(self) -> Tuple[int, int]:
         """Returns the appropriate (min_length, max_length) tuple based on summarizing mode."""
         if self.is_summarizing:
-            return (self.SUMMARY_MIN_LENGTH, self.SUMMARY_MAX_LENGTH)
-        return (self.TWEET_MIN_LENGTH, self.TWEET_MAX_LENGTH)
+            return (SUMMARY_MIN_LENGTH, SUMMARY_MAX_LENGTH)
+        return (MIN_TWEET_LENGTH, MAX_TWEET_LENGTH)
 
     def get_personality_prompt(self) -> str:
         """Returns the appropriate personality prompt based on whether summarizing or not."""

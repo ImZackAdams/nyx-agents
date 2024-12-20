@@ -8,7 +8,8 @@ import random
 from bot.processors.text_processor import TextProcessor
 from bot.processors.content_analyzer import ContentAnalyzer
 from bot.processors.prompt_templates import PromptManager
-from bot.configs.style_config import StyleConfig, Category
+# Replace import from style_config with personality_config
+from bot.configs.personality_config import AthenaPersonalityConfig, Category
 from bot.utilities.resource_monitor import log_resource_usage
 
 from bot.configs.model_config import ModelManager
@@ -16,13 +17,13 @@ from bot.configs.posting_config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
 
 
 class PersonalityBot:
-    def __init__(self, model_path: str, logger, style_config: Optional[StyleConfig] = None):
+    def __init__(self, model_path: str, logger, config: Optional[AthenaPersonalityConfig] = None):
         """
         Initialize the PersonalityBot.
         Args:
             model_path (str): Path to the pre-trained model directory
             logger: Logger instance for tracking events and errors
-            style_config: Optional custom style configuration
+            config: Optional custom AthenaPersonalityConfig
         """
         self.logger = logger
         self.model_manager = ModelManager(model_path, logger)
@@ -31,10 +32,10 @@ class PersonalityBot:
         self.max_history = 10
         
         # Initialize processors
-        self.style_config = style_config or StyleConfig.default()
-        self.text_processor = TextProcessor(self.style_config, self.max_history)
+        self.config = config or AthenaPersonalityConfig.default()
+        self.text_processor = TextProcessor(self.config, self.max_history)
         self.content_analyzer = ContentAnalyzer()
-        self.prompt_manager = PromptManager()
+        self.prompt_manager = PromptManager(self.config)
         
         # Initialize opener history
         self.text_processor.recent_openers = []
@@ -46,8 +47,10 @@ class PersonalityBot:
 
     def _prepare_context(self, prompt: str, sentiment: str, category: Category) -> str:
         """Prepare the context for response generation."""
-        opener = random.choice([op for op in self.style_config.openers 
-                              if op not in self.text_processor.recent_openers])
+        opener = random.choice([
+            op for op in self.config.openers
+            if op not in self.text_processor.recent_openers
+        ])
         
         # Add opener to history
         self.text_processor.recent_openers.append(opener)
@@ -61,9 +64,11 @@ class PersonalityBot:
             category=category
         )
         
-        # Use config values for system instruction
-        return f"""System: Response must be detailed and between {MIN_TWEET_LENGTH}-{MAX_TWEET_LENGTH} characters. Include hashtags and emojis.
-User: {context}"""
+        return (
+            f"System: Response must be detailed and between {MIN_TWEET_LENGTH}-{MAX_TWEET_LENGTH} characters. "
+            "Include hashtags and emojis.\n"
+            f"User: {context}"
+        )
 
     def generate_response(self, prompt: str) -> str:
         """Generate a response based on the given prompt."""
@@ -93,8 +98,10 @@ User: {context}"""
                 return ""
             
             if processed_text:
-                # Use config values in the replacement string
-                system_instruction = f"System: Response must be detailed and between {MIN_TWEET_LENGTH}-{MAX_TWEET_LENGTH} characters. Include hashtags and emojis."
+                system_instruction = (
+                    f"System: Response must be detailed and between {MIN_TWEET_LENGTH}-{MAX_TWEET_LENGTH} "
+                    "characters. Include hashtags and emojis."
+                )
                 return processed_text.replace(system_instruction, "").strip()
             
             return ""
