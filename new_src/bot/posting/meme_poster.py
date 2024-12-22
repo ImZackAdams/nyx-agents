@@ -3,7 +3,7 @@ import random
 import logging
 from typing import Optional
 from bot.prompts import MEME_CAPTIONS
-from bot.configs.posting_config import (
+from config.posting_config import (
     MEME_POSTING_CHANCE,
     SUPPORTED_MEME_FORMATS,
     MEMES_FOLDER_NAME,

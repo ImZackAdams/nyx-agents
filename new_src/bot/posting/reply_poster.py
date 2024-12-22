@@ -2,18 +2,27 @@ import time
 import logging
 import os
 from typing import Optional, List
-from bot.configs.posting_config import (
+
+# UPDATED import for posting config
+# was: from bot.configs.posting_config import (...)
+from config.posting_config import (
     REPLY_DELAY_SECONDS,
     INITIAL_REPLY_DELAY,
     REPLY_CYCLE_DELAY,
     REPLY_CYCLES,
     FINAL_CHECK_DELAY,
 )
+
+# These are assumed to be in the same folder as reply_poster.py (bot/posting/)
 from .utils import apply_delay, search_replies_to_tweet
 from .state_manager import StateManager
 from .prompt_extractor import extract_prompt
 from .image_responder import ImageResponder
-from bot.services.conversation_manager import ConversationManager
+
+# UPDATED import for ConversationManager
+# was: from bot.services.conversation_manager import ConversationManager
+from bot.replies.conversation_manager import ConversationManager
+
 
 class ReplyPoster:
     def __init__(self, client, tweet_generator, logger=None, state_file="reply_state.json", pipe=None, api=None):
@@ -42,7 +51,6 @@ class ReplyPoster:
             self.conversation_manager.add_message(conversation_id, "Bot: [Image Response]")
         else:
             # If no prompt was extracted, treat it as a general request without a specific prompt
-            # or simply log that no detailed prompt was provided.
             self.logger.info("Image request detected but no prompt extracted.")
 
     def _handle_text_reply(self, reply, conversation_id: str):

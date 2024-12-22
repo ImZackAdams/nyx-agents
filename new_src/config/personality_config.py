@@ -9,7 +9,8 @@ from typing import List, Dict, Tuple
 from enum import Enum
 
 # Import length constraints from posting_config to avoid conflicts
-from bot.configs.posting_config import (
+# CHANGED: was from bot.configs.posting_config import ...
+from config.posting_config import (
     MIN_TWEET_LENGTH, MAX_TWEET_LENGTH,
     SUMMARY_MIN_LENGTH, SUMMARY_MAX_LENGTH
 )

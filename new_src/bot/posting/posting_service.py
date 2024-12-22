@@ -1,12 +1,15 @@
-# new_src/bot/posting/posting_service.py
+"""
+Service module handling all tweet posting logic.
+"""
+
 import random
 import logging
-from typing import Optional
+from typing import Optional, List
 
-from api.twitter.client import TwitterClient
-from ml.text.tweet_generator import TweetGenerator
-from data.news.news_service import NewsService
-from data.memes.meme_poster import MemePoster
+# Update these paths for your new structure
+from bot.news.news_service import NewsService
+from bot.posting.tweet_generator import TweetGenerator
+from bot.posting.meme_poster import MemePoster
 from bot.prompts import get_all_prompts, FALLBACK_TWEETS
 from config.posting_config import (
     MAX_PROMPT_ATTEMPTS,
@@ -15,23 +18,33 @@ from config.posting_config import (
 )
 
 class PostingService:
-    """Handles high-level posting logic and content generation"""
+    """Handles all tweet posting logic."""
 
     def __init__(
         self,
-        twitter_client: TwitterClient,
+        client,
         tweet_generator: TweetGenerator,
         news_service: NewsService,
         meme_handler: MemePoster,
         logger: Optional[logging.Logger] = None
     ):
-        self.twitter = twitter_client
+        self.client = client
         self.tweet_generator = tweet_generator
         self.news_service = news_service
         self.meme_handler = meme_handler
         self.logger = logger or logging.getLogger(__name__)
 
+    def _post_to_twitter(self, text: str) -> Optional[str]:
+        """Posts a tweet to Twitter and returns the tweet ID."""
+        try:
+            response = self.client.create_tweet(text=text)
+            return response.data.get('id')
+        except Exception as e:
+            self.logger.error(f"Failed to post tweet: {e}")
+            return None
+
     def _generate_news_prompt(self, article) -> str:
+        """Generates a prompt for news tweets."""
         return (
             f"You are Athena (@Athena_TBALL), queen of crypto Twitter.\n"
             f"Title: {article.title}\nContent: {article.content[:200]}\n\n"
@@ -39,7 +52,7 @@ class PostingService:
         )
 
     def _post_text_tweet(self) -> Optional[str]:
-        """Posts a text-based tweet"""
+        """Posts a text-based tweet."""
         prompts = get_all_prompts()
         all_prompts = [p for prompt_list in prompts.values() for p in prompt_list]
         
@@ -49,12 +62,12 @@ class PostingService:
             prompt = random.choice(all_prompts)
             tweet = self.tweet_generator.generate_tweet(prompt)
             if tweet:
-                return self.twitter.create_tweet(tweet)
+                return self._post_to_twitter(tweet)
                 
-        return self.twitter.create_tweet(random.choice(FALLBACK_TWEETS))
+        return self._post_to_twitter(random.choice(FALLBACK_TWEETS))
 
     def post_news(self) -> Optional[str]:
-        """Posts a news-related tweet"""
+        """Posts a news-related tweet."""
         try:
             self.logger.info("Fetching the latest crypto news...")
             article = self.news_service.get_latest_article()
@@ -75,12 +88,15 @@ class PostingService:
                 prompt = self._generate_news_prompt(article)
                 raw_tweet = self.tweet_generator.generate_tweet(prompt)
 
-                if raw_tweet:
-                    tweet_id = self.twitter.create_tweet(raw_tweet)
-                    if tweet_id:
-                        self.news_service.mark_article_as_posted(article)
-                        self.logger.info(f"Successfully posted news tweet: {raw_tweet}")
-                        return tweet_id
+                if not raw_tweet:
+                    continue
+
+                # Directly post the raw tweet now that formatting and validation are removed.
+                tweet_id = self._post_to_twitter(raw_tweet)
+                if tweet_id:
+                    self.news_service.mark_article_as_posted(article)
+                    self.logger.info(f"Successfully posted news tweet: {raw_tweet}")
+                    return tweet_id
 
             self.logger.warning("Failed to generate a valid news tweet.")
             return None
@@ -90,7 +106,7 @@ class PostingService:
             return None
 
     def post_tweet(self) -> Optional[str]:
-        """Determines the type of tweet to post and posts it"""
+        """Determines the type of tweet to post and posts it."""
         try:
             roll = random.random()
             if roll < NEWS_POSTING_CHANCE:

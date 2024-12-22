@@ -22,9 +22,16 @@ class GenerationConfig:
 
 class ModelManager:
     def __init__(self, model_path: str, logger):
-        self.model_path = model_path
+        # Convert the passed-in path to an absolute path
+        # Typically your Mistral model is in: new_src/ml/text/model_files/mistral_qlora_finetuned
+        repo_root = os.path.dirname(os.path.dirname(__file__))  # one level up from config/
+        self.model_path = os.path.join(repo_root, "ml", "text", "model_files", "mistral_qlora_finetuned")
+
+        # Or, if you actually want to use the user-provided model_path as a subfolder under repo_root:
+        # self.model_path = os.path.join(repo_root, model_path)
+
         self.logger = logger
-        
+
         # Verify CUDA availability
         if not torch.cuda.is_available():
             raise RuntimeError("CUDA is not available. Please check your PyTorch installation.")
@@ -64,7 +71,7 @@ class ModelManager:
                 self.model_path,
                 local_files_only=True,
                 trust_remote_code=True,
-                device_map="balanced",  # Uses all available GPUs efficiently
+                device_map="balanced",  # Uses all available GPUs
                 quantization_config=quantization_config,
                 torch_dtype=torch.float16,
                 low_cpu_mem_usage=True,
@@ -87,7 +94,7 @@ class ModelManager:
             system_prefix = "IMPORTANT: Your response MUST be between 80-180 characters. No exceptions."
             context_with_constraint = f"{system_prefix}\n\n{context}"
             
-            # Prepare input with proper truncation
+            # Prepare input with truncation
             inputs = self.tokenizer(
                 context_with_constraint,
                 return_tensors="pt",
@@ -101,8 +108,8 @@ class ModelManager:
                 outputs = self.model.generate(
                     inputs["input_ids"],
                     attention_mask=inputs["attention_mask"],
-                    max_new_tokens=60,  # Reduced to help enforce length
-                    min_new_tokens=20,  # Ensure some minimal content
+                    max_new_tokens=60,
+                    min_new_tokens=20,
                     do_sample=True,
                     temperature=0.7,
                     top_k=30,
@@ -113,7 +120,6 @@ class ModelManager:
                     use_cache=True,
                 )
 
-            # Decode and enforce length limit
             generated_text = self.tokenizer.decode(
                 outputs[0][inputs["input_ids"].shape[1]:], 
                 skip_special_tokens=True,
@@ -122,7 +128,6 @@ class ModelManager:
             
             # Truncate if still too long
             if len(generated_text) > 180:
-                # Find the last sentence break before 180 chars
                 last_break = generated_text[:180].rfind('.')
                 if last_break == -1:
                     last_break = generated_text[:180].rfind('!')
