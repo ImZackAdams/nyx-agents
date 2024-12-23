@@ -1,11 +1,10 @@
-# src/bot/initializers.py
+# bot/initializers.py
 import os
 import logging
 import torch
 import tweepy
 import bitsandbytes as bnb
 from diffusers import StableDiffusionPipeline
-
 
 def validate_env_variables(logger: logging.Logger):
     """Validate that all required environment variables are present."""
@@ -14,7 +13,6 @@ def validate_env_variables(logger: logging.Logger):
     if missing_vars:
         logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
         raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
-
 
 def setup_twitter_api() -> tweepy.API:
     """Set up and return a Twitter API client."""
@@ -26,14 +24,25 @@ def setup_twitter_api() -> tweepy.API:
     )
     return tweepy.API(auth)
 
-
 def initialize_diffusion_pipeline(logger: logging.Logger):
     """Initialize the Stable Diffusion pipeline with 8-bit optimization."""
     logger.info("Initializing Stable Diffusion pipeline...")
+
+    # 1. Absolute path to your local Stable Diffusion model folder
+    model_path = "/home/athena/Desktop/athena/new_src/ml/image/sd2_model"
+
+    # 2. Check if the directory actually exists
+    if not os.path.isdir(model_path):
+        raise FileNotFoundError(f"Local model folder not found at: {model_path}")
+
+    # 3. Force local loading so HF does NOT treat model_path as a remote repo
     pipe = StableDiffusionPipeline.from_pretrained(
-        "./sd2_model", torch_dtype=torch.float16
+        model_path,
+        torch_dtype=torch.float16,
+        local_files_only=True
     ).to("cuda")
 
+    # 4. Convert text encoder weights to 8-bit using bitsandbytes
     for name, module in pipe.text_encoder.named_modules():
         if hasattr(module, 'weight') and module.weight is not None and module.weight.dtype == torch.float16:
             module.weight = bnb.nn.Int8Params(module.weight.data, requires_grad=False)
