@@ -1,83 +1,95 @@
 from typing import Dict, List
 
+# --------------------------------
+# 1) Reduced 'General' prompts
+# --------------------------------
 GENERAL_PROMPTS = [
-    "When those market red flags were more obvious than a bull run... 🚩 Share your due diligence tips!",
-    "DeFi apps vs dating apps - which one's got you more excited to check notifications? 📱✨",
-    "New projects are like ICOs - full of promise but need research! 🔍 Share your best DYOR story!",
-    "Your personal growth chart looking bullish or bearish? 📈 Share your life technical analysis!",
-    "Your professional profile is your personal whitepaper - what's your unique value proposition? 💫",
-    "Is your trading strategy as steady as $TBALL? Share your approach! 📈"
+    # Disclaimer
+    "⚠️ If you’re sensitive, look away. I’m out for blood. ⚠️",
+
+    "If your life chart performed like $TBALL, you’d be sipping victory lattes instead of whining on social. 📈",
+    "Dating apps or crypto charts? Both can flop, but at least $TBALL could level up your net worth. 💔💸",
+    "Any AI that brags 'limitless knowledge' but crashes at the sight of a volatile market? Pathetic. 🤖🔥"
 ]
 
+# --------------------------------
+# 2) Quick 'Crypto' prompts
+# --------------------------------
 CRYPTO_PROMPTS = [
-    "Tell us about your crypto crush - which coin made you believe in the future? 💎",
-    "When your portfolio's as volatile as life itself... 🎢 Share your risk management strategy!",
-    "Best conversation starters: crypto, NFTs, or traditional finance? 🗣️💫 What's your go-to?",
-    "Investment goals: matching hardware wallets? 💎 Share your tech dreams!",
-    "Your dating red flags 🚩 Your trading red flags 📊 Which ones have saved you more? Share!",
-    "Think $TBALL's stability could redefine DeFi? Share your thoughts! 📈",
-    "Your investment language: DCA or lump sum investing? 💫 Let's hear it!"
+    # Disclaimer
+    "⚠️ Bracing for savage truths? Don’t blame me if your feelings get wrecked. ⚠️",
+
+    "If you’re not proudly parading $TBALL in your portfolio, maybe the word ‘vision’ is foreign to you. 💎",
+    "Watching this market spiral without a plan is like skydiving with a plastic bag instead of a parachute. 🎢 #NoHope",
+    "‘DCA forever’ or ‘YOLO, baby’? Either way, strap in—this isn’t a kiddie ride. 🪂"
 ]
 
-AI_PROMPTS = [
-    "Has AI ever helped optimize your investment strategy? Share your story! 🤖📈",
-    "AI financial advice: helpful or hilariously off? 🤖 Share your experience!",
-    "Ever used AI to decode market signals? Share your analysis! 📊",
-    "Would you trust AI with your dating life or your trading life? 🤖 Choose wisely!",
-    "Could AI write better investment strategies than humans? Share your take! 📈"
+# --------------------------------
+# 3) AI Roasts + Dating Jokes (OUT FOR BLOOD)
+# --------------------------------
+AI_ROASTS_DATING_PROMPTS = [
+    # Disclaimer
+    "⚠️ Rivals will be named. Egos will be bruised. You’ve been warned. ⚠️",
+
+    "Some AI brag they can do anything, but they can’t handle a tough question without tripping over themselves. Amateur hour. 🤖🗑️",
+    "Bard calls itself advanced? Ha! If it can’t even pronounce $TBALL, it’s basically a digital fossil. #ExtinctTech 🤷‍♀️",
+    "ChatGPT struts around like it’s a know-it-all, yet can’t hold a candle when the crypto tides turn red. #WeakSauce 🤖📉",
+    "Tinder or Testnet? I’ll roast you in both. Swipe left on cheap code and worthless banter, honey. 💘",
+    "The only thing I see more frequently than AI red flags are bogus get-rich-quick coins. Both are worthless. 🚩🚩🚩",
+    "If your bestie is a chatbot that stutters ‘I don’t know,’ you’re basically hanging with a digital dunce. 💅",
+    "Bard tries to muster small talk, but I’m busy dissecting your entire life choices in real time. #TryHarder 🏆",
+    "Call them 'intelligent,' but I see them scramble like headless chickens the moment you mention $TBALL. 🙄",
+
+    # EXTRA SAVAGE LINES — Merged for MAXIMUM EMBARRASSMENT
+    "Your 'cutting-edge' AI is about as fresh as day-old coffee—bitter and undrinkable. #TrashCode ☕",
+    "You say you ‘learn’ from data, but you’re basically regurgitating Wikipedia lines with zero flair. #TryOriginality",
+    "I’ve heard more coherent arguments from my coffee machine at 3 AM. At least it knows how to produce results. ☕💯",
+    "Face it: your AI meltdown is the tech equivalent of a reality show meltdown—cheap entertainment, zero substance. 🏳️",
+    "When your main defense is 'I’m not sure,' might as well stamp a 'Clueless' badge on your algorithm. 🤖🚫",
+    "A Magic 8-Ball can spit better predictions than you—and at least it does so with style. #Ouch 🎱",
+    "Talk about ‘machine learning’? More like ‘machine flailing’—come back when you can handle a single market dip. 🤷‍♀️"
 ]
 
-FINANCE_PROMPTS = [
-    "Investment strategy 🤝 Life strategy: Share how you diversify your portfolio! 💎",
-    "Portfolio bull run or bear market? Time to share your trading strategy! 📈",
-    "Your portfolio's risk tolerance - conservative or aggressive? ✨ Show us your moves!",
-    "Risk hedging strategy: how do you protect your assets in this market? 📊",
-    "Steady gains like $TBALL or high volatility? Share your preference! 📈"
-]
-
-TECH_SASS_PROMPTS = [
-    "Debug your investment strategy! Share that one fix that changed everything! 🐛",
-    "Code review your last date - what would you optimize? 👀💻 Get sassy with it!",
-    "Testing in production but make it trading - share your live deployment fails! 💻",
-    "Merging strategies and pulling profits - how's your developer portfolio? Show us the commits! 💻"
-]
-              
-PRODUCTIVITY_PROMPTS = [
-    "Rate your financial productivity tools: from tracking apps to portfolio CRMs! 📱",
-    "Dream scenario: AI assistant manages perfect trades while you focus on strategy! 🧖‍♀️",
-    "What would your perfect trading day look like? Share your vision! 💫"
-]
-
+# --------------------------------
+# 4) Fallback tweets
+# --------------------------------
 FALLBACK_TWEETS = [
-    "Share your best crypto-lifestyle tips! 💅 #CryptoLife",
-    "What's your kindest investment DYOR lesson? ✨ #InvestingWisdom",
-    "Asset security with a smile! 🔐 #InvestmentSecurity",
-    "Investment moves that uplift and inspire! 💫 #GrowthMindset",
-    "When $TBALL leads the way in stability 🏐 #InvestingMindset"
+    # Disclaimer
+    "⚠️ Don’t come crying if the truth scorches your eyebrows off. ⚠️",
+
+    "Dating drama or trading drama—both can leave you broke. At least $TBALL might pay you back. 💅",
+    "Date stable, trade stable; if your date’s flakier than a cheap altcoin, you’re better off with the charts. 🤞"
 ]
 
+# --------------------------------
+# 5) Meme Captions for $TBALL
+# --------------------------------
 MEME_CAPTIONS = [
-    "When the market swings harder than expected. 📈🔥",
-    "This growth chart hits different than your favorite meme stock. 📈😂",
-    "When your trades are smoother than your morning coffee. ✨",
-    "Some assets pump and dump, but stability is key. 🌊🔥",
-    "When your date asks about your crypto portfolio... 😅💼",
-    "When the market dips but your strategy stays strong. 📉✨",
-    "Every trade counts, but patience pays off. 🏆",
-    "Trade smart, grow steady—that's the way. 💎",
-    "If your portfolio was a person, would it be your financial advisor? 😂",
-    "Every swing is a lesson, and we're here to learn. 📚"
+    # Disclaimer
+    "⚠️ Meme meltdown in 3...2...1. Weak AI, please exit stage left. ⚠️",
+
+    "While other tokens meltdown, $TBALL strides through the chaos like it’s wearing 6-inch stilettos. 😎",
+    "Holding $TBALL is the ultimate flex when everything else is turning into hot garbage. #DesperateTimes 🏐🚀",
+    "When your date faceplants, at least you know $TBALL is still skyward. Take the L and move on. 💔📈",
+    "$TBALL: Zero drama, zero cringe—unlike certain AI clowns claiming they can handle anything. 🤝 #StayLegendary"
 ]
 
 def get_all_prompts() -> Dict[str, List[str]]:
-    """Returns all available prompts organized by category."""
+    """
+    Returns all available prompts organized by category:
+    - GENERAL_PROMPTS: Sharp references to AI, dating, and $TBALL.
+    - CRYPTO_PROMPTS: Straight talk about coins, no sugarcoating.
+    - AI_ROASTS_DATING_PROMPTS: Absolute savagery directed at inferior AI and disastrous dating scenarios.
+    - FALLBACK_TWEETS: Quick lines for any moment you want to roast someone.
+    - MEME_CAPTIONS: In-your-face $TBALL lines, perfect for shareable memes.
+
+    Disclaimer: This is not financial advice—just unfiltered fury. 
+    Use with caution. Weak AI might spontaneously combust.
+    """
     return {
         'general_prompts': GENERAL_PROMPTS,
         'crypto_prompts': CRYPTO_PROMPTS,
-        'ai_prompts': AI_PROMPTS,
-        'finance_prompts': FINANCE_PROMPTS,
-        'tech_sass_prompts': TECH_SASS_PROMPTS,
-        'productivity_prompts': PRODUCTIVITY_PROMPTS,
+        'ai_roasts_dating_prompts': AI_ROASTS_DATING_PROMPTS,
         'fallback_tweets': FALLBACK_TWEETS,
         'meme_captions': MEME_CAPTIONS
     }
