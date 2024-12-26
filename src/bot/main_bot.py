@@ -7,7 +7,6 @@ from typing import Optional
 import random
 from utils.text.text_processor import TextProcessor
 from utils.text.content_analyzer import ContentAnalyzer
-from utils.text.prompt_templates import PromptManager
 from config.personality_config import AthenaPersonalityConfig
 from utils.resource_monitor import log_resource_usage
 from config.model_config import ModelManager
@@ -34,7 +33,7 @@ class PersonalityBot:
         self.config = config or AthenaPersonalityConfig.default()
         self.text_processor = TextProcessor(self.config, self.max_history)
         self.content_analyzer = ContentAnalyzer()
-        self.prompt_manager = PromptManager(self.config)
+        
         
         # Initialize opener history
         self.text_processor.recent_openers = []
