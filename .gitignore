@@ -7,6 +7,8 @@ results/
 mistral_qlora_finetuned
 fine_tuned_personality_bot.tar.gz
 
+falcon3_10b_instruct/
+
 athena_8bit_model
 sd2_model
 # Byte-compiled / optimized / DLL files
