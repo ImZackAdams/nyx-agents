@@ -25,7 +25,7 @@ class ModelManager:
         # Convert the passed-in path to an absolute path
         # Typically your Mistral model is in: new_src/ml/text/model_files/mistral_qlora_finetuned
         repo_root = os.path.dirname(os.path.dirname(__file__))  # one level up from config/
-        self.model_path = os.path.join(repo_root, "ml", "text", "model_files", "mistral_qlora_finetuned")
+        self.model_path = os.path.join(repo_root, "ml", "text", "model_files", "faclon3_10b_instruct")
 
         # Or, if you actually want to use the user-provided model_path as a subfolder under repo_root:
         # self.model_path = os.path.join(repo_root, model_path)
