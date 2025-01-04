@@ -1,5 +1,5 @@
 """
-Model configuration and setup for the fine-tuned Mistral model with CUDA support.
+Model configuration and setup for the Falcon model with CUDA support.
 """
 
 import torch
@@ -22,15 +22,24 @@ class GenerationConfig:
 
 class ModelManager:
     def __init__(self, model_path: str, logger):
-        # Convert the passed-in path to an absolute path
-        # Typically your Mistral model is in: new_src/ml/text/model_files/mistral_qlora_finetuned
-        repo_root = os.path.dirname(os.path.dirname(__file__))  # one level up from config/
-        self.model_path = os.path.join(repo_root, "ml", "text", "model_files", "faclon3_10b_instruct")
-
-        # Or, if you actually want to use the user-provided model_path as a subfolder under repo_root:
-        # self.model_path = os.path.join(repo_root, model_path)
-
+        # Build the absolute path to the model
+        self.model_path = os.path.abspath(model_path)
         self.logger = logger
+
+        # Verify model path exists
+        if not os.path.exists(self.model_path):
+            raise RuntimeError(f"Model path does not exist: {self.model_path}")
+
+        # Verify required files exist
+        required_files = [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "model.safetensors.index.json"
+        ]
+        for file in required_files:
+            if not os.path.exists(os.path.join(self.model_path, file)):
+                raise RuntimeError(f"Required file {file} not found in {self.model_path}")
 
         # Verify CUDA availability
         if not torch.cuda.is_available():
@@ -47,8 +56,8 @@ class ModelManager:
         try:
             tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path,
-                local_files_only=True,
-                trust_remote_code=True
+                trust_remote_code=True,
+                use_fast=True
             )
             
             if tokenizer.pad_token is None:
@@ -56,7 +65,7 @@ class ModelManager:
 
         except Exception as e:
             self.logger.error(f"Error loading tokenizer: {e}")
-            raise RuntimeError(f"Failed to load tokenizer from {self.model_path}")
+            raise RuntimeError(f"Failed to load tokenizer from {self.model_path}: {str(e)}")
 
         self.logger.info("Loading 4-bit quantized model with CUDA...")
         quantization_config = BitsAndBytesConfig(
@@ -69,9 +78,8 @@ class ModelManager:
         try:
             model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
-                local_files_only=True,
                 trust_remote_code=True,
-                device_map="balanced",  # Uses all available GPUs
+                device_map="balanced",
                 quantization_config=quantization_config,
                 torch_dtype=torch.float16,
                 low_cpu_mem_usage=True,
@@ -83,20 +91,19 @@ class ModelManager:
 
         except Exception as e:
             self.logger.error(f"Error loading model: {e}")
-            raise RuntimeError(f"Failed to load model from {self.model_path}")
+            raise RuntimeError(f"Failed to load model from {self.model_path}: {str(e)}")
 
         return model, tokenizer
 
     def generate(self, context: str) -> str:
         """Generate a response using the model with strict length enforcement."""
         try:
-            # Add explicit length constraint to the system prompt
-            system_prefix = "IMPORTANT: Your response MUST be between 80-180 characters. No exceptions."
-            context_with_constraint = f"{system_prefix}\n\n{context}"
+            # Format the prompt properly for Falcon
+            formatted_prompt = f"User: {context}\n\nAssistant:"
             
             # Prepare input with truncation
             inputs = self.tokenizer(
-                context_with_constraint,
+                formatted_prompt,
                 return_tensors="pt",
                 truncation=True,
                 padding=True,
@@ -120,25 +127,16 @@ class ModelManager:
                     use_cache=True,
                 )
 
+            # Clean up the generated text
             generated_text = self.tokenizer.decode(
                 outputs[0][inputs["input_ids"].shape[1]:], 
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=True
             ).strip()
             
-            # Truncate if still too long
-            if len(generated_text) > 180:
-                last_break = generated_text[:180].rfind('.')
-                if last_break == -1:
-                    last_break = generated_text[:180].rfind('!')
-                if last_break == -1:
-                    last_break = 180
-                generated_text = generated_text[:last_break + 1].strip()
+            # Remove any artifacts
+            generated_text = generated_text.replace("User:", "").replace("Assistant:", "").strip()
             
-            # Ensure minimal length
-            if len(generated_text) < 80:
-                return ""
-                
             return generated_text
 
         except Exception as e:

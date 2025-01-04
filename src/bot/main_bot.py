@@ -5,6 +5,7 @@ Handles response generation and management using the pre-trained model.
 
 from typing import Optional
 import random
+import os
 from utils.text.text_processor import TextProcessor
 from utils.text.content_analyzer import ContentAnalyzer
 from config.personality_config import AthenaPersonalityConfig
@@ -15,7 +16,7 @@ import logging
 
 
 class PersonalityBot:
-    def __init__(self, model_path: str, logger, config: Optional[AthenaPersonalityConfig] = None):
+    def __init__(self, model_path: Optional[str] = None, logger = None, config: Optional[AthenaPersonalityConfig] = None):
         """
         Initialize the PersonalityBot.
         Args:
@@ -24,6 +25,13 @@ class PersonalityBot:
             config: Optional custom AthenaPersonalityConfig
         """
         self.logger = logger or logging.getLogger(__name__)
+        
+        # Set default model path if none provided
+        if model_path is None:
+            # Get the src directory path
+            src_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            model_path = os.path.join(src_dir, "ml", "text", "model_files", "falcon3_10b_instruct")
+        
         self.model_manager = ModelManager(model_path, self.logger)
         
         # Set max history (not strictly necessary if you're handling history elsewhere)
@@ -33,7 +41,6 @@ class PersonalityBot:
         self.config = config or AthenaPersonalityConfig.default()
         self.text_processor = TextProcessor(self.config, self.max_history)
         self.content_analyzer = ContentAnalyzer()
-        
         
         # Initialize opener history
         self.text_processor.recent_openers = []
@@ -46,15 +53,6 @@ class PersonalityBot:
     def generate_response(self, prompt: str) -> str:
         """
         Generate a response based on the given prompt.
-        
-        IMPORTANT: We now assume `prompt` is a fully formed prompt that includes:
-        - A system message
-        - Possibly conversation history
-        - A 'User:' section
-        - A final '### Assistant (Bot):' section where the model will continue
-
-        This means we do NOT add system/user instructions here. 
-        Just pass the prompt as-is to the model.
         """
         if not prompt.strip():
             return ""
@@ -67,17 +65,12 @@ class PersonalityBot:
             
             self.logger.info(f"Generated raw response: {generated_text}")
             
-            # Process the tweet (if needed) to remove extraneous instructions
-            # If your new prompt format doesn't include extraneous instructions in the output,
-            # you might only need minimal cleaning.
             processed_text, error = self.text_processor.process_tweet("", generated_text)
             if error:
                 self.logger.error(f"Error processing tweet: {error}")
                 return ""
             
             if processed_text:
-                # If the processed text still contains system instructions (it shouldn't now),
-                # remove them. Adjust as necessary if you see system instructions in output.
                 return processed_text.strip()
             
             return ""

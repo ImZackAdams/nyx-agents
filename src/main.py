@@ -4,6 +4,7 @@ Main entry point for the Twitter bot.
 import time
 import warnings
 import logging
+import os
 from typing import List
 from dotenv import load_dotenv
 
@@ -11,7 +12,6 @@ from dotenv import load_dotenv
 from utils.logger import setup_logger
 from api.twitter.client import TwitterClient
 
-# If you define a function named setup_twitter_api in bot/initializers, that's fine
 from bot.initializers import (
     validate_env_variables,
     initialize_diffusion_pipeline,
@@ -19,14 +19,11 @@ from bot.initializers import (
 )
 
 from bot.posting.posting_service import PostingService
-# Use the class from bot/main_bot.py instead of bot/prompts:
 from bot.main_bot import PersonalityBot
 from bot.posting.tweet_generator import TweetGenerator
 from bot.posting.meme_poster import MemePoster
 from bot.posting.reply_poster import ReplyPoster
 from bot.news.news_service import NewsService
-
-# Config location changed
 from config.posting_config import POST_COOLDOWN, RETRY_DELAY
 
 
@@ -55,9 +52,13 @@ class TwitterBot:
             # Initialize the older Twitter API wrapper (if needed)
             self.api = setup_twitter_api()
 
+            # Get the correct model path
+            src_dir = os.path.dirname(os.path.abspath(__file__))
+            model_path = os.path.join(src_dir, "ml", "text", "model_files", "falcon3_10b_instruct")
+            
             # Initialize core services
             personality_bot = PersonalityBot(
-                model_path="./mistral_qlora_finetuned",
+                model_path=model_path,
                 logger=self.logger
             )
             tweet_generator = TweetGenerator(personality_bot, logger=self.logger)
@@ -90,7 +91,7 @@ class TwitterBot:
             )
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize components: {e}", exc_info=True)
+            self.logger.error(f"Failed to initialize components: {str(e)}")
             raise
 
     def run(self) -> None:
