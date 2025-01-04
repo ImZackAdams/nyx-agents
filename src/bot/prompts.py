@@ -36,13 +36,29 @@ DEFI_TOKENS_PROMPTS: List[str] = [
 # --------------------------------
 # 4) Memecoins & Sassy Remarks
 # --------------------------------
-MEME_CAPTIONS: List[str] = [
-    "Memecoins: where internet culture meets speculation. Ride the wave or get dunked on by the next dog coin. #WoofWoof",
-    "$TBALL soared again? Board the rocket or stay gainsless. No one regrets profits except those who missed ‘em. #HindsightHurts",
-    "Pro tip: if your memecoin pitch is ‘trust me, bro,’ consider actually reading a whitepaper. #DueDiligence",
-    "Some say memecoins are worthless. Tell that to the retirees who bet on a dog coin. Probability is savage, luck is wild. #DontBlink",
-    "Shilling memecoins is like announcing your lottery numbers—fun if you win, cringe if you lose. #WinningTicket",
+MEME_CAPTIONS = [
+    "When $TBALL says 'Built Different,' it really means taking memes to the moon. 🚀 #NoApologies",
+    "Swing with us or stay dusty—$TBALL doesn’t wait for permission. #BuiltDifferent",
+    "Some coins brag about utility; $TBALL just brags about fun. We’re built different, baby! 💅 #MemeLife",
+    "Ready to swing with us? $TBALL has the last laugh when it comes to ‘worthless memes.’ #BuiltDifferent",
+    "Board the $TBALL rocket and swing with us—profits are no joke when your coin’s built different. 😏",
+    "Swing with us on $TBALL’s wild ride. Because if it ain’t built different, it ain’t memeworthy. 💥 #CryptoFun",
+    "Built different? That’s $TBALL’s battle cry. Wave goodbye to boring coins and say hello to meme magic. ✨",
+    "Swinging with us means betting on $TBALL chaos—and boy, do we love chaos! #BuiltDifferent",
+    "If your memecoin can’t handle the spotlight, swing with us at $TBALL. We’re built different for a reason. 😎",
+    "Built different and proud of it—$TBALL is where meme mania meets raw ambition. Swing with us if you dare! 💅",
+    "Watching $TBALL blast off? Either hop on board or enjoy the view from the sidelines. #MoonBound",
+    "They called it ‘just a meme.’ We call it $TBALL because laughter pairs well with gains. #NoApologies",
+    "If FOMO had a poster child, it’d be $TBALL. Grab your ticket or regret it later. 💥",
+    "We tried ‘serious’ coins. Then $TBALL happened, and the rest is rocket-fueled history. #MemeticMomentum",
+    "Everyone’s so serious, meanwhile $TBALL is printing memes—and profits. Coincidence? I think not. 😎",
+    "Need some spice in your portfolio? $TBALL might just be the sauce you didn’t know you craved. #PicanteCrypto",
+    "Who says a meme can’t rule the market? $TBALL thrives on chaos—join in or miss out. 🤷‍♂️",
+    "Tired of the same old charts? Let $TBALL inject some excitement. Up, down, who cares—we’re laughing. 😂",
+    "Call it a fluke, call it fate, $TBALL just keeps bopping critics on the head. #SassyCrypto",
+    "No one regrets jumping into $TBALL except those who didn’t do it sooner. Meme mania, unstoppable. 💅"
 ]
+
 
 # --------------------------------
 # 5) Fallback: Comedic Disclaimers & Misc
