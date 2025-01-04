@@ -99,7 +99,7 @@ class SimulatedTwitterBot:
             raise
 
     def run(self, num_iterations: int = 10) -> None:
-        """Generate specified number of tweets with clean output format"""
+        """Generate specified number of tweets with clean, human-readable output."""
         print(f"📝 Generating {num_iterations} test tweets...\n")
         
         successful_tweets = 0
@@ -109,21 +109,30 @@ class SimulatedTwitterBot:
                 print(f"Tweet {i + 1}/{num_iterations}")
                 print("-" * 80)
                 
+                # Attempt to post the tweet (returns tweet_id or None)
                 tweet_id = self.posting_service.post_tweet()
                 
                 if tweet_id:
+                    # Retrieve the tweet text from our mock Twitter client
                     tweet = self.client.tweets[tweet_id]
+
+                    # Print a more human-readable summary:
+                    print("🟢 Tweet posted:\n")
                     print(f"{tweet['text']}")
                     print(f"\nLength: {len(tweet['text'])} characters")
+                    
                     successful_tweets += 1
+                else:
+                    print("❌ No tweet generated this round.")
                 
                 print("-" * 80 + "\n")
                 
+                # Optional: small pause between tweets
                 if i < num_iterations - 1:
                     time.sleep(3)
 
             except Exception as e:
-                print(f"❌ Error generating tweet {i + 1}\n")
+                print(f"❌ Error generating tweet {i + 1}:\n{e}\n")
                 continue
 
         print(f"✅ Test completed! Generated {successful_tweets} tweets successfully\n")
