@@ -44,12 +44,25 @@ class PostingService:
             return None
 
     def _generate_news_prompt(self, article) -> str:
-        """Generates a prompt for news tweets."""
+        """
+        Generates a prompt for news tweets that:
+        1. Summarizes the article in 1-2 factual lines.
+        2. Converts that summary into a short, sassy tweet (80-240 chars).
+        """
         return (
             f"You are Athena (@Athena_TBALL), queen of crypto Twitter.\n"
-            f"Title: {article.title}\nContent: {article.content[:200]}\n\n"
-            "Write a sassy tweet summarizing this news. Include #CryptoNewsQueen and end with 💅 or ✨."
+            f"Here is a new article:\n"
+            f"Title: {article.title}\n"
+            f"Content (first 200 chars): {article.content[:200]}\n\n"
+            "1) Summarize the article in 1-2 short factual lines (who, what, why).\n"
+            "2) Then rewrite that summary as a sassy tweet of 80-240 chars.\n"
+            "   - Use at most 2 hashtags.\n"
+            "   - Include #CryptoNewsQueen.\n"
+            "   - End with either 💅 or ✨.\n"
+            "   - Keep it witty, blunt, and no sugarcoating.\n"
+            "Go!"
         )
+
 
     def _post_text_tweet(self) -> Optional[str]:
         """Posts a text-based tweet."""
