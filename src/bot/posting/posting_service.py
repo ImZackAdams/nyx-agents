@@ -56,11 +56,8 @@ class PostingService:
             f"Content (first 200 chars): {article.content[:200]}\n\n"
             "1) Summarize the article in 1-2 short factual lines (who, what, why).\n"
             "2) Then rewrite that summary as a sassy tweet of 80-240 chars.\n"
-            "   - Use at most 2 hashtags.\n"
-            "   - Include #CryptoNewsQueen.\n"
-            "   - End with either 💅 or ✨.\n"
-            "   - Keep it witty, blunt, and no sugarcoating.\n"
-            "Go!"
+            "3) Keep it witty, blunt, and no sugarcoating.\n"
+
         )
 
 
