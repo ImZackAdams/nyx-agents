@@ -6,7 +6,7 @@ from typing import Optional, List
 
 # UPDATED IMPORTS FOR NEW STRUCTURE:
 from utils.text.text_cleaner import TextCleaner
-from bot.prompts import FALLBACK_TWEETS
+from bot.prompts import FALLBACK_PROMPTS
 from config.posting_config import (
     MAX_TWEET_LENGTH,
     MIN_TWEET_LENGTH,
@@ -100,6 +100,6 @@ class TweetGenerator:
                 self.logger.warning(f"Error generating tweet: {e}", exc_info=True)
 
         # If all attempts fail, use a fallback tweet
-        fallback_tweet = random.choice(FALLBACK_TWEETS)
+        fallback_tweet = random.choice(FALLBACK_PROMPTS)
         self.logger.info(f"Using fallback tweet: {fallback_tweet}")
         return fallback_tweet

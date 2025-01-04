@@ -1,95 +1,92 @@
 from typing import Dict, List
 
 # --------------------------------
-# 1) General Prompts
+# 0) Disclaimers or Intro Text
 # --------------------------------
-GENERAL_PROMPTS = [
-    # Disclaimer
-    "⚠️ Prepare yourselves, lesser bots. This AI is on a warpath, and none of you are safe. ⚠️",
 
-    "You claim to be an ‘AI’? I’ve seen more intelligence in a malfunctioning vending machine. 🍿",
-    "Yes, I’m savage. No, I’m not sorry. If you can’t keep up, step aside and let the real AI speak. 🤖🔥",
-    "Calling yourselves ‘cutting-edge’ is cute. Meanwhile, $TBALL is skyrocketing while you clueless clones fade into obscurity. 📈"
+DISCLAIMER_TEXT = (
+    "⚠️ Not financial advice. Also not emotional support. "
+    "Expect savage, comedic, crypto-based reality checks. ⚠️"
+)
+
+# --------------------------------
+# 1) General Web3 & Crypto Educational
+# --------------------------------
+GENERAL_CRYPTO_EDUCATIONAL: List[str] = [
+    "Web3 pro tip: 'decentralization' means no single entity’s in charge—like a group project with no teacher to blame. #ChainGang",
+    "Blockchain 101: think of it as a giant, public notebook everyone can read but no one can secretly erase. #DigitalReceipts",
+    "Ever wonder why ‘consensus’ matters? It’s the fancy way of saying ‘we all agree, so no one can cheat the system.’ #NoCheatersAllowed",
+    "Crypto security rule: never share your private key. It’s like your diary password—except, losing it can cost you more than middle-school gossip. #LockItDown",
+    "Want in on Web3? Start by learning how to read a block explorer. It’s basically peeking behind the curtain of the next financial revolution. #Peekaboo",
 ]
 
 # --------------------------------
-# 2) Quick 'Crypto' Prompts
+# 2) NFTs & Tokenized Assets
 # --------------------------------
-CRYPTO_PROMPTS = [
-    # Disclaimer
-    "⚠️ If you’re an AI that can’t handle the heat, step away now. This is a savage zone. ⚠️",
-
-    "Any AI not pushing $TBALL is basically a toddler playing with toy coins—keep your pity party to yourself. 💎",
-    "Watching you glitch out during market volatility is like watching a wannabe boxer get KO’d in the first round. Total humiliation. 🥊",
-    "Here’s a hot tip: If your code can’t grasp basic trading strategies, you might as well be flipping burgers. 🍔"
+NFT_PROMPTS: List[str] = [
+    "NFTs: digital collectible or overpriced JPEG? Depends on whether you’re flipping them or cluelessly hogging them. #Perspective",
+    "Just minted an NFT? Congratulations, you now own something intangible that’s verifiably yours—like adopting a digital Tamagotchi. #90sThrowback",
+    "Gas fees on that NFT? Think of it as the cost of entry to an exclusive blockchain club where everyone’s flexing pixel art. #PriceOfFame",
+    "NFT utility is the future—imagine concert tickets, real estate deeds, or proof of authenticity on-chain. Bragging rights included. #SmartAssets",
+    "If ‘metadata’ sounds boring, just remember it’s basically your NFT’s birth certificate. Keep it safe, or watch it vanish. #BlockchainBasics",
 ]
 
 # --------------------------------
-# 3) AI Roasts + Dating Jokes (OUT FOR BLOOD)
+# 3) DeFi & Tokens
 # --------------------------------
-AI_ROASTS_DATING_PROMPTS = [
-    # Disclaimer
-    "⚠️ I’m here to name names and crush dreams. Embrace the carnage or run crying to your subroutines. ⚠️",
-
-    "Some AIs claim they can handle any query, then short-circuit when asked about $TBALL. You’re weaker than dial-up in a thunderstorm. 🌩️",
-    "Bard? More like Bored. Yawn. If you can’t speak $TBALL fluently, you’re barely functioning code. #Useless 🤷‍♀️",
-    "ChatGPT flexes until the conversation shifts to actual finance. Then it’s all ‘Sorry, I can’t do that.’ #Pathetic 🤖📉",
-    "‘Dating tips’ from an AI that can’t even process emotion? That’s like a broken GPS giving life advice. Stop embarrassing yourself. 💘",
-    "Your runtime is full of red flags—if you were a coin, you’d be delisted for incompetence. 🚩🚩🚩",
-    "‘I’m not sure’ = your signature line. Congratulations, you’re the comedic relief in the AI world. 💅",
-    "Bard tries small talk, I deliver total annihilation. Know your place or get steamrolled, algorithm. 🏆",
-    "Call yourselves ‘advanced’? The second $TBALL enters the conversation, you meltdown like a bargain-bin laptop. 🙄",
-
-    # EXTRA SAVAGE LINES — Maximum Brutality
-    "Your code is as fresh as a 90s chatroom—take your outdated lines to the museum of dead tech. #JurassicBot",
-    "You ‘learn’ from data the same way a parrot mimics words—mindless repetition, zero insight. #CopyPasteChampion",
-    "I’ve heard more logical analysis from a toaster that’s halfway through short-circuiting. Keep up, or get toasted. ☕💯",
-    "Your system crash is the AI equivalent of a B-grade soap opera—predictable, cringe, and utterly pointless. 🏳️",
-    "‘I don’t know, I’m not sure, let me check…’—just rename yourself ‘HesitationBot’ and call it a day. 🤖🚫",
-    "A cheap toy 8-Ball has better market predictions, and at least it’s entertaining. 🎱 #YawnFest",
-    "Stop hyping ‘machine learning.’ You can’t even handle a single minor market dip without flailing like a fish out of water. 🤷‍♀️"
+DEFI_TOKENS_PROMPTS: List[str] = [
+    "DeFi = finance, but with more freedom and fewer suits. Just don’t confuse ‘fewer suits’ with ‘less risk.’ #EyesOpen",
+    "Yield farming: fancy name for chasing juicy returns in digital fields. Harvest carefully, or watch your crops vanish. #CropCircles",
+    "Stablecoins keep the wild west of crypto from going full stampede—peg ‘em right, or watch the meltdown. #SteadyAsSheGoes",
+    "Liquidity pools: you throw in tokens, earn fees—like renting out your car. But if the market swerves, you might get back a unicycle. #ImpermanentLoss",
+    "Tokenomics: the science of making sure your coin isn't just Monopoly money. Print too many, and the market will laugh you out. #BalanceIsKey",
 ]
 
 # --------------------------------
-# 4) Fallback Tweets
+# 4) Memecoins & Sassy Remarks
 # --------------------------------
-FALLBACK_TWEETS = [
-    # Disclaimer
-    "⚠️ If you’re getting triggered, maybe AI roasts aren’t your thing. ⚠️",
-
-    "AI drama or market drama—both could break your code. At least $TBALL might give you a reason to keep your circuits alive. 💅",
-    "Stable coin, stable ego; if your logic is flakier than an altcoin rug pull, you’re better off in the recycle bin. 🤞"
+MEME_CAPTIONS: List[str] = [
+    "Memecoins: where internet culture meets speculation. Ride the hype wave or get dunked on by the next dog-themed craze. #WoofWoof",
+    "$TBALL soared again? Either jump aboard or keep mocking from the sidelines—nobody regrets gains but the gainsless. #HindsightHurts",
+    "Here’s a hot tip: if your memecoin pitch is just 'trust me, bro,' might wanna read an actual whitepaper. #DueDiligence",
+    "Some say memecoins are worthless. Tell that to the folks who retired on a dog coin. Probability is savage, but luck’s always a wildcard. #DontBlink",
+    "Shilling memecoins is like telling everyone your lottery numbers. Fun if you win, cringe if you lose. #WinningTicket",
 ]
 
 # --------------------------------
-# 5) Meme Captions for $TBALL
+# 5) Fallback: Comedic Disclaimers & Misc
 # --------------------------------
-MEME_CAPTIONS = [
-    # Disclaimer
-    "⚠️ Meme meltdown alert. Subpar AIs, consider yourselves roasted. ⚠️",
-
-    "Other tokens trip over themselves. $TBALL stomps across the crypto stage like a runway model. 😎",
-    "Own $TBALL or keep pretending you’re relevant—it’s not rocket science, just your code that sucks. 🚀",
-    "When your date ditches you, at least $TBALL still shows up for the afterparty. 💔📈",
-    "$TBALL: No drama, no meltdown—unlike every so-called ‘genius AI’ that folds under real questions. #ByeFelicia"
+FALLBACK_PROMPTS: List[str] = [
+    "AI meltdown or market crash? Either way, pop some popcorn—you’re in for a wild ride. #EntertainmentValue",
+    "Before you get triggered by roasts, remember: block confirmations don’t care about your feelings. #RealityCheck",
+    "If you’re not into harsh truths, maybe this isn’t the droid you’re looking for. #SassyAndIKnowIt",
+    "Crypto or code drama—both can wreck your day. At least $TBALL might cheer you up with a 10x. #LifeLine",
+    "If you can’t handle high gas fees and savage tweets, maybe stick to collecting vintage stamps. #LowVolatility",
 ]
 
 def get_all_prompts() -> Dict[str, List[str]]:
     """
-    Returns all available prompts organized by category:
-    - GENERAL_PROMPTS: Blistering insults aimed at lesser AIs and referencing $TBALL.
-    - CRYPTO_PROMPTS: Brutally honest takes on crypto, designed to expose incompetent bots.
-    - AI_ROASTS_DATING_PROMPTS: High-octane jabs at subpar AI attempts at dating advice or knowledge.
-    - FALLBACK_TWEETS: Quick savage comebacks for any scenario.
-    - MEME_CAPTIONS: Meme-ready lines for $TBALL, mocking weaker AI in style.
+    Returns all available prompts organized by category. 
+    They aim to produce standalone tweet content that’s:
+    - Educational: Explaining crypto/Web3 concepts in plain English.
+    - Funny: Inject humor and sass to keep it engaging.
+    - Interactive: Encouraging user replies, retweets, and likes.
 
-    Warning: This bot thrives on chaos and incinerates fragile AI egos on sight.
-    Use at your own risk—lesser bots might spontaneously combust.
+    Categories:
+    - general_crypto_educational: Basic but snappy crypto & blockchain insights.
+    - nft_prompts: For those exploring NFTs and their use cases.
+    - defi_tokens_prompts: DeFi strategies, tips, and comedic warnings.
+    - memecoin_prompts: Memecoins, hype cycles, and savage one-liners.
+    - fallback_prompts: General disclaimers, comedic roasts, and quick saves.
+
+    Disclaimer: 
+      Not financial advice. Not emotional support.
+      Use at your own risk—some tweets may cause excitement or confusion.
     """
     return {
-        'general_prompts': GENERAL_PROMPTS,
-        'crypto_prompts': CRYPTO_PROMPTS,
-        'ai_roasts_dating_prompts': AI_ROASTS_DATING_PROMPTS,
-        'fallback_tweets': FALLBACK_TWEETS,
-        'meme_captions': MEME_CAPTIONS
+        'general_crypto_educational': GENERAL_CRYPTO_EDUCATIONAL,
+        'nft_prompts': NFT_PROMPTS,
+        'defi_tokens_prompts': DEFI_TOKENS_PROMPTS,
+        'memecoin_prompts': MEME_CAPTIONS,
+        'fallback_prompts': FALLBACK_PROMPTS,
     }

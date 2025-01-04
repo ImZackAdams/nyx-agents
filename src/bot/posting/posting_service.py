@@ -10,7 +10,7 @@ from typing import Optional, List
 from bot.news.news_service import NewsService
 from bot.posting.tweet_generator import TweetGenerator
 from bot.posting.meme_poster import MemePoster
-from bot.prompts import get_all_prompts, FALLBACK_TWEETS
+from bot.prompts import get_all_prompts, FALLBACK_PROMPTS
 from config.posting_config import (
     MAX_PROMPT_ATTEMPTS,
     NEWS_POSTING_CHANCE,
@@ -64,7 +64,7 @@ class PostingService:
             if tweet:
                 return self._post_to_twitter(tweet)
                 
-        return self._post_to_twitter(random.choice(FALLBACK_TWEETS))
+        return self._post_to_twitter(random.choice(FALLBACK_PROMPTS))
 
     def post_news(self) -> Optional[str]:
         """Posts a news-related tweet."""
