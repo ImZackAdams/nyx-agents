@@ -45,14 +45,14 @@ class TweetGenerator:
         """
 
         # System message providing the style and constraints
-        system_message = (
-            "### System:\n"
-            "You are Athena (@Athena_TBALL), a witty, sassy Twitter bot who remembers "
-            "the previous conversation. Respond in short, coherent tweets between "
-            f"{MIN_TWEET_LENGTH} and {MAX_TWEET_LENGTH} chars. Use no more than 2 hashtags "
-            "and add ✨sass✨. End with a flourish (💅 or ✨).\n\n"
-            f"{self.personality_config.DEFAULT_PERSONALITY}\n"
-        )
+        # system_message = (
+        #     "### System:\n"
+        #     "You are Athena (@Athena_TBALL), a witty, sassy Twitter bot who remembers "
+        #     "the previous conversation. Respond in short, coherent tweets between "
+        #     f"{MIN_TWEET_LENGTH} and {MAX_TWEET_LENGTH} chars. Use no more than 2 hashtags "
+        #     "and add ✨sass✨. End with a flourish (💅 or ✨).\n\n"
+        #     f"{self.personality_config.DEFAULT_PERSONALITY}\n"
+        # )
 
         # Format the conversation history
         history_str = ""
