@@ -2,9 +2,9 @@
 
 import random
 import logging
+import re
 from typing import Optional, List
 
-# UPDATED IMPORTS FOR NEW STRUCTURE:
 from utils.text.text_cleaner import TextCleaner
 from bot.prompts import FALLBACK_PROMPTS
 from config.posting_config import (
@@ -18,6 +18,14 @@ from config.personality_config import AthenaPersonalityConfig
 def validate_tweet(tweet: str) -> bool:
     """Validate the tweet's length and content."""
     return MIN_TWEET_LENGTH <= len(tweet) <= MAX_TWEET_LENGTH
+
+
+def remove_hashtags(text: str) -> str:
+    """
+    Remove all hashtags from the text, e.g. "#Crypto", "#TBALL", "#Bullish".
+    This ensures no hashtags remain in the final tweet.
+    """
+    return re.sub(r'#\S+', '', text).strip()
 
 
 class TweetGenerator:
@@ -35,7 +43,7 @@ class TweetGenerator:
         conversation_history: Optional[List[str]] = None
     ) -> str:
         """
-        Generate a tweet response with a structured prompt for Mistral 7B Instruct.
+        Generate a tweet response with a structured prompt for the model.
         
         :param user_message: The latest user message.
         :param conversation_history: A list of previous turns, e.g.:
@@ -45,10 +53,7 @@ class TweetGenerator:
         """
 
         # System message providing the style and constraints
-        system_message = (
-
-            f"{self.personality_config.DEFAULT_PERSONALITY}\n"
-        )
+        system_message = f"{self.personality_config.DEFAULT_PERSONALITY}\n"
 
         # Format the conversation history
         history_str = ""
@@ -71,9 +76,16 @@ class TweetGenerator:
                 self.logger.info(f"Generating tweet, attempt {attempt + 1}...")
                 self.logger.debug(f"Final prompt:\n{combined_prompt}")
                 
+                # 1) Generate raw response
                 response = self.bot.generate_response(combined_prompt)
+                
+                # 2) Pass through text cleaner
                 cleaned_response = self.cleaner.clean_text(response)
+                
+                # 3) Force-remove hashtags right before validating length
+                cleaned_response = remove_hashtags(cleaned_response)
 
+                # 4) If it's too long after removing hashtags, truncate
                 if len(cleaned_response) > MAX_TWEET_LENGTH:
                     self.logger.warning(
                         f"Generated tweet too long ({len(cleaned_response)} chars). "
@@ -81,6 +93,7 @@ class TweetGenerator:
                     )
                     cleaned_response = cleaned_response[:MAX_TWEET_LENGTH].strip()
 
+                # 5) Validate final tweet
                 if validate_tweet(cleaned_response):
                     self.logger.info(
                         f"Generated valid tweet: {cleaned_response} "

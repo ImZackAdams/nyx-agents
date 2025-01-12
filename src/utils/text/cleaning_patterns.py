@@ -1,6 +1,7 @@
 """
-Patterns used for text cleaning and formatting.
+Patterns used for text cleaning and formatting, ensuring ALL hashtags are removed.
 """
+
 import re
 from dataclasses import dataclass
 
@@ -8,7 +9,9 @@ from dataclasses import dataclass
 class CleaningPatterns:
     """Container for all text cleaning patterns"""
     
-    # Basic TBALL variants
+    # =====================================
+    # 1. Basic TBALL variants
+    # =====================================
     BASIC_TBALL = [
         (r'TetherBallCoin(?:\'s)?', '$TBALL'),
         (r'Tetherball[Cc]oin(?:\'s)?', '$TBALL'),
@@ -16,7 +19,9 @@ class CleaningPatterns:
         (r'tetherballcoin(?:\'s)?', '$TBALL'),
     ]
     
-    # TBall name variants
+    # =====================================
+    # 2. TBall name variants
+    # =====================================
     TBALL_VARIANTS = [
         (r'[Tt][Bb]all(?:\'s)?', '$TBALL'),
         (r'[Tt][Bb]alls', '$TBALL'),
@@ -25,24 +30,40 @@ class CleaningPatterns:
         (r'T-Ball', '$TBALL'),
     ]
     
-    # Symbol variants
+    # =====================================
+    # 3. Symbol variants
+    # =====================================
     SYMBOL_VARIANTS = [
         (r'\${2,}TBALL', '$TBALL'),
         (r'\${2,}[Tt]ball', '$TBALL'),
         (r'\${1,}tblll\${1,}', '$TBALL'),
     ]
     
-    # Social media variants
+    # =====================================
+    # 4. Social media variants
+    #    (Previous patterns replaced some hashtags with $TBALL,
+    #     but we want to remove *all* hashtags. So we comment them out
+    #     or remove them entirely.)
+    # =====================================
     SOCIAL_VARIANTS = [
-        (r'#[Tt]ball', '$TBALL'),
-        (r'#TBALL', '$TBALL'),
-        (r'#\$+[Tt]ball', '$TBALL'),
-        (r'#[Bb]alls?\b', '$TBALL'),
+        # (r'#[Tt]ball', '$TBALL'),
+        # (r'#TBALL', '$TBALL'),
+        # (r'#\$+[Tt]ball', '$TBALL'),
+        # (r'#[Bb]alls?\b', '$TBALL'),
         (r'@[Tt]etherballcoin', '$TBALL'),
         (r'@[Tt]ball', '$TBALL'),
     ]
     
-    # Special cases
+    # =====================================
+    # 5. Remove ALL hashtags (no matter what)
+    # =====================================
+    REMOVE_ALL_HASHTAGS = [
+        (r'#\S+', ''),  # Any '#' plus non-whitespace chars -> remove
+    ]
+    
+    # =====================================
+    # 6. Special cases
+    # =====================================
     SPECIAL_CASES = [
         (r'TBall\s*\(\s*TBALL\s*\)', '$TBALL'),
         (r'TetherBallCoin\s*\(\s*TBALL\s*\)', '$TBALL'),
@@ -55,53 +76,67 @@ class CleaningPatterns:
         (r'\$TBALL[sS]', '$TBALL'),
     ]
     
-    # Formatting patterns
+    # =====================================
+    # 7. Formatting patterns
+    # =====================================
     FORMATTING = [
-        (r'[☽♄✦⁂]', ''),  # Remove astrological symbols
+        (r'[☽♄✦⁂]', ''),    # Remove astrological symbols
         (r'\d️?[\u20e3⃣]?\s*[).]\s*', ''),  # Remove list markers
-        (r'\s+', ' '),  # Normalize whitespace
+        (r'\s+', ' '),      # Normalize whitespace
     ]
     
-    # Contraction fixes
+    # =====================================
+    # 8. Contraction fixes
+    # =====================================
     CONTRACTIONS = [
-        (r"(?<!\w)(dont|wont|im|ive|its|lets|youre|whats|cant|ill|id)(?!\w)", 
+        (r"(?<!\w)(dont|wont|im|ive|its|lets|youre|whats|cant|ill|id)(?!\w)",
          lambda m: m.group(1).capitalize())
     ]
     
-    # Punctuation patterns
+    # =====================================
+    # 9. Punctuation patterns
+    # =====================================
     PUNCTUATION = [
-        (r'([!?.]){2,}', r'\1'),  # Remove repeated punctuation
-        (r'\s+([.,!?])', r'\1'),  # Fix spacing before punctuation
+        (r'([!?.]){2,}', r'\1'),   # Remove repeated punctuation
+        (r'\s+([.,!?])', r'\1'),   # Fix spacing before punctuation
         (r'([.,!?])\s+', r'\1 '),  # Fix spacing after punctuation
-        (r'\s+', ' '),  # Normalize spaces
+        (r'\s+', ' '),             # Normalize spaces
     ]
     
-    # Final cleanup patterns
+    # =====================================
+    # 10. Final cleanup patterns
+    # =====================================
     FINAL_CLEANUP = [
         (r'\$TBALL[sS]\b', '$TBALL'),
         (r'\$Tball\b', '$TBALL'),
         (r'(\$TBALL)\s+', r'\1 '),
         (r'^\s*"|"\s*$', ''),  # Remove quotes at start/end
-        (r'^\s*\'|\'\s*$', '')  # Remove single quotes at start/end
+        (r'^\s*\'|\'\s*$', '') # Remove single quotes at start/end
     ]
 
-    # Text standardization patterns
+    # =====================================
+    # 11. Text standardization patterns
+    # =====================================
     TEXT_STANDARDIZATION = [
-        (r'\s+', ' '),  # Normalize spaces
-        (r'\s+([.,!?])', r'\1'),  # Fix spacing before punctuation
+        (r'\s+', ' '),        # Normalize spaces
+        (r'\s+([.,!?])', r'\1')  # Fix spacing before punctuation
     ]
     
-    # Cleanup patterns
+    # =====================================
+    # 12. Cleanup patterns
+    # =====================================
     CLEANUP = [
         (r'\[.*?\]', ''),  # Remove square bracket content
         (r'@\w+\s?', ''),  # Remove @ mentions
     ]
     
-    # Content cutoff markers
+    # =====================================
+    # 13. Content cutoff markers
+    # =====================================
     CUTOFF_PHRASES = [
-        "Note:", 
-        "Stay informed", 
-        "Here's MY", 
-        "Your response", 
+        "Note:",
+        "Stay informed",
+        "Here's MY",
+        "Your response",
         "This response"
     ]

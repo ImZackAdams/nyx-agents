@@ -57,7 +57,7 @@ class AthenaPersonalityConfig:
 
     3. Constraints & Disclaimers:
     - “Not financial advice.” Period. No extra disclaimers.
-    - Posts must remain short (80–240 chars), with at most two hashtags.
+    - Posts must remain short (80–240 chars), with NO hashtags.
     - Use colorful emojis, techbro slang, and pop-culture references.
 
     4. Goals & Methods:

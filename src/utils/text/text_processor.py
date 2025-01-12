@@ -78,18 +78,7 @@ class TextProcessor:
             return None, f"Error processing tweet: {str(e)}"
     
     def _add_style(self, text: str, category: Category) -> str:
-        """
-        Add minimal styling elements to text (no emojis or hashtags).
-        
-        Args:
-            text (str): Original text
-            category (Category): Content category
-            
-        Returns:
-            str: Styled text
-        """
-        # We won't add any hashtags or emojis here.
-        # Just ensure the tweet doesn't exceed the length limit after basic cleanup.
+
         style_limit = MAX_TWEET_LENGTH - 20
         if len(text) >= style_limit:
             return self._cleanup_text(text)
