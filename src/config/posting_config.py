@@ -1,8 +1,8 @@
 # Bot configuration constants
 
 # Content type chances
-NEWS_POSTING_CHANCE = 0.10   # 20% chance to check and post news
-MEME_POSTING_CHANCE = 0.10   # 20% chance to post memes
+NEWS_POSTING_CHANCE = 0.30   # 20% chance to check and post news
+MEME_POSTING_CHANCE = 0.20   # 20% chance to post memes
 
 # Meme settings
 SUPPORTED_MEME_FORMATS = ('.jpg', '.jpeg', '.png', '.gif', 'JPG')
@@ -23,8 +23,8 @@ MAX_PROMPT_ATTEMPTS = 3      # Number of different prompts to try before fallbac
 
 
 # Timing settings (all in seconds)
-POST_COOLDOWN = 60 * 90      # 1 hour between posts
+POST_COOLDOWN = 60 * 45      # 1 hour between posts
 RETRY_DELAY = 60 * 2        # 15 minutes retry delay
 INITIAL_REPLY_DELAY = 60 * 8  # Wait 10 minutes after posting
 REPLY_CYCLE_DELAY = 60 * 8    # 15 minutes between reply cycles
-FINAL_CHECK_DELAY = 60 * 90    # 1 hour wait before final check
+FINAL_CHECK_DELAY = 60 * 45    # 1 hour wait before final check
