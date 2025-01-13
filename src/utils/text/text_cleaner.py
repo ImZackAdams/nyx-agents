@@ -8,7 +8,7 @@ from typing import Optional, List, Tuple
 # If cleaning_patterns.py is in new_src/utils/text/, then:
 #   from utils.text.cleaning_patterns import CleaningPatterns
 # If it's placed differently, adjust accordingly.
-from utils.text.cleaning_patterns import CleaningPatterns
+from utils.text.text_cleaning_patterns import CleaningPatterns
 
 
 class TextCleaner:
