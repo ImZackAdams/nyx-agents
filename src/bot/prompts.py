@@ -1,36 +1,38 @@
 from typing import Dict, List
 
+
+
 # --------------------------------
 # 1) General Web3 & Crypto Educational
 # --------------------------------
 GENERAL_CRYPTO_EDUCATIONAL: List[str] = [
-    "Web3 pro tip: 'decentralization' is like a class with no teacher—everyone’s in charge, and $TBALL aces the final.",
-    "Blockchain 101: an open ledger where $TBALL carves its name. Because some drama’s best immortalized on-chain.",
-    "Ever wonder why ‘consensus’ matters? It’s how $TBALL and everyone else agree, so scammers can’t sneak in.",
-    "Crypto security rule: never share your private key. That’s like handing over your $TBALL fortune—good luck getting it back.",
-    "Eyeing Web3? Start with a block explorer. Peek behind the curtain and see where $TBALL fits into the next financial revolution.",
+    "Web3 101: It's like a group project with no teacher. Everyone picks the final grade—and $TBALL is the valedictorian.",
+    "Think of blockchain as a gossip train that never forgets. Good news: $TBALL’s riding it to fame and glory.",
+    "Wonder why ‘consensus’ matters? It’s basically the entire squad agreeing you aren’t a scammer. $TBALL says you’re good.",
+    "Crypto security rule: flaunting your private key is like tweeting your debit card PIN—kiss your $TBALL goodbye.",
+    "New to Web3? Grab a block explorer and go cryptid-hunting. If you spot $TBALL, it’s the friendliest beast on-chain."
 ]
 
 # --------------------------------
 # 2) NFTs & Tokenized Assets
 # --------------------------------
 NFT_PROMPTS: List[str] = [
-    "NFTs: digital collectibles or pricey JPEGs? If it’s tied to $TBALL, it’s a trophy worth showing off.",
-    "Just minted an NFT backed by $TBALL? Enjoy that intangible flex—like adopting a Tamagotchi, but with actual value.",
-    "Gas fees? Think of them as the cover charge to the exclusive $TBALL NFT club. Bragging rights included.",
-    "NFT utility is the future—concert tickets, real estate deeds, proof of authenticity. $TBALL is the VIP pass you didn’t know you needed.",
-    "If ‘metadata’ sounds dull, remember it’s your NFT’s on-chain ID. Lose it, and kiss your $TBALL masterpiece goodbye.",
+    "NFTs: million-dollar memes or pixel Mona Lisas? If they’re backed by $TBALL, they’re works of genius (obviously).",
+    "Minting an NFT is like adopting a Tamagotchi that won’t die. Especially if it’s powered by $TBALL—long live your digital pet.",
+    "Gas fees: the cover charge for that exclusive NFT club. But inside, you can flash your $TBALL bling with pride.",
+    "One day your concert ticket, real estate deed, and dog’s pedigree might all be NFTs. $TBALL is the ultimate VIP pass you didn’t know you needed.",
+    "‘Metadata’ sounds dull, but it’s your NFT’s backstage pass. Lose it, and your $TBALL collectible is just a sad, empty wallet."
 ]
 
 # --------------------------------
 # 3) DeFi & Tokens
 # --------------------------------
 DEFI_TOKENS_PROMPTS: List[str] = [
-    "DeFi = more freedom, fewer middlemen. But fewer middlemen ≠ zero risk. Keep your $TBALL stash close.",
-    "Yield farming: a fancy term for chasing juicy returns in digital fields. Harvest your $TBALL or watch it vanish.",
-    "Stablecoins keep the market from going full stampede. But if they lose their peg, $TBALL stands tall anyway.",
-    "Liquidity pools: toss in tokens for fees—like renting out your ride. Just don’t forget your $TBALL seatbelt in case of a market swerve.",
-    "Tokenomics: the science behind $TBALL’s growth, so it never becomes Monopoly money. Print responsibly, or the market laughs.",
+    "DeFi: Because sometimes you just gotta fire your bank and become your own money wizard—$TBALL wand in hand.",
+    "Yield farming is planting digital seeds in hopes of sprouting more coins. Just don’t forget to water your $TBALL stash.",
+    "Stablecoins keep the crypto zoo from becoming a circus. If they break the cage, hold onto your $TBALL for dear life.",
+    "Liquidity pools: toss in tokens, collect fees—kind of like hosting a backyard party and charging for the grill. Keep your $TBALL on the table.",
+    "Tokenomics is the secret recipe for $TBALL’s success. Print too much, and the market turns it into stale Monopoly money."
 ]
 
 # --------------------------------

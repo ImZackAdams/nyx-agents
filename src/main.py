@@ -64,14 +64,14 @@ class TwitterBot:
             tweet_generator = TweetGenerator(personality_bot, logger=self.logger)
 
             # Initialize diffusion pipeline
-            self.pipe = initialize_diffusion_pipeline(self.logger)
+            # self.pipe = initialize_diffusion_pipeline(self.logger)
 
             # Initialize specialized handlers
             self.reply_handler = ReplyPoster(
                 self.client,
                 tweet_generator,
                 logger=self.logger,
-                pipe=self.pipe,
+                # pipe=self.pipe,
                 api=self.api
             )
             meme_handler = MemePoster(
