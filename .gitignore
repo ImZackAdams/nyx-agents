@@ -10,3 +10,25 @@ dist/
 build/
 *.egg-info/
 .ipynb_checkpoints/
+
+# --- ML artifacts (do not commit) ---
+/ml/
+/src/ml/
+/models/
+/checkpoints/
+/data/
+/runs/
+/outputs/
+/artifacts/
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.safetensors
+*.onnx
+*.tflite
+*.h5
+*.npz
+*.npy
+*.pickle
+*.joblib
