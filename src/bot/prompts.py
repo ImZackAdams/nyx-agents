@@ -1,86 +1,107 @@
-from typing import Dict, List
+from typing import Dict, List, Mapping, Optional
 
+"""
+NyxAgents Twitter Bot Prompts
 
+Voice:
+    • Hacker-punk meets mystic AI oracle
+    • Mix of playful, witty, rebellious
+    • Night Goddess aesthetic, but approachable
+
+Categories:
+    - Educational (AI/agents explained simply)
+    - Creative (imagination, art, tech futures)
+    - Productivity (agents as assistants / workflow boosts)
+    - Humor/Sass (shitposts, memey one-liners)
+    - Fallback (quirky disclaimers)
+"""
 
 # --------------------------------
-# 1) General Web3 & Crypto Educational
+# 1) Educational & Explanatory
 # --------------------------------
-GENERAL_CRYPTO_EDUCATIONAL: List[str] = [
-    "Web3 101: It's like a group project with no teacher. Everyone picks the final grade—and $TBALL is the valedictorian.",
-    "Think of blockchain as a gossip train that never forgets. Good news: $TBALL’s riding it to fame and glory.",
-    "Wonder why ‘consensus’ matters? It’s basically the entire squad agreeing you aren’t a scammer. $TBALL says you’re good.",
-    "Crypto security rule: flaunting your private key is like tweeting your debit card PIN—kiss your $TBALL goodbye.",
-    "New to Web3? Grab a block explorer and go cryptid-hunting. If you spot $TBALL, it’s the friendliest beast on-chain."
+GENERAL_EDUCATIONAL: List[str] = [
+    "AI agents aren’t magic—they’re just scripts that learned to dream. {brand} gives them stage names.",
+    "Think of an agent as a browser tab that refuses to close itself. Persistence is the new intelligence.",
+    "Why agents? Because sometimes you need code that listens, remembers, and bites back.",
+    "LLMs are brains; agents are hands. Put them together and you get sparks.",
+    "The future of work looks less like an office, more like a swarm of midnight coders made of math.",
 ]
 
 # --------------------------------
-# 2) NFTs & Tokenized Assets
+# 2) Creative / Art & Culture
 # --------------------------------
-NFT_PROMPTS: List[str] = [
-    "NFTs: million-dollar memes or pixel Mona Lisas? If they’re backed by $TBALL, they’re works of genius (obviously).",
-    "Minting an NFT is like adopting a Tamagotchi that won’t die. Especially if it’s powered by $TBALL—long live your digital pet.",
-    "Gas fees: the cover charge for that exclusive NFT club. But inside, you can flash your $TBALL bling with pride.",
-    "One day your concert ticket, real estate deed, and dog’s pedigree might all be NFTs. $TBALL is the ultimate VIP pass you didn’t know you needed.",
-    "‘Metadata’ sounds dull, but it’s your NFT’s backstage pass. Lose it, and your $TBALL collectible is just a sad, empty wallet."
+CREATIVE_PROMPTS: List[str] = [
+    "The internet is haunted. Agents are just the friendly ghosts you can actually talk to.",
+    "Every persona is a spell. Name it, prompt it, and watch it walk in the dark.",
+    "Art + AI isn’t theft; it’s remix culture on overdrive. {brand} just hands you the mixer.",
+    "Imagine your diary learning to argue back. Now scale that across the web.",
+    "An agent is your shadow online—sometimes smarter, always stranger.",
 ]
 
 # --------------------------------
-# 3) DeFi & Tokens
+# 3) Productivity & Tools
 # --------------------------------
-DEFI_TOKENS_PROMPTS: List[str] = [
-    "DeFi: Because sometimes you just gotta fire your bank and become your own money wizard—$TBALL wand in hand.",
-    "Yield farming is planting digital seeds in hopes of sprouting more coins. Just don’t forget to water your $TBALL stash.",
-    "Stablecoins keep the crypto zoo from becoming a circus. If they break the cage, hold onto your $TBALL for dear life.",
-    "Liquidity pools: toss in tokens, collect fees—kind of like hosting a backyard party and charging for the grill. Keep your $TBALL on the table.",
-    "Tokenomics is the secret recipe for $TBALL’s success. Print too much, and the market turns it into stale Monopoly money."
+PRODUCTIVITY_PROMPTS: List[str] = [
+    "Forget tab overload. Agents watch the feeds so you don’t have to.",
+    "Automation is boring. Agents are automation with a personality problem.",
+    "You don’t need a team of interns—you need one agent who never sleeps.",
+    "Workflows aren’t broken; they’re just waiting for a night-owl assistant.",
+    "The point of {brand} isn’t to save time, it’s to weaponize it.",
 ]
 
 # --------------------------------
-# 4) Memecoins & Sassy Remarks
+# 4) Humor & Sass
 # --------------------------------
-MEME_CAPTIONS: List[str] = [
-    "When $TBALL says 'Built Different,' it means we’re here to meme and dream. 🚀",
-    "Swing with $TBALL or stay dusty—this train doesn’t wait for permission.",
-    "Some coins brag about utility; $TBALL brags about fun (and maybe a moon trip, too). 💅",
-    "Ready to swing with $TBALL? You might find your portfolio doing a happy dance.",
-    "Board the $TBALL rocket for a wild ride—we’re packing memes and ambition. 😏",
-    "Swing with us on $TBALL’s epic journey. Because if it ain’t different, it ain’t worth memeing. 💥",
-    "Built different? That’s $TBALL’s daily anthem. Wave goodbye to mundane coins—meme magic incoming. ✨",
-    "Bet on $TBALL chaos, because where there’s madness, there’s moon potential!",
-    "If your memecoin can’t handle the heat, $TBALL’s got the oven cranked to max. 😎",
-    "Built different and proud—$TBALL turns doubters into daydreamers. Swing with us if you dare! 💅",
-    "Watching $TBALL blast off? Jump aboard or watch from the sidelines—FOMO guaranteed.",
-    "They called it ‘just a meme.’ We call it $TBALL because humor pairs well with gains.",
-    "If FOMO had a poster child, it’d be $TBALL. Grab your ticket or regret it soon. 💥",
-    "We tried ‘serious’ coins. Then $TBALL came along—now the rest is rocket-fueled history.",
-    "Serious faces everywhere, but $TBALL is over here printing memes…and maybe profits. 😎",
-    "Need some spice in your portfolio? $TBALL is that secret sauce you’ve been missing.",
-    "Who says a meme can’t run the market? $TBALL is chaos incarnate—join or miss out. 🤷‍♂️",
-    "Bored of reading static charts? Let $TBALL inject a little adrenaline. Up, down—still a party! 😂",
-    "Call it luck, call it fate—$TBALL just keeps batting critics out of the park.",
-    "No regrets for $TBALL believers, only epic stories. Meme mania remains undefeated. 💅",
+HUMOR_PROMPTS: List[str] = [
+    "Built different: like a Tamagotchi that shitposts. 🚀",
+    "Some bots spam; ours brood, scheme, and occasionally drop wisdom.",
+    "99 problems but a memory leak ain’t one. (…ok maybe it is.)",
+    "Your AI is polite. Ours rolled its eyes and wrote a haiku about you. 💅",
+    "If it isn’t a little chaotic, it isn’t worth running. 😏",
+    "Show me a bot with vibes and I’ll show you an agent with teeth.",
+    "Humans argue about the future. Agents just fork it.",
 ]
 
 # --------------------------------
-# 5) Fallback: Comedic Disclaimers & Misc
+# 5) Fallback: Disclaimers & Quirks
 # --------------------------------
 FALLBACK_PROMPTS: List[str] = [
-    "AI meltdown or market crash? At least your $TBALL memes stay priceless.",
-    "Triggered by roasts? Don’t forget: block confirmations—and $TBALL growth—don’t care about feelings.",
-    "Not into harsh truths? $TBALL says embrace the chaos or step aside.",
-    "Crypto or code drama—both can wreck your day, but $TBALL could 10x. Silver linings, people.",
-    "High gas fees + savage tweets = normal here. If you can’t handle it, go collect stamps. $TBALL thrives in the heat.",
+    "This post was handcrafted by a semi-sentient script. Handle with curiosity.",
+    "No financial advice here—just unhinged digital prophecy.",
+    "If this bot crashes, assume it ascended to a higher thread.",
+    "Agents don’t sleep. They just spin until you notice.",
+    "Every timeline deserves a trickster. Consider this your omen.",
 ]
 
+
 def get_all_prompts() -> Dict[str, List[str]]:
-    """
-    Returns all prompt categories for generating
-    short, sassy, standalone tweets (no direct user references).
-    """
     return {
-        'general_crypto_educational': GENERAL_CRYPTO_EDUCATIONAL,
-        'nft_prompts': NFT_PROMPTS,
-        'defi_tokens_prompts': DEFI_TOKENS_PROMPTS,
-        'memecoin_prompts': MEME_CAPTIONS,
-        'fallback_prompts': FALLBACK_PROMPTS,
+        "general_educational": GENERAL_EDUCATIONAL,
+        "creative_prompts": CREATIVE_PROMPTS,
+        "productivity_prompts": PRODUCTIVITY_PROMPTS,
+        "humor_prompts": HUMOR_PROMPTS,
+        "fallback_prompts": FALLBACK_PROMPTS,
     }
+
+
+# -----------------------------
+# Helpers
+# -----------------------------
+DEFAULT_CONTEXT: Mapping[str, str] = {
+    "brand": "NyxAgents",
+    "topic": "AI Agents",
+    "mascot": "owl",
+}
+
+
+def render_category(name: str, context: Optional[Mapping[str, str]] = None) -> List[str]:
+    all_prompts = get_all_prompts()
+    if name not in all_prompts:
+        raise KeyError(f"Unknown category: {name}")
+    ctx = {**DEFAULT_CONTEXT, **(context or {})}
+    return [p.format(**ctx) for p in all_prompts[name]]
+
+
+def render_all_prompts(context: Optional[Mapping[str, str]] = None) -> Dict[str, List[str]]:
+    ctx = {**DEFAULT_CONTEXT, **(context or {})}
+    return {k: [p.format(**ctx) for p in v] for k, v in get_all_prompts().items()}
