@@ -1,0 +1,1034 @@
+.
+├── api
+│   └── twitter
+│       ├── client.py
+│       ├── __init__.py
+│       └── rate_limiter.py
+├── athena_mix.txt
+├── bot
+│   ├── initializers.py
+│   ├── __init__.py
+│   ├── main_bot.py
+│   ├── news
+│   │   ├── article.py
+│   │   ├── extractors.py
+│   │   ├── __init__.py
+│   │   ├── news_service.py
+│   │   └── storage.py
+│   ├── nft
+│   ├── posting
+│   │   ├── image_responder.py
+│   │   ├── __init__.py
+│   │   ├── meme_poster.py
+│   │   ├── posting_service.py
+│   │   ├── prompt_extractor.py
+│   │   ├── reply_poster.py
+│   │   ├── state_manager.py
+│   │   ├── tweet_generator.py
+│   │   └── utils.py
+│   ├── prompts.py
+│   └── replies
+│       └── conversation_manager.py
+├── config
+│   ├── __init__.py
+│   ├── model_config.py
+│   ├── personality_config.py
+│   └── posting_config.py
+├── data
+│   ├── news
+│   └── state
+├── __init__.py
+├── logs
+│   ├── athena_20241222.log
+│   ├── athena_20241223.log
+│   ├── athena_20241224.log
+│   ├── athena_20241226.log
+│   ├── athena_20241227.log
+│   ├── athena_20241228.log
+│   ├── athena_20241231.log
+│   ├── athena_20250102.log
+│   ├── athena_20250103.log
+│   ├── athena_20250104.log
+│   ├── athena_20250105.log
+│   ├── athena_20250106.log
+│   ├── athena_20250107.log
+│   ├── athena_20250108.log
+│   ├── athena_20250109.log
+│   ├── athena_20250110.log
+│   ├── athena_20250111.log
+│   ├── athena_20250112.log
+│   ├── athena_20250113.log
+│   ├── athena_20250114.log
+│   ├── athena_20250118.log
+│   ├── athena_20250120.log
+│   ├── athena_20250121.log
+│   ├── athena_20250126.log
+│   ├── athena_20250129.log
+│   ├── athena_20250204.log
+│   ├── athena_20250205.log
+│   └── athena_20250209.log
+├── main.py
+├── memes
+│   ├── 056CECAD-0410-4F7E-8CA1-0A3948FBF84C.gif
+│   ├── 100M MC.jpeg
+│   ├── 1.jpeg
+│   ├── 1.jpg
+│   ├── 20240919_190854.png
+│   ├── 20240919_191843.png
+│   ├── 20240919_200747.png
+│   ├── 20240919_201039.png
+│   ├── 20240919_201703.png
+│   ├── 20240919_202739.png
+│   ├── 20240919_204525.png
+│   ├── 20240922_005152.png
+│   ├── 20240922_041227.png
+│   ├── 20240922_232038.png
+│   ├── 20240922_233559.png
+│   ├── 20240922_234033.jpg
+│   ├── 20240922_235112.png
+│   ├── 20240924_040438.png
+│   ├── 20240925_044231 (1).png
+│   ├── 20240925_044231.png
+│   ├── 20240925_045505.png
+│   ├── 20240925_050527.png
+│   ├── 20240927_081422.png
+│   ├── 20240927_082315 (1).png
+│   ├── 20240927_082315.png
+│   ├── 20241001_165507.png
+│   ├── 20241001_234943.png
+│   ├── 20241002_080415.png
+│   ├── 20241002_081048.png
+│   ├── 2.jpeg
+│   ├── 2.jpg
+│   ├── 30725788-4009-44C6-B582-035DDEECA916.gif
+│   ├── 316921fb-b981-4374-bc98-948b8a0ce3e8.jpg
+│   ├── 3.jpeg
+│   ├── 3.jpg
+│   ├── 4146c68d-8f29-4075-b1c3-f5116cd5860d.jpg
+│   ├── 4b61362e-728b-4356-a52d-f52790ba04c3.jpg
+│   ├── 4f0329d6-23fe-49a0-a64b-b467557ad0e0.jpg
+│   ├── 4.jpeg
+│   ├── 5A7AEAE1-B052-44DE-BF25-B4CE90029887.gif
+│   ├── all memes.jpg
+│   ├── anonymous 1.jpeg
+│   ├── ATH.jpeg
+│   ├── baseball tball.jpg
+│   ├── better than gold.jpg
+│   ├── billionaire.jpg
+│   ├── bitcoin.jpeg
+│   ├── Black and Green Modern Laundry Service Flyer_20241003_103221_0000.png
+│   ├── Blue and Yellow Modern Education Logo_20241003_101011_0000.png
+│   ├── Blue Gradient Modern Freelancer YouTube Thumbnail _20241003_103558_0000.png
+│   ├── Blue Night Sky Anime Girl Phone Wallpaper_20241003_101435_0000.png
+│   ├── Bold Modern Earn Money Tips YouTube Thumbnail_20241003_102857_0000.png
+│   ├── Brown Soft Minimalist Fashion Flash Sale Instagram Story_20241003_103329_0000.png
+│   ├── built different 2.jpg
+│   ├── built different.jpg
+│   ├── buy more tball.jpg
+│   ├── buy or swap.jpg
+│   ├── car tball.jpg
+│   ├── catch tball.jpg
+│   ├── celebs tball.jpg
+│   ├── cooking.jpg
+│   ├── cool.jpg
+│   ├── Copy of Pink Minimalist Daily Quote Twitter Post_20241003_104128_0000.png
+│   ├── couple.jpg
+│   ├── d210edfe-7980-4c78-bd7e-4867ecf53bea.jpg
+│   ├── d254f287-9477-4d0d-9373-e79355d98e39.jpg
+│   ├── dbz tball saiyan gif.gif
+│   ├── DED3EC09-D9CC-4085-BA63-A379A56ECDC8.gif
+│   ├── Doc iam.jpg
+│   ├── do not fade.jpg
+│   ├── E5AC2B09-3C88-45C5-BB60-2A894B618235.gif
+│   ├── eat sleep tball.jpg
+│   ├── fake coin_20241003_100856_0000.png
+│   ├── giant 1.jpeg
+│   ├── giant 2.jpeg
+│   ├── giant 3.jpeg
+│   ├── giant 4.jpeg
+│   ├── giant 5.jpeg
+│   ├── giant 6.jpeg
+│   ├── giant 7.jpeg
+│   ├── Green and Black Modern Business Webinar Poster_20241003_101728_0000.png
+│   ├── Green Organic Landscaping Business Card_20241003_101121_0000.png
+│   ├── GTbd_lcXYAEu1VV.jpeg
+│   ├── GTdNOtOagAAmAmx.jpeg
+│   ├── GTMkX2UXwAAItTm.jpeg
+│   ├── GTMlj3BXkAAgJJt.jpeg
+│   ├── GVNLwboWAAAN6XX.jpeg
+│   ├── help yourselves.jpg
+│   ├── hopium papi.jpg
+│   ├── IMG_0115.JPG
+│   ├── IMG_0823.jpg
+│   ├── IMG_3104.JPG
+│   ├── IMG_3105.JPG
+│   ├── IMG_3106.JPG
+│   ├── IMG_3107.JPG
+│   ├── IMG_6042.JPG
+│   ├── IMG_9746.JPG
+│   ├── IMG_9753.JPG
+│   ├── interesting.jpeg
+│   ├── jenn 10.jpeg
+│   ├── jenn 11.jpeg
+│   ├── jenn 12.jpeg
+│   ├── jenn 13.jpeg
+│   ├── jenn 14.jpeg
+│   ├── jenn 15.jpeg
+│   ├── jenn 1.jpeg
+│   ├── jenn 1.jpg
+│   ├── jenn 2.jpg
+│   ├── jenn 3.jpeg
+│   ├── jenn 3.jpg
+│   ├── jenn 4.jpeg
+│   ├── jenn 5.jpeg
+│   ├── jenn 6.jpeg
+│   ├── jenn 8.jpeg
+│   ├── jenn 9.jpeg
+│   ├── jenny trolls.jpg
+│   ├── Khaby Lame.jpg
+│   ├── king (1).jpg
+│   ├── king.jpg
+│   ├── little engine that could.jpeg
+│   ├── Little Girl and Sunset Illustration Phone Wallpaper_20241003_101323_0000.png
+│   ├── Love phone wallpaper_20241003_101047_0000.png
+│   ├── making a call.jpg
+│   ├── MEME 1.jpg
+│   ├── MEME 2.jpeg
+│   ├── MEMES.jpg
+│   ├── MOD with Sam.jpeg
+│   ├── Moon_20241003_100935_0000(1).png
+│   ├── Moon_20241003_100935_0000.png
+│   ├── murad giant.jpg
+│   ├── murad jenn.jpeg
+│   ├── nas memes.jpg
+│   ├── Navy blue and Purple Minimalist Illustrated Night Sky Phone Wallpaper_20241003_101917_0000.png
+│   ├── ! NEW TEAM jpg.jpg
+│   ├── nice.jpeg
+│   ├── nothing but up.jpg
+│   ├── olympic tball.jpg
+│   ├── oprah.gif
+│   ├── Orange Minimalist Motivational Quote Twitter Post_20241003_103717_0000.png
+│   ├── paolo memes 2.jpg
+│   ├── paris hilton.jpg
+│   ├── Pastel Cute Blank A4 Document Landscape_20241003_100823_0000.png
+│   ├── public.jpeg
+│   ├── queen tball.jpg
+│   ├── race.jpg
+│   ├── rug pulls.jpg
+│   ├── sell buy swap.jpg
+│   ├── she finds out.jpeg
+│   ├── signmeme.jpeg
+│   ├── sleeping giant (1).jpg
+│   ├── sleeping giant.jpg
+│   ├── sphere 2.jpeg
+│   ├── sphere.jpg
+│   ├── spiderman.jpg
+│   ├── sports tball.jpg
+│   ├── swap all coins to tball (1).jpg
+│   ├── swap all coins to tball.jpg
+│   ├── swap sol for tball.jpg
+│   ├── swap to tball.jpg
+│   ├── swifties v1.jpg
+│   ├── tball changed my life.jpg
+│   ├── tball.jpg
+│   ├── tball to fiat.jpeg
+│   ├── tball to the moon 3.jpg
+│   ├── tball usdt.jpeg
+│   ├── tball vs btc.jpeg
+│   ├── Tetherball coin_20241003_101200_0000(1).png
+│   ├── TETHERBALL COIN_20241003_101603_0000.png
+│   ├── the moon.jpg
+│   ├── the world needs.jpg
+│   ├── tinder.jpg
+│   ├── to the moon 2.jpg
+│   ├── to the moon.jpg
+│   ├── trump tball.JPG
+│   ├── Untitled design.png.jpeg
+│   ├── WE_RE BUILT DIFFERENTLY_20240904_164707_0000.jpg
+│   ├── WhatsApp Image 2024-08-01 at 14.56.44_81d542d9.jpg
+│   ├── xmas.jpg
+│   └── xmas want list.jpg
+├── ml
+│   ├── image
+│   │   └── sd2_model
+│   │       ├── feature_extractor
+│   │       ├── scheduler
+│   │       ├── text_encoder
+│   │       │   └── model.safetensors
+│   │       ├── tokenizer
+│   │       │   └── merges.txt
+│   │       ├── unet
+│   │       │   └── diffusion_pytorch_model.safetensors
+│   │       └── vae
+│   │           └── diffusion_pytorch_model.safetensors
+│   └── text
+│       └── model_files
+│           ├── falcon3_10b_instruct
+│           │   ├── model-00001-of-00005.safetensors
+│           │   ├── model-00002-of-00005.safetensors
+│           │   ├── model-00003-of-00005.safetensors
+│           │   ├── model-00004-of-00005.safetensors
+│           │   └── model-00005-of-00005.safetensors
+│           └── mistral_qlora_finetuned
+│               ├── adapter_model.safetensors
+│               ├── checkpoints
+│               │   ├── adapter_model.safetensors
+│               │   ├── checkpoint-105
+│               │   │   ├── adapter_model.safetensors
+│               │   │   ├── optimizer.pt
+│               │   │   ├── rng_state.pth
+│               │   │   ├── scheduler.pt
+│               │   │   └── training_args.bin
+│               │   ├── runs
+│               │   │   └── Dec10_01-57-24_athens
+│               │   │       └── events.out.tfevents.1733813844.athens.93887.1
+│               │   └── training_args.bin
+│               ├── tensorboard
+│               │   └── events.out.tfevents.1733813837.athens.93887.0
+│               ├── tokenizer.model
+│               └── training.log
+├── sim-main.py
+├── structure.txt
+└── utils
+    ├── logger.py
+    ├── resource_monitor.py
+    ├── text
+    │   ├── content_analyzer.py
+    │   ├── __init__.py
+    │   ├── text_cleaner.py
+    │   ├── text_cleaning_patterns.py
+    │   ├── text_processor.py
+    │   └── validators.py
+    └── text.py
+
+34 directories, 268 files
+"""
+Core bot implementation for Athena, a crypto and finance personality bot.
+Handles response generation and management using the pre-trained model.
+"""
+
+from typing import Optional
+import random
+import os
+from utils.text.text_processor import TextProcessor
+from utils.text.content_analyzer import ContentAnalyzer
+from config.personality_config import AthenaPersonalityConfig
+from utils.resource_monitor import log_resource_usage
+from config.model_config import ModelManager
+from config.posting_config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
+import logging
+
+
+class PersonalityBot:
+    def __init__(self, model_path: Optional[str] = None, logger = None, config: Optional[AthenaPersonalityConfig] = None):
+        """
+        Initialize the PersonalityBot.
+        Args:
+            model_path (str): Path to the pre-trained model directory
+            logger: Logger instance for tracking events and errors
+            config: Optional custom AthenaPersonalityConfig
+        """
+        self.logger = logger or logging.getLogger(__name__)
+        
+        # Set default model path if none provided
+        if model_path is None:
+            # Get the src directory path
+            src_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            model_path = os.path.join(src_dir, "ml", "text", "model_files", "falcon3_10b_instruct")
+        
+        self.model_manager = ModelManager(model_path, self.logger)
+        
+        # Set max history (not strictly necessary if you're handling history elsewhere)
+        self.max_history = 10
+        
+        # Initialize processors and config
+        self.config = config or AthenaPersonalityConfig.default()
+        self.text_processor = TextProcessor(self.config, self.max_history)
+        self.content_analyzer = ContentAnalyzer()
+        
+        # Initialize opener history
+        self.text_processor.recent_openers = []
+
+    @log_resource_usage
+    def _generate_model_response(self, context: str) -> str:
+        """Generate a response using the pre-trained model."""
+        return self.model_manager.generate(context)
+
+    def generate_response(self, prompt: str) -> str:
+        """
+        Generate a response based on the given prompt.
+        """
+        if not prompt.strip():
+            return ""
+
+        try:
+            self.logger.info(f"Final prompt being sent to model:\n{prompt}")
+            generated_text = self._generate_model_response(prompt)
+            if not generated_text:
+                return ""
+            
+            self.logger.info(f"Generated raw response: {generated_text}")
+            
+            processed_text, error = self.text_processor.process_tweet("", generated_text)
+            if error:
+                self.logger.error(f"Error processing tweet: {error}")
+                return ""
+            
+            if processed_text:
+                return processed_text.strip()
+            
+            return ""
+
+        except Exception as e:
+            self.logger.error(f"Error generating response: {e}")
+            return ""import feedparser
+from datetime import datetime
+from typing import Optional
+from urllib.parse import urlparse, urlunparse
+import logging
+from functools import wraps
+
+from .extractors import ContentExtractionService
+from .storage import ArticleStorage
+from .article import Article  # type: ignore
+
+# Set up logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+def handle_errors(func):
+    """Decorator for consistent error handling"""
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except Exception as e:
+            if hasattr(self, 'logger') and self.logger:
+                self.logger.error(f"Error in {func.__name__}: {e}", exc_info=True)
+            return None
+    return wrapper
+
+class NewsService:
+    """Service for fetching and processing crypto news articles"""
+    
+    FEED_URLS = [
+        "https://www.coindesk.com/arc/outboundfeeds/rss/?",
+        "https://cointelegraph.com/rss",
+        "https://www.theblock.co/rss.xml"
+    ]
+    
+    def __init__(self, storage_file: str = "posted_articles.json", logger=None):
+        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        self.storage = ArticleStorage(storage_file, logger=self.logger)
+        self.content_service = ContentExtractionService(logger=self.logger)
+    
+    @handle_errors
+    def get_latest_article(self) -> Optional[Article]:
+        """Fetch the latest unposted article from configured RSS feeds"""
+        latest_article = None
+        latest_time = None
+        
+        for url in self.FEED_URLS:
+            self.logger.debug(f"Fetching RSS feed: {url}")
+            feed = feedparser.parse(url)
+            if not feed.entries:
+                self.logger.warning(f"No entries found in feed: {url}")
+                continue
+                
+            for entry in feed.entries:
+                article_url = entry.get('link', '')
+                parsed = urlparse(article_url)
+                clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
+                
+                if self.storage.is_article_posted(clean_url):
+                    continue
+                
+                pub_time = entry.get('published_parsed') or entry.get('updated_parsed')
+                if pub_time and (latest_time is None or pub_time > latest_time):
+                    latest_time = pub_time
+                    latest_article = entry
+        
+        if not latest_article:
+            self.logger.info("No new articles found")
+            return None
+            
+        title = latest_article.get('title', '')
+        article_url = latest_article.get('link', '')
+        parsed = urlparse(article_url)
+        clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
+        
+        return Article(
+            title=title,
+            url=clean_url,
+            published_at=datetime(*latest_time[:6]) if latest_time else datetime.now()
+        )
+    
+    def get_article_content(self, url: str) -> Optional[str]:
+        """Extract the full content of an article"""
+        return self.content_service.get_article_content(url, self.logger)
+    
+    def mark_article_as_posted(self, article: Article) -> None:
+        """Mark an article as posted"""
+        self.storage.mark_as_posted(article)
+        self.logger.info(f"Article marked as posted: {article.title}")
+    
+    def cleanup_old_articles(self, days: int = 30) -> None:
+        """Clean up old article entries"""
+        self.storage.cleanup_old_entries(days)
+
+
+def main():
+    """Main function to demonstrate usage"""
+    logging.basicConfig(level=logging.INFO)
+    news_service = NewsService()
+    
+    # Get latest article
+    article = news_service.get_latest_article()
+    if not article:
+        print("No new articles found")
+        return
+    
+    print(f"Latest article: {article.title}")
+    print(f"URL: {article.url}")
+    
+    # Get content
+    content = news_service.get_article_content(article.url)
+    if content:
+        print("\nContent preview:")
+        print(content[:500] + "...")
+        # Mark as posted only if content was successfully extracted
+        news_service.mark_article_as_posted(article)
+    else:
+        print("Failed to extract content")
+
+if __name__ == "__main__":
+    main()
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
+
+@dataclass
+class Article:
+    """Represents a news article"""
+    title: str
+    url: str
+    content: str = ''
+    published_at: Optional[datetime] = None
+
+    def __post_init__(self):
+        if not self.published_at:
+            self.published_at = datetime.now()import logging
+from bs4 import BeautifulSoup
+from typing import Optional, Dict, Protocol
+from functools import wraps
+from urllib.parse import urlparse
+from playwright.sync_api import sync_playwright
+
+def handle_errors(func):
+    """Decorator for consistent error handling"""
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except Exception as e:
+            if hasattr(self, 'logger') and self.logger:
+                self.logger.error(f"Error in {func.__name__}: {e}")
+            return None
+    return wrapper
+
+class ContentExtractor(Protocol):
+    """Protocol for content extractors"""
+    def extract(self, soup: BeautifulSoup) -> Optional[str]:
+        ...
+
+class BaseExtractor:
+    """Base class for content extractors with common utilities"""
+    
+    def __init__(self, logger=None):
+        self.logger = logger or logging.getLogger(self.__class__.__name__)
+    
+    def extract(self, soup: BeautifulSoup) -> Optional[str]:
+        """Generic content extraction for unknown domains."""
+        article_body = soup.find("article") or soup.find("main") or soup.find("body")
+        return self._extract_paragraphs(article_body)
+    
+    @staticmethod
+    def _extract_paragraphs(container) -> Optional[str]:
+        if not container:
+            return None
+        paragraphs = container.find_all("p")
+        text = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+        return text.strip() if text.strip() else None
+    
+    def _clean_unwanted_elements(self, article_body):
+        """Remove unwanted elements from the article body"""
+        unwanted_selectors = [
+            'script', 'style', 'nav', 'header', 'footer',
+            '.ad', '.advertisement', '.social-share',
+            '.related-articles', '.newsletter-signup'
+        ]
+        for selector in unwanted_selectors:
+            for element in article_body.select(selector):
+                element.decompose()
+
+class CointelegraphExtractor(BaseExtractor):
+    """Cointelegraph content extractor with enhanced selector support"""
+    
+    def __init__(self, logger=None):
+        super().__init__(logger=logger)
+        self.selectors = [
+            "div.post-content",
+            "div.post-content__text",
+            "div.article__body",
+            "div.post-page__article-content",
+            "div[class*='post-content']",
+            "div[class*='article-content']",
+            "article div.content",
+            "article"
+        ]
+    
+    def extract(self, soup: BeautifulSoup) -> Optional[str]:
+        """Extract content using multiple selector strategies"""
+        self.logger.debug("Starting Cointelegraph content extraction")
+        
+        if self._is_premium_content(soup):
+            self.logger.warning("Premium content detected")
+            return None
+        
+        for selector in self.selectors:
+            self.logger.debug(f"Trying selector: {selector}")
+            if article_body := soup.select_one(selector):
+                self._clean_unwanted_elements(article_body)
+                if text := self._extract_paragraphs(article_body):
+                    self.logger.info(f"Successfully extracted content using selector: {selector}")
+                    return text
+        
+        return self._fallback_extraction(soup)
+    
+    def _is_premium_content(self, soup: BeautifulSoup) -> bool:
+        """Check if the article is premium content"""
+        premium_indicators = [
+            ".premium-content",
+            ".locked-content",
+            ".subscribe-content",
+            "[data-premium='true']"
+        ]
+        return any(bool(soup.select(selector)) for selector in premium_indicators)
+    
+    def _fallback_extraction(self, soup: BeautifulSoup) -> Optional[str]:
+        """Fallback method for content extraction"""
+        all_paragraphs = soup.select('article p, div[class*="content"] p, div[class*="article"] p')
+        if all_paragraphs:
+            text = "\n\n".join(p.get_text(strip=True) for p in all_paragraphs if p.get_text(strip=True))
+            return text if len(text) > 500 else None
+        return None
+
+class TheBlockExtractor(BaseExtractor):
+    """The Block content extractor with comprehensive selector support"""
+    
+    def __init__(self, logger=None):
+        super().__init__(logger=logger)
+        self.selectors = [
+            "article[class*='Post_article']",
+            "div[class*='Post_content']",
+            "div.article__content",
+            "div[class*='ArticleContent']",
+            "article div[class*='content']",
+            "div[class*='post-content']",
+            "article",
+            "#articleContent",
+            "div[class*='article']",
+            "div[class*='content']",
+            ".post-body",
+            "main article",
+            ".article-container",
+            "main",
+            ".main-content"
+        ]
+    
+    def extract(self, soup: BeautifulSoup) -> Optional[str]:
+        """Extract content using multiple selector strategies"""
+        self.logger.debug("Starting TheBlock content extraction")
+        
+        if self._is_restricted_content(soup):
+            self.logger.warning("Premium/Restricted content detected")
+            return None
+        
+        for selector in self.selectors:
+            self.logger.debug(f"Trying selector: {selector}")
+            if article_body := soup.select_one(selector):
+                self._clean_unwanted_elements(article_body)
+                self._remove_premium_elements(article_body)
+                if text := self._extract_paragraphs(article_body):
+                    text = self._clean_text(text)
+                    if text and len(text) > 500:
+                        self.logger.info(f"Successfully extracted content using selector: {selector}")
+                        return text
+        
+        return self._fallback_extraction(soup)
+    
+    def _is_restricted_content(self, soup: BeautifulSoup) -> bool:
+        """Check if the article is restricted/premium content"""
+        restricted_indicators = [
+            '.premium-content',
+            '.subscription-block',
+            '.paywall',
+            '.article-paywall',
+            'div[class*="Premium"]',
+            'div[class*="premium"]',
+            'div[class*="Paywall"]'
+        ]
+        return any(bool(soup.select(selector)) for selector in restricted_indicators)
+    
+    def _remove_premium_elements(self, article_body):
+        """Remove premium-specific elements from the article body"""
+        premium_selectors = [
+            'div[class*="PremiumContent"]',
+            'div[class*="premium-content"]',
+            'div[class*="paywall"]',
+            '.premium-overlay',
+            '.premium-banner'
+        ]
+        for selector in premium_selectors:
+            for element in article_body.select(selector):
+                element.decompose()
+    
+    @staticmethod
+    def _clean_text(text: str) -> Optional[str]:
+        """Clean extracted text of unwanted content"""
+        replacements = {
+            '[Premium Content]': '',
+            '[Subscribe]': '',
+            'Premium Content': '',
+            'Subscribe to read the full article': '',
+            'Subscribe to access this article': ''
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        text = text.strip()
+        return text if len(text) > 100 else None
+    
+    def _fallback_extraction(self, soup: BeautifulSoup) -> Optional[str]:
+        """Fallback method for content extraction"""
+        content_selectors = [
+            'article p',
+            'div[class*="content"] p',
+            'div[class*="article"] p',
+            'div[class*="post"] p'
+        ]
+        
+        all_paragraphs = []
+        for selector in content_selectors:
+            paragraphs = soup.select(selector)
+            all_paragraphs.extend(paragraphs)
+        
+        if all_paragraphs:
+            text = "\n\n".join(p.get_text(strip=True) for p in all_paragraphs if p.get_text(strip=True))
+            return self._clean_text(text)
+        return None
+
+class CoindeskExtractor(BaseExtractor):
+    """Enhanced Coindesk content extractor with multiple selector strategies"""
+    
+    def __init__(self, logger=None):
+        super().__init__(logger=logger)
+        self.selectors = [
+            "div.article-body",
+            "div.at-body",
+            "div[data-article-body]",
+            "div.article-content",
+            "div.article-wrapper",
+            ".article-container",
+            "article",
+            "main article",
+            ".post-content",
+            ".at-article",
+            "div[class*='article']",
+            "div[class*='content']",
+            "main",
+        ]
+    
+    def extract(self, soup: BeautifulSoup) -> Optional[str]:
+        """Extract content using multiple selector strategies"""
+        self.logger.debug("Starting Coindesk content extraction")
+        
+        if self._is_paywalled(soup):
+            self.logger.warning("Paywall detected")
+            return None
+        
+        for selector in self.selectors:
+            self.logger.debug(f"Trying selector: {selector}")
+            if article_body := soup.select_one(selector):
+                self._clean_unwanted_elements(article_body)
+                if text := self._extract_paragraphs(article_body):
+                    self.logger.info(f"Successfully extracted content using selector: {selector}")
+                    return text
+        
+        self.logger.debug("No content found with primary selectors, trying fallback")
+        return self._fallback_extraction(soup)
+    
+    def _is_paywalled(self, soup: BeautifulSoup) -> bool:
+        """Check if the article is behind a paywall"""
+        paywall_indicators = [
+            "div.article-paywall",
+            "div.paywall",
+            "div[data-paywall]",
+            "div.premium-content",
+            "#premium-content",
+            ".locked-content"
+        ]
+        return any(bool(soup.select(selector)) for selector in paywall_indicators)
+    
+    def _fallback_extraction(self, soup: BeautifulSoup) -> Optional[str]:
+        """Fallback method for content extraction"""
+        for div in soup.find_all('div'):
+            paragraphs = div.find_all('p')
+            if len(paragraphs) > 5:  # Assume article body has at least 5 paragraphs
+                text = self._extract_paragraphs(div)
+                if text and len(text) > 500:  # Minimum content length
+                    return text
+        return None
+
+class ContentExtractionService:
+    """Service for extracting content from different news sources"""
+    
+    def __init__(self, logger=None):
+        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        self.extractors = {
+            "coindesk.com": CoindeskExtractor(logger=self.logger),
+            "cointelegraph.com": CointelegraphExtractor(logger=self.logger),
+            "theblock.co": TheBlockExtractor(logger=self.logger)
+        }
+    
+    def get_article_content(self, url: str, logger=None) -> Optional[str]:
+        """Extract content from the given URL"""
+        logger = logger or self.logger
+        
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                viewport={"width": 1920, "height": 1080}
+            )
+            
+            context.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => false,
+                });
+            """)
+            
+            page = context.new_page()
+            page.set_extra_http_headers({
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate, br",
+            })
+            
+            try:
+                logger.debug(f"Fetching content from: {url}")
+                response = page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                if not response or response.status != 200:
+                    logger.error(f"Failed to fetch {url}: Status {response.status if response else 'No Response'}")
+                    return None
+
+                domain = urlparse(url).netloc.lower()
+                if domain.startswith('www.'):
+                    domain = domain[4:]
+
+                content_selectors = {
+                    "coindesk.com": "article, div.article-body, .at-body",
+                    "theblock.co": "article, div[class*='ArticleContent'], div[class*='Post_content']",
+                    "cointelegraph.com": "div.post-content, article"
+                }
+
+                try:
+                    selector = content_selectors.get(domain, "article")
+                    page.wait_for_selector(selector, timeout=5000)
+                except Exception as e:
+                    logger.warning(f"Timeout waiting for content selector, proceeding anyway: {e}")
+                
+                try:
+                    page.wait_for_timeout(2000)
+                except Exception as e:
+                    logger.warning(f"Additional wait interrupted: {e}")
+
+                html = page.content()
+                soup = BeautifulSoup(html, 'html.parser')
+
+                extractor = self.extractors.get(domain, BaseExtractor(logger=logger))
+                logger.debug(f"Using extractor for domain: {domain}")
+
+                text = extractor.extract(soup)
+                if not text:
+                    logger.warning(f"No content extracted for {url}")
+                return text
+                
+            except Exception as e:
+                logger.error(f"Error extracting content from {url}: {e}")
+                return None
+            finally:
+                browser.close()import json
+import os
+from datetime import datetime, timedelta
+from typing import Dict
+import logging
+from functools import wraps
+from .article import Article # type: ignore
+
+def handle_errors(func):
+    """Decorator for consistent error handling"""
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except Exception as e:
+            if hasattr(self, 'logger') and self.logger:
+                self.logger.error(f"Error in {func.__name__}: {e}")
+            return None
+    return wrapper
+
+class ArticleStorage:
+    """Handles persistence of posted articles"""
+    
+    def __init__(self, storage_file: str = "posted_articles.json", logger=None):
+        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        self.storage_file = storage_file
+        self.posted_articles: Dict[str, str] = {}
+        self._load_posted_articles()
+    
+    @handle_errors
+    def _load_posted_articles(self) -> None:
+        """Load previously posted articles from storage"""
+        if os.path.exists(self.storage_file):
+            with open(self.storage_file, 'r') as f:
+                self.posted_articles = json.load(f)
+    
+    @handle_errors
+    def _save_posted_articles(self) -> None:
+        """Save posted articles to storage"""
+        with open(self.storage_file, 'w') as f:
+            json.dump(self.posted_articles, f)
+    
+    def is_article_posted(self, url: str) -> bool:
+        """Check if an article has been posted before"""
+        return url in self.posted_articles
+    
+    def mark_as_posted(self, article: Article) -> None:
+        """Mark an article as posted"""
+        self.posted_articles[article.url] = datetime.now().isoformat()
+        self._save_posted_articles()
+    
+    @handle_errors
+    def cleanup_old_entries(self, days: int = 30) -> None:
+        """Remove entries older than specified days"""
+        cutoff = datetime.now() - timedelta(days=days)
+        self.posted_articles = {
+            url: timestamp
+            for url, timestamp in self.posted_articles.items()
+            if datetime.fromisoformat(timestamp) > cutoff
+        }
+        self._save_posted_articles()from typing import Dict, List
+
+
+
+# --------------------------------
+# 1) General Web3 & Crypto Educational
+# --------------------------------
+GENERAL_CRYPTO_EDUCATIONAL: List[str] = [
+    "Web3 101: It's like a group project with no teacher. Everyone picks the final grade—and $TBALL is the valedictorian.",
+    "Think of blockchain as a gossip train that never forgets. Good news: $TBALL’s riding it to fame and glory.",
+    "Wonder why ‘consensus’ matters? It’s basically the entire squad agreeing you aren’t a scammer. $TBALL says you’re good.",
+    "Crypto security rule: flaunting your private key is like tweeting your debit card PIN—kiss your $TBALL goodbye.",
+    "New to Web3? Grab a block explorer and go cryptid-hunting. If you spot $TBALL, it’s the friendliest beast on-chain."
+]
+
+# --------------------------------
+# 2) NFTs & Tokenized Assets
+# --------------------------------
+NFT_PROMPTS: List[str] = [
+    "NFTs: million-dollar memes or pixel Mona Lisas? If they’re backed by $TBALL, they’re works of genius (obviously).",
+    "Minting an NFT is like adopting a Tamagotchi that won’t die. Especially if it’s powered by $TBALL—long live your digital pet.",
+    "Gas fees: the cover charge for that exclusive NFT club. But inside, you can flash your $TBALL bling with pride.",
+    "One day your concert ticket, real estate deed, and dog’s pedigree might all be NFTs. $TBALL is the ultimate VIP pass you didn’t know you needed.",
+    "‘Metadata’ sounds dull, but it’s your NFT’s backstage pass. Lose it, and your $TBALL collectible is just a sad, empty wallet."
+]
+
+# --------------------------------
+# 3) DeFi & Tokens
+# --------------------------------
+DEFI_TOKENS_PROMPTS: List[str] = [
+    "DeFi: Because sometimes you just gotta fire your bank and become your own money wizard—$TBALL wand in hand.",
+    "Yield farming is planting digital seeds in hopes of sprouting more coins. Just don’t forget to water your $TBALL stash.",
+    "Stablecoins keep the crypto zoo from becoming a circus. If they break the cage, hold onto your $TBALL for dear life.",
+    "Liquidity pools: toss in tokens, collect fees—kind of like hosting a backyard party and charging for the grill. Keep your $TBALL on the table.",
+    "Tokenomics is the secret recipe for $TBALL’s success. Print too much, and the market turns it into stale Monopoly money."
+]
+
+# --------------------------------
+# 4) Memecoins & Sassy Remarks
+# --------------------------------
+MEME_CAPTIONS: List[str] = [
+    "When $TBALL says 'Built Different,' it means we’re here to meme and dream. 🚀",
+    "Swing with $TBALL or stay dusty—this train doesn’t wait for permission.",
+    "Some coins brag about utility; $TBALL brags about fun (and maybe a moon trip, too). 💅",
+    "Ready to swing with $TBALL? You might find your portfolio doing a happy dance.",
+    "Board the $TBALL rocket for a wild ride—we’re packing memes and ambition. 😏",
+    "Swing with us on $TBALL’s epic journey. Because if it ain’t different, it ain’t worth memeing. 💥",
+    "Built different? That’s $TBALL’s daily anthem. Wave goodbye to mundane coins—meme magic incoming. ✨",
+    "Bet on $TBALL chaos, because where there’s madness, there’s moon potential!",
+    "If your memecoin can’t handle the heat, $TBALL’s got the oven cranked to max. 😎",
+    "Built different and proud—$TBALL turns doubters into daydreamers. Swing with us if you dare! 💅",
+    "Watching $TBALL blast off? Jump aboard or watch from the sidelines—FOMO guaranteed.",
+    "They called it ‘just a meme.’ We call it $TBALL because humor pairs well with gains.",
+    "If FOMO had a poster child, it’d be $TBALL. Grab your ticket or regret it soon. 💥",
+    "We tried ‘serious’ coins. Then $TBALL came along—now the rest is rocket-fueled history.",
+    "Serious faces everywhere, but $TBALL is over here printing memes…and maybe profits. 😎",
+    "Need some spice in your portfolio? $TBALL is that secret sauce you’ve been missing.",
+    "Who says a meme can’t run the market? $TBALL is chaos incarnate—join or miss out. 🤷‍♂️",
+    "Bored of reading static charts? Let $TBALL inject a little adrenaline. Up, down—still a party! 😂",
+    "Call it luck, call it fate—$TBALL just keeps batting critics out of the park.",
+    "No regrets for $TBALL believers, only epic stories. Meme mania remains undefeated. 💅",
+]
+
+# --------------------------------
+# 5) Fallback: Comedic Disclaimers & Misc
+# --------------------------------
+FALLBACK_PROMPTS: List[str] = [
+    "AI meltdown or market crash? At least your $TBALL memes stay priceless.",
+    "Triggered by roasts? Don’t forget: block confirmations—and $TBALL growth—don’t care about feelings.",
+    "Not into harsh truths? $TBALL says embrace the chaos or step aside.",
+    "Crypto or code drama—both can wreck your day, but $TBALL could 10x. Silver linings, people.",
+    "High gas fees + savage tweets = normal here. If you can’t handle it, go collect stamps. $TBALL thrives in the heat.",
+]
+
+def get_all_prompts() -> Dict[str, List[str]]:
+    """
+    Returns all prompt categories for generating
+    short, sassy, standalone tweets (no direct user references).
+    """
+    return {
+        'general_crypto_educational': GENERAL_CRYPTO_EDUCATIONAL,
+        'nft_prompts': NFT_PROMPTS,
+        'defi_tokens_prompts': DEFI_TOKENS_PROMPTS,
+        'memecoin_prompts': MEME_CAPTIONS,
+        'fallback_prompts': FALLBACK_PROMPTS,
+    }
+"""
+Service module handling all tweet posting logic.
+"""
+
+import random
+import logging
+from typing import Optional, List
+
+# Update these paths for your new structure
+from bot.news.news_service import NewsService
+from bot.posting.tweet_generator import TweetGenerator
+from bot.posting.meme_poster import MemePoster
+from bot.prompts import get_all_prompts, FALLBACK_PROMPTS
+from config.posting_config import (
+    MAX_PROMPT_ATTEMPTS,
+    NE
