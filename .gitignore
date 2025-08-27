@@ -32,3 +32,14 @@ build/
 *.npy
 *.pickle
 *.joblib
+
+# models & local artifacts
+/ml/
+/src/ml/
+/models/
+/checkpoints/
+/data/
+/runs/
+/outputs/
+/artifacts/
+*.pt *.pth *.ckpt *.bin *.safetensors *.onnx *.h5 *.npz *.npy *.pickle *.joblib
