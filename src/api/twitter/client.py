@@ -24,11 +24,11 @@ class TwitterClient:
     def _get_credentials(self) -> dict:
         """Get Twitter API credentials from environment variables"""
         credentials = {
-            "api_key": os.getenv("API_KEY"),
-            "api_secret": os.getenv("API_SECRET"),
-            "bearer_token": os.getenv("BEARER_TOKEN"),
-            "access_token": os.getenv("ACCESS_TOKEN"),
-            "access_token_secret": os.getenv("ACCESS_TOKEN_SECRET")
+            "api_key": os.getenv("API_KEY") or os.getenv("TWITTER_API_KEY"),
+            "api_secret": os.getenv("API_SECRET") or os.getenv("TWITTER_API_SECRET"),
+            "bearer_token": os.getenv("BEARER_TOKEN") or os.getenv("TWITTER_BEARER_TOKEN"),
+            "access_token": os.getenv("ACCESS_TOKEN") or os.getenv("TWITTER_ACCESS_TOKEN"),
+            "access_token_secret": os.getenv("ACCESS_TOKEN_SECRET") or os.getenv("TWITTER_ACCESS_SECRET"),
         }
         
         if not all(credentials.values()):

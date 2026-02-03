@@ -17,13 +17,25 @@ class ContentAnalyzer:
         self._initialize_category_keywords()
         
     def _initialize_category_keywords(self):
-        """Initialize category keywords mapping."""
+        """Initialize category keywords mapping (aligned to current Category enum)."""
         self.category_keywords = {
-            Category.MARKET_ANALYSIS: ["price", "market", "chart", "trading"],
-            Category.TECH_DISCUSSION: ["blockchain", "protocol", "code", "technical"],
-            Category.DEFI: ["defi", "yield", "farming", "liquidity"],
-            Category.NFT: ["nft", "art", "mint", "opensea"],
-            Category.CULTURE: ["community", "dao", "alpha", "social"]
+            Category.EDUCATION: [
+                "explain", "guide", "how to", "lesson", "learn", "why", "what is"
+            ],
+            Category.TECH_DISCUSSION: [
+                "agent", "agents", "automation", "workflow", "tools", "protocol",
+                "system", "infrastructure", "code", "technical"
+            ],
+            Category.PRODUCTIVITY: [
+                "productivity", "habit", "workflow", "speed", "focus", "time", "tool"
+            ],
+            Category.CULTURE: [
+                "culture", "community", "internet", "builders", "memes", "lore"
+            ],
+            Category.HUMOR: [
+                "joke", "meme", "lol", "shitpost", "chaos", "sarcasm"
+            ],
+            Category.GENERAL: []
         }
         
     def analyze_sentiment(self, text: str) -> str:

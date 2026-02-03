@@ -8,19 +8,25 @@ from diffusers import StableDiffusionPipeline
 
 def validate_env_variables(logger: logging.Logger):
     """Validate that all required environment variables are present."""
-    required_vars = ["API_KEY", "API_SECRET", "ACCESS_TOKEN", "ACCESS_TOKEN_SECRET", "BOT_USER_ID"]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-    if missing_vars:
+    required_pairs = [
+        ("API_KEY", "TWITTER_API_KEY"),
+        ("API_SECRET", "TWITTER_API_SECRET"),
+        ("ACCESS_TOKEN", "TWITTER_ACCESS_TOKEN"),
+        ("ACCESS_TOKEN_SECRET", "TWITTER_ACCESS_SECRET"),
+    ]
+    missing = [a for a, b in required_pairs if not (os.getenv(a) or os.getenv(b))]
+    if missing or not os.getenv("BOT_USER_ID"):
+        missing_vars = missing + ([] if os.getenv("BOT_USER_ID") else ["BOT_USER_ID"])
         logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
         raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
 def setup_twitter_api() -> tweepy.API:
     """Set up and return a Twitter API client."""
     auth = tweepy.OAuth1UserHandler(
-        consumer_key=os.getenv('API_KEY'),
-        consumer_secret=os.getenv('API_SECRET'),
-        access_token=os.getenv('ACCESS_TOKEN'),
-        access_token_secret=os.getenv('ACCESS_TOKEN_SECRET')
+        consumer_key=os.getenv('API_KEY') or os.getenv("TWITTER_API_KEY"),
+        consumer_secret=os.getenv('API_SECRET') or os.getenv("TWITTER_API_SECRET"),
+        access_token=os.getenv('ACCESS_TOKEN') or os.getenv("TWITTER_ACCESS_TOKEN"),
+        access_token_secret=os.getenv('ACCESS_TOKEN_SECRET') or os.getenv("TWITTER_ACCESS_SECRET")
     )
     return tweepy.API(auth)
 

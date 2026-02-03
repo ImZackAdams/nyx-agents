@@ -63,7 +63,18 @@ HUMOR_PROMPTS: List[str] = [
 ]
 
 # --------------------------------
-# 5) Fallback: Disclaimers & Quirks
+# 5) Meme Captions
+# --------------------------------
+MEME_CAPTIONS: List[str] = [
+    "Build in the dark. Ship at dawn.",
+    "Agents don’t sleep. Neither do deadlines.",
+    "This is fine. The agent handled it.",
+    "Chaos is just unstructured progress.",
+    "Night shift for the internet.",
+]
+
+# --------------------------------
+# 6) Fallback: Disclaimers & Quirks
 # --------------------------------
 FALLBACK_PROMPTS: List[str] = [
     "This post was handcrafted by a semi-sentient script. Handle with curiosity.",
@@ -80,6 +91,7 @@ def get_all_prompts() -> Dict[str, List[str]]:
         "creative_prompts": CREATIVE_PROMPTS,
         "productivity_prompts": PRODUCTIVITY_PROMPTS,
         "humor_prompts": HUMOR_PROMPTS,
+        "meme_captions": MEME_CAPTIONS,
         "fallback_prompts": FALLBACK_PROMPTS,
     }
 
