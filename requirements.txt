@@ -1,0 +1,13 @@
+tweepy
+python-dotenv
+torch
+transformers
+bitsandbytes
+diffusers
+accelerate
+feedparser
+beautifulsoup4
+playwright
+nltk
+psutil
+pillow
