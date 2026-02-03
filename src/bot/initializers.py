@@ -35,7 +35,12 @@ def initialize_diffusion_pipeline(logger: logging.Logger):
     logger.info("Initializing Stable Diffusion pipeline...")
 
     # 1. Absolute path to your local Stable Diffusion model folder
-    model_path = "/home/athena/Desktop/athena/src/ml/image/sd2_model"
+    # Allow override via environment variable for different machines.
+    model_path = os.getenv("SD_MODEL_PATH")
+    if not model_path:
+        # Default to repo-relative path if not provided.
+        src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_path = os.path.join(src_dir, "ml", "image", "sd2_model")
 
     # 2. Check if the directory actually exists
     if not os.path.isdir(model_path):
