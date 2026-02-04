@@ -20,6 +20,7 @@ from bot.initializers import (
 
 from bot.posting.posting_service import PostingService
 from bot.main_bot import PersonalityBot
+from framework.config import load_bot_config, apply_behavior_env
 from bot.posting.tweet_generator import TweetGenerator
 from bot.posting.meme_poster import MemePoster
 from bot.posting.reply_poster import ReplyPoster
@@ -46,6 +47,10 @@ class TwitterBot:
         Sets up environment, Twitter API, model-based services, and specialized handlers.
         """
         try:
+            bot_config = load_bot_config()
+            if bot_config:
+                apply_behavior_env(bot_config.behavior)
+
             # Validate environment
             validate_env_variables(self.logger)
 
@@ -65,7 +70,11 @@ class TwitterBot:
                 model_path=model_path,
                 logger=self.logger
             )
-            tweet_generator = TweetGenerator(personality_bot, logger=self.logger)
+            tweet_generator = TweetGenerator(
+                personality_bot,
+                logger=self.logger,
+                personality_config=personality_bot.config
+            )
 
             # Initialize diffusion pipeline
             # self.pipe = initialize_diffusion_pipeline(self.logger)

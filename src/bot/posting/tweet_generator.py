@@ -3,6 +3,7 @@
 import random
 import logging
 import re
+import os
 from typing import Optional, List
 
 from utils.text.text_cleaner import TextCleaner
@@ -15,9 +16,24 @@ from config.posting_config import (
 from config.personality_config import AthenaPersonalityConfig
 
 
+def _env_bool(name: str, default: str = "0") -> bool:
+    value = os.getenv(name, default).strip().lower()
+    return value in ("1", "true", "yes", "on")
+
+
+def _min_tweet_length() -> int:
+    if _env_bool("SIM_MODE", "0"):
+        try:
+            return int(os.getenv("SIM_MIN_TWEET_LENGTH", "40"))
+        except ValueError:
+            return 40
+    return MIN_TWEET_LENGTH
+
+
 def validate_tweet(tweet: str) -> bool:
     """Validate the tweet's length and content."""
-    return MIN_TWEET_LENGTH <= len(tweet) <= MAX_TWEET_LENGTH
+    min_len = _min_tweet_length()
+    return min_len <= len(tweet) <= MAX_TWEET_LENGTH
 
 
 def remove_hashtags(text: str) -> str:
@@ -29,13 +45,13 @@ def remove_hashtags(text: str) -> str:
 
 
 class TweetGenerator:
-    def __init__(self, personality_bot, cleaner=None, logger=None):
+    def __init__(self, personality_bot, cleaner=None, logger=None, personality_config: Optional[AthenaPersonalityConfig] = None):
         self.bot = personality_bot
         self.cleaner = cleaner or TextCleaner()
         self.logger = logger or logging.getLogger(__name__)
 
         # Load the personality config if needed
-        self.personality_config = AthenaPersonalityConfig.default()
+        self.personality_config = personality_config or AthenaPersonalityConfig.default()
 
     def generate_tweet(
         self,

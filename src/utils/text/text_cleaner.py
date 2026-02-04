@@ -55,6 +55,13 @@ class TextCleaner:
     
     def _extract_core_content(self, text: str) -> str:
         """Extract the main content from text."""
+        text = (
+            text.replace("<|assistant|>", "")
+                .replace("<|user|>", "")
+                .replace("<|system|>", "")
+                .replace("### Assistant (Bot):", "")
+                .replace("### Assistant:", "")
+        )
         quote_match = re.search(r'"([^"]+)"', text)
         if quote_match:
             text = quote_match.group(1).strip()

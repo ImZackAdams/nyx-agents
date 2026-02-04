@@ -1,10 +1,16 @@
 """
 Simplified simulation version of the Twitter bot for content testing.
 """
+import os
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+os.environ.setdefault("SIM_MODE", "1")
+os.environ.setdefault("SIM_MIN_TWEET_LENGTH", "40")
+os.environ.setdefault("ENABLE_NEWS", "0")
+
 import time
 import warnings
 import logging
-import os
 from typing import List
 from dotenv import load_dotenv
 
@@ -17,6 +23,7 @@ from bot.initializers import (
 
 from bot.posting.posting_service import PostingService
 from bot.main_bot import PersonalityBot
+from framework.config import load_bot_config, apply_behavior_env
 from bot.posting.tweet_generator import TweetGenerator
 from bot.posting.meme_poster import MemePoster
 from bot.posting.reply_poster import ReplyPoster
@@ -70,6 +77,10 @@ class SimulatedTwitterBot:
 
     def _initialize_components(self) -> None:
         try:
+            bot_config = load_bot_config()
+            if bot_config:
+                apply_behavior_env(bot_config.behavior)
+
             validate_env_variables(self.logger)
             self.api = self.client
             
@@ -81,7 +92,11 @@ class SimulatedTwitterBot:
                 model_path = os.path.join(src_dir, "ml", "text", "model_files", "falcon3_10b_instruct")
             
             personality_bot = PersonalityBot(model_path=model_path, logger=self.logger)
-            tweet_generator = TweetGenerator(personality_bot, logger=self.logger)
+            tweet_generator = TweetGenerator(
+                personality_bot,
+                logger=self.logger,
+                personality_config=personality_bot.config
+            )
             
             print("Loading models...")
             self.pipe = initialize_diffusion_pipeline(self.logger)

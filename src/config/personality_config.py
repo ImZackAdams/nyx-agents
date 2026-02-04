@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional, Any
 from enum import Enum
 import os
 
@@ -33,6 +33,9 @@ class AthenaPersonalityConfig:
 
     # Flag to indicate summarizing vs. normal tweeting mode
     is_summarizing: bool = False
+    bot_name: Optional[str] = None
+    brand: Optional[str] = None
+    topics: Optional[str] = None
 
     # =========================================
     # Persona & Tone Definitions
@@ -170,9 +173,9 @@ class AthenaPersonalityConfig:
 
     def _persona_context(self) -> Dict[str, str]:
         return {
-            "bot_name": os.getenv("BOT_NAME", "Athena"),
-            "brand": os.getenv("BOT_BRAND", "NyxAgents"),
-            "topics": os.getenv(
+            "bot_name": self.bot_name or os.getenv("BOT_NAME", "Athena"),
+            "brand": self.brand or os.getenv("BOT_BRAND", "NyxAgents"),
+            "topics": self.topics or os.getenv(
                 "BOT_TOPICS",
                 "AI agents, tooling, autonomy, browser-native systems, internet culture",
             ),
@@ -205,3 +208,46 @@ class AthenaPersonalityConfig:
     def default(cls) -> 'AthenaPersonalityConfig':
         """Creates a default configuration instance."""
         return cls()
+
+    @classmethod
+    def from_persona(cls, persona: Dict[str, Any]) -> 'AthenaPersonalityConfig':
+        config = cls()
+
+        config.bot_name = persona.get("bot_name")
+        config.brand = persona.get("brand")
+        config.topics = persona.get("topics")
+
+        if persona.get("default_personality"):
+            config.DEFAULT_PERSONALITY = persona["default_personality"]
+        if persona.get("summary_personality"):
+            config.SUMMARY_PERSONALITY = persona["summary_personality"]
+
+        sentiment_templates = persona.get("sentiment_templates")
+        if isinstance(sentiment_templates, dict):
+            config.sentiment_templates = sentiment_templates
+
+        category_templates = persona.get("category_templates")
+        if isinstance(category_templates, dict):
+            mapped: Dict[Category, str] = {}
+            for key, value in category_templates.items():
+                try:
+                    mapped[Category(key)] = value
+                except Exception:
+                    continue
+            if mapped:
+                config.category_templates = mapped
+
+        hooks = persona.get("hooks")
+        if isinstance(hooks, dict):
+            normalized: Dict[str, List[str]] = {}
+            for key, value in hooks.items():
+                if isinstance(value, list):
+                    normalized[key] = value
+            if normalized:
+                config.hooks = normalized
+
+        summary_hooks = persona.get("summary_hooks")
+        if isinstance(summary_hooks, list):
+            config.summary_hooks = summary_hooks
+
+        return config

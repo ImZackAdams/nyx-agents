@@ -9,6 +9,7 @@ import os
 from utils.text.text_processor import TextProcessor
 from utils.text.content_analyzer import ContentAnalyzer
 from config.personality_config import AthenaPersonalityConfig
+from framework.config import load_bot_config
 from utils.resource_monitor import log_resource_usage
 from config.model_config import ModelManager
 from config.posting_config import MAX_TWEET_LENGTH, MIN_TWEET_LENGTH
@@ -42,7 +43,14 @@ class PersonalityBot:
         self.max_history = 10
         
         # Initialize processors and config
-        self.config = config or AthenaPersonalityConfig.default()
+        if config is None:
+            bot_config = load_bot_config()
+            if bot_config:
+                self.config = AthenaPersonalityConfig.from_persona(bot_config.persona)
+            else:
+                self.config = AthenaPersonalityConfig.default()
+        else:
+            self.config = config
         self.text_processor = TextProcessor(self.config, self.max_history)
         self.content_analyzer = ContentAnalyzer()
         

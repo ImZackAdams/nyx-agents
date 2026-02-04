@@ -4,6 +4,7 @@ Validation utilities for tweet processing.
 """
 from dataclasses import dataclass
 from typing import Optional, Tuple
+import os
 
 # UPDATED IMPORT: now referencing the top-level config/posting_config.py
 from config.posting_config import MIN_TWEET_LENGTH, MAX_TWEET_LENGTH
@@ -15,6 +16,20 @@ class TweetValidation:
     is_valid: bool
     message: Optional[str] = None
     cleaned_tweet: Optional[str] = None
+
+
+def _env_bool(name: str, default: str = "0") -> bool:
+    value = os.getenv(name, default).strip().lower()
+    return value in ("1", "true", "yes", "on")
+
+
+def _min_tweet_length() -> int:
+    if _env_bool("SIM_MODE", "0"):
+        try:
+            return int(os.getenv("SIM_MIN_TWEET_LENGTH", "40"))
+        except ValueError:
+            return 40
+    return MIN_TWEET_LENGTH
 
 
 def validate_tweet_length(tweet: str) -> Tuple[bool, Optional[str]]:
@@ -32,8 +47,9 @@ def validate_tweet_length(tweet: str) -> Tuple[bool, Optional[str]]:
 
     length = len(tweet.strip())
 
-    if length < MIN_TWEET_LENGTH:
-        return False, f"Tweet too short ({length} chars, minimum {MIN_TWEET_LENGTH})"
+    min_len = _min_tweet_length()
+    if length < min_len:
+        return False, f"Tweet too short ({length} chars, minimum {min_len})"
 
     if length > MAX_TWEET_LENGTH:
         return False, f"Tweet too long ({length} chars, maximum {MAX_TWEET_LENGTH})"
@@ -74,7 +90,8 @@ def clean_tweet_text(text: str) -> str:
         if marker in text:
             text = text.split(marker)[0]
 
-    # Clean up formatting
+    # Clean up formatting and special tokens
+    text = text.replace("<|assistant|>", "").replace("<|user|>", "").replace("<|system|>", "")
     text = text.strip(' \'"')  # Remove quotes and extra spaces
     text = text.split('\n')[0]  # Take only the first line
 

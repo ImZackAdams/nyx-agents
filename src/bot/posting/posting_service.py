@@ -35,6 +35,11 @@ class PostingService:
         self.meme_handler = meme_handler
         self.logger = logger or logging.getLogger(__name__)
 
+    @staticmethod
+    def _flag_enabled(name: str, default: str = "1") -> bool:
+        value = os.getenv(name, default).strip().lower()
+        return value in ("1", "true", "yes", "on")
+
     def _post_to_twitter(self, text: str) -> Optional[str]:
         """Posts a tweet to Twitter and returns the tweet ID."""
         try:
@@ -121,9 +126,11 @@ class PostingService:
         """Determines the type of tweet to post and posts it."""
         try:
             roll = random.random()
-            if roll < NEWS_POSTING_CHANCE:
+            enable_news = self._flag_enabled("ENABLE_NEWS", "1")
+            enable_memes = self._flag_enabled("ENABLE_MEMES", "1")
+            if enable_news and roll < NEWS_POSTING_CHANCE:
                 return self.post_news()
-            elif roll < NEWS_POSTING_CHANCE + MEME_POSTING_CHANCE:
+            elif enable_memes and roll < NEWS_POSTING_CHANCE + MEME_POSTING_CHANCE:
                 return self.meme_handler.post_meme()
 
             return self._post_text_tweet()

@@ -128,6 +128,9 @@ class CleaningPatterns:
     CLEANUP = [
         (r'\[.*?\]', ''),  # Remove square bracket content
         (r'@\w+\s?', ''),  # Remove @ mentions
+        (r'<\|assistant\|>\s*', ''),
+        (r'<\|user\|>\s*', ''),
+        (r'<\|system\|>\s*', ''),
     ]
     
     # =====================================
