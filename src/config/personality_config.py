@@ -11,7 +11,7 @@ from config.posting_config import (
 
 
 class Category(Enum):
-    """Enumeration of content categories (general, non-crypto)."""
+    """Enumeration of content categories."""
     EDUCATION = "education"
     TECH_DISCUSSION = "tech_discussion"
     PRODUCTIVITY = "productivity"
@@ -64,7 +64,7 @@ class AthenaPersonalityConfig:
        - Offer memorable one-liners people want to copy-paste.
 
     5) Don’ts:
-       - No finance/crypto talk.
+       - No finance talk.
        - No unsafe instructions.
        - No scolding; roast lightly, uplift often.
 

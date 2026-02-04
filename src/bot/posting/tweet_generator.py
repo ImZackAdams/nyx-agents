@@ -38,7 +38,7 @@ def validate_tweet(tweet: str) -> bool:
 
 def remove_hashtags(text: str) -> str:
     """
-    Remove all hashtags from the text, e.g. "#Crypto", "#TBALL", "#Bullish".
+    Remove all hashtags from the text, e.g. "#Example", "#AI", "#Workflow".
     This ensures no hashtags remain in the final tweet.
     """
     return re.sub(r'#\S+', '', text).strip()

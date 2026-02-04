@@ -86,7 +86,7 @@ class PostingService:
     def post_news(self) -> Optional[str]:
         """Posts a news-related tweet."""
         try:
-            self.logger.info("Fetching the latest crypto news...")
+            self.logger.info("Fetching the latest news...")
             article = self.news_service.get_latest_article()
 
             if not article:

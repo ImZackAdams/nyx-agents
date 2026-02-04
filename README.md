@@ -70,6 +70,9 @@ Optional feature toggles:
 - `ENABLE_NEWS`
 - `ENABLE_MEMES`
 
+Optional news sources:
+- `NEWS_FEEDS` (comma-separated RSS URLs)
+
 Optional simulation settings:
 - `SIM_MODE`
 - `SIM_MIN_TWEET_LENGTH`
@@ -89,7 +92,7 @@ Optional model overrides:
 
 ## Notes
 - GPU and CUDA are required for the Falcon model and Stable Diffusion.
-- The RSS sources are crypto-centric by default. Customize in `src/bot/news/news_service.py`.
+- News is opt-in: set `NEWS_FEEDS` to a comma-separated list of RSS URLs.
 - See `SANITIZED_ENV.md` for safe handling of secrets.
 - See `GETTING_STARTED.md` for a concise walkthrough.
 

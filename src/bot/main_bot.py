@@ -1,5 +1,5 @@
 """
-Core bot implementation for Athena, a crypto and finance personality bot.
+Core bot implementation for a customizable personality bot.
 Handles response generation and management using the pre-trained model.
 """
 

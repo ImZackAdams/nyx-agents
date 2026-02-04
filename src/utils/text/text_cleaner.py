@@ -22,7 +22,6 @@ class TextCleaner:
     def clean_text(text: Optional[str]) -> str:
         """
         Cleans and formats the text for consistent spacing and readability.
-        Ensures all TetherBall coin references are converted to $TBALL.
         
         Args:
             text: Input text to clean
@@ -41,8 +40,8 @@ class TextCleaner:
         # Extract core content
         text = self._extract_core_content(text)
         
-        # Apply all TBALL-related patterns
-        text = self._apply_tball_patterns(text)
+        # Apply brand-specific patterns (optional)
+        text = self._apply_brand_patterns(text)
         
         # Apply formatting patterns
         text = self._apply_formatting(text)
@@ -74,17 +73,9 @@ class TextCleaner:
             
         return text
     
-    def _apply_tball_patterns(self, text: str) -> str:
-        """Apply all TBALL-related patterns."""
-        for pattern_group in [
-            self.patterns.BASIC_TBALL,
-            self.patterns.TBALL_VARIANTS,
-            self.patterns.SYMBOL_VARIANTS,
-            self.patterns.SOCIAL_VARIANTS,
-            self.patterns.SPECIAL_CASES
-        ]:
-            text = self._apply_patterns(text, pattern_group)
-        return text
+    def _apply_brand_patterns(self, text: str) -> str:
+        """Apply brand-specific patterns (if any)."""
+        return self._apply_patterns(text, self.patterns.BRAND_PATTERNS)
     
     def _apply_formatting(self, text: str) -> str:
         """Apply all formatting-related patterns."""

@@ -1,4 +1,5 @@
 import feedparser
+import os
 from datetime import datetime
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
@@ -29,26 +30,26 @@ def handle_errors(func):
     return wrapper
 
 class NewsService:
-    """Service for fetching and processing crypto news articles"""
-    
-    FEED_URLS = [
-        "https://www.coindesk.com/arc/outboundfeeds/rss/?",
-        "https://cointelegraph.com/rss",
-        "https://www.theblock.co/rss.xml"
-    ]
+    """Service for fetching and processing news articles"""
     
     def __init__(self, storage_file: str = "posted_articles.json", logger=None):
         self.logger = logger or logging.getLogger(self.__class__.__name__)
         self.storage = ArticleStorage(storage_file, logger=self.logger)
         self.content_service = ContentExtractionService(logger=self.logger)
+        self.feed_urls = [
+            url.strip() for url in os.getenv("NEWS_FEEDS", "").split(",") if url.strip()
+        ]
     
     @handle_errors
     def get_latest_article(self) -> Optional[Article]:
         """Fetch the latest unposted article from configured RSS feeds"""
+        if not self.feed_urls:
+            self.logger.info("No NEWS_FEEDS configured; skipping news fetch.")
+            return None
         latest_article = None
         latest_time = None
         
-        for url in self.FEED_URLS:
+        for url in self.feed_urls:
             self.logger.debug(f"Fetching RSS feed: {url}")
             feed = feedparser.parse(url)
             if not feed.entries:

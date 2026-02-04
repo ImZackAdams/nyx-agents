@@ -22,6 +22,7 @@ Optional:
 - `TEXT_MODEL_PATH`, `SD_MODEL_PATH`
 - `BOT_NAME`, `BOT_HANDLE`, `BOT_BRAND`, `BOT_TOPICS`
 - `ENABLE_NEWS`, `ENABLE_MEMES`
+- `NEWS_FEEDS` (comma-separated RSS URLs)
 - `BOT_CONFIG` (YAML file for persona + behavior)
 - `BOT_PROMPTS` (YAML file for prompts)
 
@@ -41,7 +42,7 @@ python src/main.py
 
 ## Troubleshooting
 - If CUDA is missing, the model load will fail. Install proper GPU drivers + CUDA.
-- If you see crypto news, set `ENABLE_NEWS=0`.
+- If you want news, set `NEWS_FEEDS` to RSS URLs (comma-separated).
 - If you have no memes, set `ENABLE_MEMES=0`.
 
 ## Security
