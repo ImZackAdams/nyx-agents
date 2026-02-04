@@ -11,3 +11,4 @@ playwright
 nltk
 psutil
 pillow
+pyyaml

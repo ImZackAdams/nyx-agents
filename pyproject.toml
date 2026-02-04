@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nyxagent-bot"
+version = "0.1.0"
+description = "Lightweight, configurable Twitter/X bot framework (OSS MVP)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "NyxAgent Contributors" }
+]
+keywords = ["twitter", "x", "bot", "llm", "automation"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "tweepy",
+  "python-dotenv",
+  "torch",
+  "transformers",
+  "bitsandbytes",
+  "diffusers",
+  "accelerate",
+  "feedparser",
+  "beautifulsoup4",
+  "playwright",
+  "nltk",
+  "psutil",
+  "pillow",
+  "pyyaml",
+]
+
+[project.scripts]
+nyxbot = "main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

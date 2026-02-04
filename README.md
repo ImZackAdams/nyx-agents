@@ -24,6 +24,16 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+Or use the helper script:
+```bash
+./setup.sh
+```
+
+Install as a package (optional): 
+```bash
+pip install -e .
+```
+
 Simulation (no real posts):
 ```bash
 python src/sim-main.py
@@ -32,6 +42,11 @@ python src/sim-main.py
 Live bot:
 ```bash
 python src/main.py
+```
+
+Console entrypoint (after `pip install -e .`):
+```bash
+nyxbot
 ```
 
 ## Configuration
@@ -47,6 +62,18 @@ Optional identity overrides:
 - `BOT_BRAND`
 - `BOT_TOPICS`
 
+Optional config:
+- `BOT_CONFIG` (YAML file that overrides persona/behavior)
+- `BOT_PROMPTS` (YAML file that overrides prompts)
+
+Optional feature toggles:
+- `ENABLE_NEWS`
+- `ENABLE_MEMES`
+
+Optional simulation settings:
+- `SIM_MODE`
+- `SIM_MIN_TWEET_LENGTH`
+
 Optional model overrides:
 - `TEXT_MODEL_PATH`
 - `SD_MODEL_PATH`
@@ -58,10 +85,13 @@ Optional model overrides:
 - `src/config/`: personality and posting configuration.
 - `src/bot/news/`: RSS ingestion and content extraction.
 - `src/utils/`: text cleaning, logging, monitoring.
+- `examples/`: minimal example configs.
 
 ## Notes
 - GPU and CUDA are required for the Falcon model and Stable Diffusion.
 - The RSS sources are crypto-centric by default. Customize in `src/bot/news/news_service.py`.
+- See `SANITIZED_ENV.md` for safe handling of secrets.
+- See `GETTING_STARTED.md` for a concise walkthrough.
 
 ## License
 MIT. See `LICENSE`.
