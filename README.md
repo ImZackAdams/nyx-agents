@@ -1,8 +1,8 @@
-# NyxAgent Bot Framework (OSS MVP)
+# Local LLM Bot Framework (Prototype)
 
 A lightweight, configurable Twitter/X bot framework for generating text, posting memes, summarizing RSS news, and replying to mentions (optionally with image generation).
 
-This repository is an OSS MVP: simple to run locally, clear extension points, and easy to rebrand for your own persona.
+This repository is a prototype: simple to run locally, clear extension points, and easy to rebrand for your own persona.
 
 ## Features
 - Text tweet generation using a local LLM (Falcon).
@@ -92,6 +92,10 @@ Optional model overrides:
 - The RSS sources are crypto-centric by default. Customize in `src/bot/news/news_service.py`.
 - See `SANITIZED_ENV.md` for safe handling of secrets.
 - See `GETTING_STARTED.md` for a concise walkthrough.
+
+## Example Configs
+- `examples/local_llm/` for a generic local-first setup.
+- `examples/nyxagents/` for the original branded persona.
 
 ## License
 MIT. See `LICENSE`.

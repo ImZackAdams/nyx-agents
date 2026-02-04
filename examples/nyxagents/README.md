@@ -1,6 +1,6 @@
 # NyxAgents Example Config
 
-This folder contains a minimal configuration example for the NyxAgents persona.
+This folder contains a branded configuration example for the NyxAgents persona.
 
 ## Files
 - `.env.example`: environment variables for identity, credentials, and model paths.

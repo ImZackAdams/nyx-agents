@@ -25,6 +25,10 @@ Optional:
 - `BOT_CONFIG` (YAML file for persona + behavior)
 - `BOT_PROMPTS` (YAML file for prompts)
 
+You can start from the generic example config:
+- `examples/local_llm/.env.example`
+- `examples/local_llm/bot.yml`
+
 ## 3) Run simulation (safe)
 ```bash
 python src/sim-main.py
