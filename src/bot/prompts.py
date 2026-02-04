@@ -1,4 +1,8 @@
 from typing import Dict, List, Mapping, Optional
+import os
+import yaml
+
+from framework.config import load_bot_config
 
 """
 NyxAgents Twitter Bot Prompts
@@ -85,7 +89,42 @@ FALLBACK_PROMPTS: List[str] = [
 ]
 
 
+def _load_prompts_from_yaml(path: str) -> Optional[Dict[str, List[str]]]:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Prompt config not found: {path}")
+    with open(path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict):
+        raise ValueError("Prompt config must be a mapping")
+    return _normalize_prompts(data)
+
+
+def _normalize_prompts(data: Dict[str, object]) -> Optional[Dict[str, List[str]]]:
+    normalized: Dict[str, List[str]] = {}
+    for key, value in data.items():
+        if isinstance(value, list) and all(isinstance(item, str) for item in value):
+            normalized[key] = value
+    return normalized or None
+
+
+def _load_external_prompts() -> Optional[Dict[str, List[str]]]:
+    bot_config = load_bot_config()
+    if bot_config and bot_config.prompts:
+        normalized = _normalize_prompts(bot_config.prompts)
+        if normalized:
+            return normalized
+
+    prompts_path = os.getenv("BOT_PROMPTS")
+    if prompts_path:
+        return _load_prompts_from_yaml(prompts_path)
+
+    return None
+
+
 def get_all_prompts() -> Dict[str, List[str]]:
+    external = _load_external_prompts()
+    if external:
+        return external
     return {
         "general_educational": GENERAL_EDUCATIONAL,
         "creative_prompts": CREATIVE_PROMPTS,

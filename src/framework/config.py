@@ -9,6 +9,7 @@ import yaml
 class BotConfig:
     persona: Dict[str, Any]
     behavior: Dict[str, Any]
+    prompts: Dict[str, Any]
 
 
 def _read_yaml(path: str) -> Dict[str, Any]:
@@ -29,10 +30,11 @@ def load_bot_config(path: Optional[str] = None) -> Optional[BotConfig]:
     data = _read_yaml(config_path)
     persona = data.get("persona", {})
     behavior = data.get("behavior", {})
-    if not isinstance(persona, dict) or not isinstance(behavior, dict):
-        raise ValueError("'persona' and 'behavior' must be mappings")
+    prompts = data.get("prompts", {})
+    if not isinstance(persona, dict) or not isinstance(behavior, dict) or not isinstance(prompts, dict):
+        raise ValueError("'persona', 'behavior', and 'prompts' must be mappings")
 
-    return BotConfig(persona=persona, behavior=behavior)
+    return BotConfig(persona=persona, behavior=behavior, prompts=prompts)
 
 
 def apply_behavior_env(behavior: Dict[str, Any]) -> None:
