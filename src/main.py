@@ -52,9 +52,13 @@ class TwitterBot:
             # Initialize the older Twitter API wrapper (if needed)
             self.api = setup_twitter_api()
 
-            # Get the correct model path
-            src_dir = os.path.dirname(os.path.abspath(__file__))
-            model_path = os.path.join(src_dir, "ml", "text", "model_files", "falcon3_10b_instruct")
+            # Get the correct model path (allow override via env)
+            env_model_path = os.getenv("TEXT_MODEL_PATH")
+            if env_model_path:
+                model_path = env_model_path
+            else:
+                src_dir = os.path.dirname(os.path.abspath(__file__))
+                model_path = os.path.join(src_dir, "ml", "text", "model_files", "falcon3_10b_instruct")
             
             # Initialize core services
             personality_bot = PersonalityBot(

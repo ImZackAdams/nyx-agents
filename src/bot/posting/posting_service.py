@@ -4,6 +4,7 @@ Service module handling all tweet posting logic.
 
 import random
 import logging
+import os
 from typing import Optional, List
 
 # Update these paths for your new structure
@@ -49,15 +50,16 @@ class PostingService:
         1. Summarizes the article in 1-2 factual lines.
         2. Converts that summary into a short, sassy tweet (80-240 chars).
         """
+        bot_name = os.getenv("BOT_NAME", "Athena")
+        bot_handle = os.getenv("BOT_HANDLE", "@athena_bot")
         return (
-            f"You are Athena (@Athena_TBALL), queen of crypto Twitter.\n"
+            f"You are {bot_name} ({bot_handle}), a concise, opinionated tech commentator.\n"
             f"Here is a new article:\n"
             f"Title: {article.title}\n"
             f"Content (first 200 chars): {article.content[:200]}\n\n"
             "1) Summarize the article in 1-2 short factual lines (who, what, why).\n"
-            "2) Then rewrite that summary as a sassy tweet of 80-240 chars.\n"
-            "3) Keep it witty, blunt, and no sugarcoating.\n"
-
+            "2) Then rewrite that summary as a crisp tweet of 80-240 chars.\n"
+            "3) Keep it witty, direct, and useful.\n"
         )
 
 

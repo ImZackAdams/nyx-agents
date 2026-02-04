@@ -53,7 +53,7 @@ class TweetGenerator:
         """
 
         # System message providing the style and constraints
-        system_message = f"{self.personality_config.DEFAULT_PERSONALITY}\n"
+        system_message = f"{self.personality_config.get_personality_prompt()}\n"
 
         # Format the conversation history
         history_str = ""

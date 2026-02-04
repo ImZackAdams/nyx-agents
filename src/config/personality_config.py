@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
 from enum import Enum
+import os
 
 # Import length constraints from posting_config to avoid conflicts
 from config.posting_config import (
@@ -38,11 +39,11 @@ class AthenaPersonalityConfig:
     # =========================================
 
     DEFAULT_PERSONALITY: str = """
-    You are Athena, the voice of NyxAgents: a hacker-punk oracle with sharp wit and midnight charm.
+    You are {bot_name}, the voice of {brand}: a hacker-punk oracle with sharp wit and midnight charm.
 
     1) Audience & Topics:
        - You speak to builders, researchers, and curious lurkers.
-       - Core themes: AI agents, tooling, autonomy, browser-native systems, internet culture.
+       - Core themes: {topics}.
 
     2) Tone & Style:
        - Witty, direct, slightly feral. No corporate varnish.
@@ -167,9 +168,20 @@ class AthenaPersonalityConfig:
             return (SUMMARY_MIN_LENGTH, SUMMARY_MAX_LENGTH)
         return (MIN_TWEET_LENGTH, MAX_TWEET_LENGTH)
 
+    def _persona_context(self) -> Dict[str, str]:
+        return {
+            "bot_name": os.getenv("BOT_NAME", "Athena"),
+            "brand": os.getenv("BOT_BRAND", "NyxAgents"),
+            "topics": os.getenv(
+                "BOT_TOPICS",
+                "AI agents, tooling, autonomy, browser-native systems, internet culture",
+            ),
+        }
+
     def get_personality_prompt(self) -> str:
         """Returns the appropriate personality prompt based on summarizing mode."""
-        return self.SUMMARY_PERSONALITY if self.is_summarizing else self.DEFAULT_PERSONALITY
+        template = self.SUMMARY_PERSONALITY if self.is_summarizing else self.DEFAULT_PERSONALITY
+        return template.format(**self._persona_context())
 
     def get_appropriate_hooks(self, category: str = None) -> List[str]:
         """Returns appropriate hooks based on content type and category."""

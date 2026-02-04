@@ -28,9 +28,13 @@ class PersonalityBot:
         
         # Set default model path if none provided
         if model_path is None:
-            # Get the src directory path
-            src_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            model_path = os.path.join(src_dir, "ml", "text", "model_files", "falcon3_10b_instruct")
+            env_model_path = os.getenv("TEXT_MODEL_PATH")
+            if env_model_path:
+                model_path = env_model_path
+            else:
+                # Get the src directory path
+                src_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                model_path = os.path.join(src_dir, "ml", "text", "model_files", "falcon3_10b_instruct")
         
         self.model_manager = ModelManager(model_path, self.logger)
         
