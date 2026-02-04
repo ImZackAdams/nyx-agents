@@ -6,8 +6,16 @@ import tweepy
 import bitsandbytes as bnb
 from diffusers import StableDiffusionPipeline
 
+def _env_bool(name: str, default: str = "0") -> bool:
+    value = os.getenv(name, default).strip().lower()
+    return value in ("1", "true", "yes", "on")
+
+
 def validate_env_variables(logger: logging.Logger):
     """Validate that all required environment variables are present."""
+    if _env_bool("SKIP_TWITTER_VALIDATION", "0"):
+        logger.info("Skipping Twitter credential validation (SKIP_TWITTER_VALIDATION=1).")
+        return
     required_pairs = [
         ("API_KEY", "TWITTER_API_KEY"),
         ("API_SECRET", "TWITTER_API_SECRET"),

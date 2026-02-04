@@ -1,14 +1,23 @@
 # NyxAgents Example Config
 
-This folder contains a branded configuration example for the NyxAgents persona.
+This folder contains the original branded persona configuration.
+
+## Quick Use
+1. From repo root, copy the example env.
+
+```bash
+cp examples/nyxagents/.env.example .env
+```
+
+2. Update Twitter/X credentials and `BOT_USER_ID` in `.env`.
+3. Run the simulator or live bot.
+
+```bash
+python src/sim-main.py
+python src/main.py
+```
 
 ## Files
-- `.env.example`: environment variables for identity, credentials, and model paths.
-- `persona.yml`: reference persona values (not currently auto-loaded).
-- `bot.yml`: persona + behavior config used by `BOT_CONFIG`.
-- `prompts.yml`: prompt config used by `BOT_PROMPTS` (or embedded in `bot.yml`).
-
-## Usage
-1. Copy `.env.example` to `.env` in the repo root.
-2. Fill in Twitter/X credentials and `BOT_USER_ID`.
-3. Run the simulator or bot.
+- `.env.example`: environment variables for identity, credentials, and model paths
+- `bot.yml`: persona + behavior + prompts
+- `prompts.yml`: prompt config used by `BOT_PROMPTS` (optional)

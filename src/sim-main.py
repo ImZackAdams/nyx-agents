@@ -4,9 +4,6 @@ Simplified simulation version of the Twitter bot for content testing.
 import os
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
-os.environ.setdefault("SIM_MODE", "1")
-os.environ.setdefault("SIM_MIN_TWEET_LENGTH", "40")
-os.environ.setdefault("ENABLE_NEWS", "0")
 
 import time
 import warnings
@@ -98,8 +95,12 @@ class SimulatedTwitterBot:
                 personality_config=personality_bot.config
             )
             
-            print("Loading models...")
-            self.pipe = initialize_diffusion_pipeline(self.logger)
+            if os.getenv("SKIP_IMAGE_PIPELINE", "0").strip().lower() in ("1", "true", "yes", "on") or \
+               os.getenv("DRY_RUN", "0").strip().lower() in ("1", "true", "yes", "on"):
+                self.pipe = None
+            else:
+                print("Loading models...")
+                self.pipe = initialize_diffusion_pipeline(self.logger)
             
             news_service = NewsService(logger=self.logger)
             meme_handler = MemePoster(client=self.client, api=self.api, logger=self.logger)
@@ -160,6 +161,12 @@ def main():
     try:
         warnings.filterwarnings("ignore")
         load_dotenv()
+        os.environ["SIM_MODE"] = "1"
+        os.environ["SIM_MIN_TWEET_LENGTH"] = "40"
+        os.environ["ENABLE_NEWS"] = "0"
+        os.environ["SKIP_TWITTER_VALIDATION"] = "1"
+        os.environ["DRY_RUN"] = "1"
+        os.environ["SKIP_IMAGE_PIPELINE"] = "1"
         bot = SimulatedTwitterBot()
         bot.run(num_iterations=10)
     except Exception as e:

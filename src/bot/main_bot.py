@@ -27,6 +27,8 @@ class PersonalityBot:
         """
         self.logger = logger or logging.getLogger(__name__)
         
+        self.dry_run = self._env_bool("DRY_RUN", "0")
+
         # Set default model path if none provided
         if model_path is None:
             env_model_path = os.getenv("TEXT_MODEL_PATH")
@@ -36,8 +38,11 @@ class PersonalityBot:
                 # Get the src directory path
                 src_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 model_path = os.path.join(src_dir, "ml", "text", "model_files", "falcon3_10b_instruct")
-        
-        self.model_manager = ModelManager(model_path, self.logger)
+
+        if self.dry_run:
+            self.model_manager = None
+        else:
+            self.model_manager = ModelManager(model_path, self.logger)
         
         # Set max history (not strictly necessary if you're handling history elsewhere)
         self.max_history = 10
@@ -60,6 +65,8 @@ class PersonalityBot:
     @log_resource_usage
     def _generate_model_response(self, context: str) -> str:
         """Generate a response using the pre-trained model."""
+        if self.dry_run or not self.model_manager:
+            return ""
         return self.model_manager.generate(context)
 
     def generate_response(self, prompt: str) -> str:
@@ -90,3 +97,8 @@ class PersonalityBot:
         except Exception as e:
             self.logger.error(f"Error generating response: {e}")
             return ""
+
+    @staticmethod
+    def _env_bool(name: str, default: str = "0") -> bool:
+        value = os.getenv(name, default).strip().lower()
+        return value in ("1", "true", "yes", "on")

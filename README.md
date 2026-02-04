@@ -1,104 +1,115 @@
 # Local LLM Bot Framework (Prototype)
 
-A lightweight, configurable Twitter/X bot framework for generating text, posting memes, summarizing RSS news, and replying to mentions (optionally with image generation).
+A local-first, customizable Twitter/X bot framework for prototyping with local LLMs.
 
-This repository is a prototype: simple to run locally, clear extension points, and easy to rebrand for your own persona.
+This repo is designed to be easy to clone and run. Start with the prototype path, then upgrade to full local LLM mode.
 
-## Features
-- Text tweet generation using a local LLM (Falcon).
-- RSS news ingestion and summarization.
-- Meme posting from a local folder.
-- Reply handling for mentions.
-- Optional image replies via Stable Diffusion.
-- Simulation runner for safe local testing.
+## Start Here (Prototype, no GPU)
+1. Clone the repo.
 
-## Quickstart
-1. Create a virtual environment and install dependencies.
-2. Copy `.env.example` to `.env` and fill required values.
-3. Run the simulator or the main bot.
+```bash
+git clone <your-repo-url>
+cd NyxAgent
+```
+
+2. Create a virtual environment.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
 ```
 
-Or use the helper script:
+3. Install prototype dependencies.
+
 ```bash
-./setup.sh
+pip install -r requirements-prototype.txt
 ```
 
-Install as a package (optional): 
+4. Use the local example config.
+
 ```bash
-pip install -e .
+cp examples/local_llm/.env.example .env
 ```
 
-Simulation (no real posts):
+5. Run the simulator.
+
 ```bash
 python src/sim-main.py
 ```
 
-Live bot:
+This path does not require GPU, model downloads, or Twitter credentials.
+
+## Full Local LLM Mode (GPU)
+1. Install full dependencies.
+
 ```bash
+pip install -r requirements.txt
+```
+
+2. Set model paths in `.env`.
+
+```
+TEXT_MODEL_PATH=/path/to/your/text/model
+SD_MODEL_PATH=/path/to/your/sd/model
+```
+
+3. Disable dry run.
+
+```
+DRY_RUN=0
+SKIP_IMAGE_PIPELINE=0
+```
+
+4. Run the simulator or live bot.
+
+```bash
+python src/sim-main.py
 python src/main.py
 ```
 
-Console entrypoint (after `pip install -e .`):
-```bash
-nyxbot
-```
+## Customize
+All customization is done through `.env` and YAML.
 
-## Configuration
-All configuration is via environment variables. See `.env.example`.
+Recommended path:
+- `examples/local_llm/bot.yml`
+- `BOT_CONFIG=examples/local_llm/bot.yml`
 
-Required:
-- `API_KEY`, `API_SECRET`, `ACCESS_TOKEN`, `ACCESS_TOKEN_SECRET`, `BEARER_TOKEN` (or `TWITTER_*` equivalents).
-- `BOT_USER_ID` for reply handling.
+Prompt overrides:
+- `BOT_PROMPTS=examples/local_llm/prompts.yml`
 
-Optional identity overrides:
-- `BOT_NAME`
-- `BOT_HANDLE`
-- `BOT_BRAND`
-- `BOT_TOPICS`
+## Configuration Quick Reference
+Required for live posting:
+- `API_KEY`, `API_SECRET`, `ACCESS_TOKEN`, `ACCESS_TOKEN_SECRET`, `BEARER_TOKEN`
+- `BOT_USER_ID`
 
-Optional config:
-- `BOT_CONFIG` (YAML file that overrides persona/behavior)
-- `BOT_PROMPTS` (YAML file that overrides prompts)
-
-Optional feature toggles:
+Common toggles:
 - `ENABLE_NEWS`
 - `ENABLE_MEMES`
-
-Optional news sources:
 - `NEWS_FEEDS` (comma-separated RSS URLs)
 
-Optional simulation settings:
-- `SIM_MODE`
-- `SIM_MIN_TWEET_LENGTH`
-
-Optional model overrides:
-- `TEXT_MODEL_PATH`
-- `SD_MODEL_PATH`
+Prototype toggles:
+- `DRY_RUN`
+- `SKIP_IMAGE_PIPELINE`
+- `SKIP_TWITTER_VALIDATION`
 
 ## Repo Layout
-- `src/main.py`: production bot entrypoint.
-- `src/sim-main.py`: simulation entrypoint.
-- `src/bot/`: bot logic, posting, replies.
-- `src/config/`: personality and posting configuration.
-- `src/bot/news/`: RSS ingestion and content extraction.
-- `src/utils/`: text cleaning, logging, monitoring.
-- `examples/`: minimal example configs.
+- `src/main.py`: production bot entrypoint
+- `src/sim-main.py`: simulation entrypoint
+- `src/bot/`: bot logic, posting, replies
+- `src/config/`: personality and posting configuration
+- `src/bot/news/`: RSS ingestion and content extraction
+- `src/utils/`: text cleaning, logging, monitoring
+- `examples/`: example configs
 
 ## Notes
-- GPU and CUDA are required for the Falcon model and Stable Diffusion.
-- News is opt-in: set `NEWS_FEEDS` to a comma-separated list of RSS URLs.
+- News is opt-in: set `NEWS_FEEDS` to enable.
+- Never commit `.env` to GitHub.
 - See `SANITIZED_ENV.md` for safe handling of secrets.
 - See `GETTING_STARTED.md` for a concise walkthrough.
 
 ## Example Configs
-- `examples/local_llm/` for a generic local-first setup.
-- `examples/nyxagents/` for the original branded persona.
+- `examples/local_llm/` for a generic local-first setup
+- `examples/nyxagents/` for the original branded persona
 
 ## License
 MIT. See `LICENSE`.

@@ -1,5 +1,12 @@
-import psutil
-import torch
+try:
+    import psutil
+except Exception:
+    psutil = None
+
+try:
+    import torch
+except Exception:
+    torch = None
 import functools
 import time
 import logging
@@ -11,7 +18,7 @@ def get_gpu_memory_usage() -> Dict[str, float]:
     Returns:
         dict: Dictionary containing GPU memory statistics
     """
-    if not torch.cuda.is_available():
+    if not torch or not torch.cuda.is_available():
         return {"gpu_available": False}
 
     try:
@@ -34,8 +41,11 @@ def get_system_metrics() -> Dict[str, float]:
     Returns:
         dict: Dictionary containing system resource metrics
     """
+    if not psutil:
+        return {"cpu_percent": 0.0, "memory_percent": 0.0, "gpu_available": False}
+
     process = psutil.Process()
-    
+
     try:
         metrics = {
             "cpu_percent": process.cpu_percent(),
@@ -106,7 +116,7 @@ def cleanup_gpu_memory() -> None:
     """
     Clean up GPU memory by emptying cache and garbage collection.
     """
-    if torch.cuda.is_available():
+    if torch and torch.cuda.is_available():
         try:
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()

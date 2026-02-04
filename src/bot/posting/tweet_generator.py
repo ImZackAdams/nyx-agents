@@ -67,6 +67,9 @@ class TweetGenerator:
                                       "Bot: Hey bestie! ✨", 
                                       "User: How are you today?"]
         """
+        if _env_bool("DRY_RUN", "0"):
+            candidates = [p for p in FALLBACK_PROMPTS if validate_tweet(p)]
+            return random.choice(candidates or FALLBACK_PROMPTS)
 
         # System message providing the style and constraints
         system_message = f"{self.personality_config.get_personality_prompt()}\n"

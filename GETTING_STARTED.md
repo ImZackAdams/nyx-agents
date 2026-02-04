@@ -1,49 +1,76 @@
 # Getting Started
 
-This is a short, safe path to run the project locally.
+This guide is optimized for a fast setup from a GitHub clone.
 
-## 1) Create environment
+## Path A: Prototype (fast, no GPU)
+1. Create a virtual environment.
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
 ```
 
-## 2) Configure
+2. Install minimal dependencies.
+
 ```bash
-cp .env.example .env
+pip install -r requirements-prototype.txt
 ```
 
-Edit `.env` and set required keys:
-- `API_KEY`, `API_SECRET`, `ACCESS_TOKEN`, `ACCESS_TOKEN_SECRET`, `BEARER_TOKEN`
-- `BOT_USER_ID`
+3. Use the local example config.
 
-Optional:
-- `TEXT_MODEL_PATH`, `SD_MODEL_PATH`
-- `BOT_NAME`, `BOT_HANDLE`, `BOT_BRAND`, `BOT_TOPICS`
-- `ENABLE_NEWS`, `ENABLE_MEMES`
-- `NEWS_FEEDS` (comma-separated RSS URLs)
-- `BOT_CONFIG` (YAML file for persona + behavior)
-- `BOT_PROMPTS` (YAML file for prompts)
+```bash
+cp examples/local_llm/.env.example .env
+```
 
-You can start from the generic example config:
-- `examples/local_llm/.env.example`
-- `examples/local_llm/bot.yml`
+4. Run the simulator.
 
-## 3) Run simulation (safe)
 ```bash
 python src/sim-main.py
 ```
 
-## 4) Run live
+This mode uses `DRY_RUN=1` and does not require model downloads or Twitter credentials.
+
+## Path B: Full Local LLM (GPU)
+1. Install full dependencies.
+
 ```bash
+pip install -r requirements.txt
+```
+
+2. Set model paths in `.env`.
+
+```
+TEXT_MODEL_PATH=/path/to/your/text/model
+SD_MODEL_PATH=/path/to/your/sd/model
+```
+
+3. Disable dry run.
+
+```
+DRY_RUN=0
+SKIP_IMAGE_PIPELINE=0
+```
+
+4. Run the simulator or live bot.
+
+```bash
+python src/sim-main.py
 python src/main.py
 ```
 
+## Live Posting Requirements
+Set these in `.env` to post to Twitter/X:
+- `API_KEY`, `API_SECRET`, `ACCESS_TOKEN`, `ACCESS_TOKEN_SECRET`, `BEARER_TOKEN`
+- `BOT_USER_ID`
+
+## Customization
+Use `BOT_CONFIG` and `BOT_PROMPTS` to customize persona and prompts.
+- Example: `examples/local_llm/bot.yml`
+
 ## Troubleshooting
-- If CUDA is missing, the model load will fail. Install proper GPU drivers + CUDA.
-- If you want news, set `NEWS_FEEDS` to RSS URLs (comma-separated).
+- If you want news, set `NEWS_FEEDS` to RSS URLs.
 - If you have no memes, set `ENABLE_MEMES=0`.
 
 ## Security
 See `SANITIZED_ENV.md` for safe handling of secrets.
+Never commit `.env` to GitHub.
