@@ -104,8 +104,14 @@ Prototype toggles:
 ## Notes
 - News is opt-in: set `NEWS_FEEDS` to enable.
 - Never commit `.env` to GitHub.
+- Model files are not included in this repo (too large for GitHub). Download them separately and set `TEXT_MODEL_PATH` / `SD_MODEL_PATH` in `.env`.
 - See `SANITIZED_ENV.md` for safe handling of secrets.
 - See `GETTING_STARTED.md` for a concise walkthrough.
+
+## Model Downloads
+- Use any local text generation model that fits your GPU + VRAM budget.
+- For images, use a local Stable Diffusion model folder.
+- Point `TEXT_MODEL_PATH` and `SD_MODEL_PATH` at directories that contain the model files.
 
 ## Example Configs
 - `examples/local_llm/` for a generic local-first setup

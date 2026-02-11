@@ -44,6 +44,13 @@ TEXT_MODEL_PATH=/path/to/your/text/model
 SD_MODEL_PATH=/path/to/your/sd/model
 ```
 
+Note: model files are not included in this repo (too large for GitHub). Download them separately and point the paths above at your local folders.
+
+### Where to get models
+- Use any local text generation model that matches your GPU + VRAM budget.
+- For images, use a local Stable Diffusion model folder.
+- After download, set `TEXT_MODEL_PATH` and `SD_MODEL_PATH` to the local directories that contain the model files (not a single file).
+
 3. Disable dry run.
 
 ```
