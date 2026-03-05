@@ -12,7 +12,7 @@ def _default_model_path() -> str | None:
     env_path = os.getenv("LILBOT_MODEL_PATH") or os.getenv("TEXT_MODEL_PATH")
     if env_path:
         candidates.append(env_path)
-    candidates.append(os.path.join(os.getcwd(), "src", "ml", "text", "model_files", "falcon3_10b_instruct"))
+    candidates.append(os.path.join(os.getcwd(), "lilbot", "models", "falcon3_10b_instruct"))
     for path in candidates:
         if path and os.path.exists(path):
             return path
@@ -23,7 +23,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="lilbot")
     sub = parser.add_subparsers(dest="command")
 
-    run_cmd = sub.add_parser("run", help="Run the agent")
+    run_cmd = sub.add_parser("run", help="Run the CLI")
     run_cmd.add_argument("--system", help="Optional system prompt", default=os.getenv("LILBOT_SYSTEM_PROMPT", ""))
     run_cmd.add_argument("--model-path", help="Local HF model path", default=None)
     run_cmd.add_argument("--device", help="auto|cpu|cuda", default=os.getenv("LILBOT_DEVICE", "auto"))
