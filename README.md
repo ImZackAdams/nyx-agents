@@ -1,10 +1,14 @@
-# Local LLM Bot Framework (Prototype)
+# Local LLM Bot Framework
 
-A local-first, customizable Twitter/X bot framework for prototyping with local LLMs.
+A local-first, customizable Twitter/X bot framework for prototyping with local LLMs. It can run in a fully offline simulation mode (no GPU, no credentials) or as a live bot with CUDA-based text generation and optional image replies.
 
-This repo is designed to be easy to clone and run. Start with the prototype path, then upgrade to full local LLM mode.
+## What This Does
+- Generates tweets using a local text model and a configurable persona.
+- Posts on a schedule, with optional news summaries and memes.
+- Monitors replies and responds with text or images.
+- Supports simulation mode for fast iteration without real Twitter calls.
 
-## Start Here (Prototype, no GPU)
+## Quick Start (Prototype, No GPU)
 1. Clone the repo.
 
 ```bash
@@ -37,7 +41,7 @@ cp examples/local_llm/.env.example .env
 python src/sim-main.py
 ```
 
-This path does not require GPU, model downloads, or Twitter credentials.
+This mode does not require GPU, model downloads, or Twitter credentials.
 
 ## Full Local LLM Mode (GPU)
 1. Install full dependencies.
@@ -48,14 +52,14 @@ pip install -r requirements.txt
 
 2. Set model paths in `.env`.
 
-```
+```bash
 TEXT_MODEL_PATH=/path/to/your/text/model
 SD_MODEL_PATH=/path/to/your/sd/model
 ```
 
-3. Disable dry run.
+3. Disable dry run and enable the image pipeline.
 
-```
+```bash
 DRY_RUN=0
 SKIP_IMAGE_PIPELINE=0
 ```
@@ -67,55 +71,67 @@ python src/sim-main.py
 python src/main.py
 ```
 
-## Customize
-All customization is done through `.env` and YAML.
+## Configuration
+All customization is done through `.env` and optional YAML.
 
-Recommended path:
+Recommended config:
 - `examples/local_llm/bot.yml`
-- `BOT_CONFIG=examples/local_llm/bot.yml`
+- Set `BOT_CONFIG=examples/local_llm/bot.yml`
 
 Prompt overrides:
 - `BOT_PROMPTS=examples/local_llm/prompts.yml`
 
-## Configuration Quick Reference
-Required for live posting:
-- `API_KEY`, `API_SECRET`, `ACCESS_TOKEN`, `ACCESS_TOKEN_SECRET`, `BEARER_TOKEN`
-- `BOT_USER_ID`
+### Required For Live Posting
+- Twitter/X credentials: `API_KEY`, `API_SECRET`, `ACCESS_TOKEN`, `ACCESS_TOKEN_SECRET`, `BEARER_TOKEN`
+- `BOT_USER_ID` for reply handling
 
-Common toggles:
-- `ENABLE_NEWS`
-- `ENABLE_MEMES`
-- `NEWS_FEEDS` (comma-separated RSS URLs)
+### Feature Toggles
+- `ENABLE_NEWS` and `NEWS_FEEDS` for RSS-driven posts
+- `ENABLE_MEMES` to post from a local memes folder
+- `DRY_RUN` to skip model loading
+- `SKIP_IMAGE_PIPELINE` to skip Stable Diffusion
+- `SKIP_TWITTER_VALIDATION` for sim mode
 
-Prototype toggles:
-- `DRY_RUN`
-- `SKIP_IMAGE_PIPELINE`
-- `SKIP_TWITTER_VALIDATION`
-
-## Repo Layout
+## Architecture (At A Glance)
 - `src/main.py`: production bot entrypoint
 - `src/sim-main.py`: simulation entrypoint
-- `src/bot/`: bot logic, posting, replies
-- `src/config/`: personality and posting configuration
+- `src/bot/main_bot.py`: personality bot and model usage
+- `src/bot/posting/`: tweet generation, meme posting, reply handling
 - `src/bot/news/`: RSS ingestion and content extraction
-- `src/utils/`: text cleaning, logging, monitoring
-- `examples/`: example configs
+- `src/api/twitter/`: Twitter client wrappers
+- `src/config/`: persona, posting, and model configuration
+- `examples/`: example configs and prompts
 
-## Notes
-- News is opt-in: set `NEWS_FEEDS` to enable.
-- Never commit `.env` to GitHub.
-- Model files are not included in this repo (too large for GitHub). Download them separately and set `TEXT_MODEL_PATH` / `SD_MODEL_PATH` in `.env`.
+## How Posting Works
+- A random roll decides between news, meme, or text post.
+- News posts summarize RSS articles into a short tweet.
+- Text posts use the persona prompt + prompt libraries.
+- All tweets are cleaned and length-validated before posting.
+
+## Reply Handling
+- Replies are polled on a schedule after posting.
+- Each conversation keeps a short history for context.
+- If a reply explicitly requests an image, the bot generates one (when the image pipeline is enabled).
+
+## News Ingestion
+- Uses RSS feeds from `NEWS_FEEDS`.
+- Extracts article content via a headless browser + HTML parsing.
+- Tracks posted articles in `posted_articles.json` to avoid duplicates.
+
+## Memes
+- Images are pulled from a local `memes/` folder in the repo root.
+- Captions are defined in `src/bot/prompts.py`.
+
+## Tips And Troubleshooting
+- If the model fails to load, confirm `TEXT_MODEL_PATH` exists and contains required files.
+- If posting fails, verify credentials and ensure `DRY_RUN=0`.
+- If the bot won’t reply, check `BOT_USER_ID` and `SKIP_TWITTER_VALIDATION`.
+- If image generation fails, ensure `SD_MODEL_PATH` is valid and CUDA is available.
+
+## Safety And Secrets
+- Never commit `.env` files or credentials.
 - See `SANITIZED_ENV.md` for safe handling of secrets.
 - See `GETTING_STARTED.md` for a concise walkthrough.
-
-## Model Downloads
-- Use any local text generation model that fits your GPU + VRAM budget.
-- For images, use a local Stable Diffusion model folder.
-- Point `TEXT_MODEL_PATH` and `SD_MODEL_PATH` at directories that contain the model files.
-
-## Example Configs
-- `examples/local_llm/` for a generic local-first setup
-- `examples/nyxagents/` for the original branded persona
 
 ## License
 MIT. See `LICENSE`.
