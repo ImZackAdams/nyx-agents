@@ -74,20 +74,22 @@ class AgentRunner:
         if not lines:
             return "UNKNOWN", None
 
-        if lines[0].startswith("FINAL:"):
-            return "FINAL", lines[0].replace("FINAL:", "").strip()
+        for line in lines:
+            if line.startswith("FINAL:"):
+                return "FINAL", line.replace("FINAL:", "").strip()
 
-        if lines[0].startswith("TOOL:"):
-            tool_name = lines[0].replace("TOOL:", "").strip()
-            tool_input = {}
-            for line in lines[1:]:
-                if line.startswith("INPUT:"):
-                    raw = line.replace("INPUT:", "").strip()
-                    try:
-                        tool_input = json.loads(raw)
-                    except json.JSONDecodeError:
-                        tool_input = {"raw": raw}
-                    break
+        tool_name = None
+        tool_input = {}
+        for line in lines:
+            if line.startswith("TOOL:"):
+                tool_name = line.replace("TOOL:", "").strip()
+            if line.startswith("INPUT:"):
+                raw = line.replace("INPUT:", "").strip()
+                try:
+                    tool_input = json.loads(raw)
+                except json.JSONDecodeError:
+                    tool_input = {"raw": raw}
+        if tool_name:
             return "TOOL", (tool_name, tool_input)
 
         return "UNKNOWN", None
