@@ -71,12 +71,18 @@ class LocalHFProvider:
         )
 
         try:
-            self.model.to(self.device).eval()
+            # If accelerate offloads parts to CPU, .to() is not allowed.
+            if self.quantize_4bit or (use_cuda and "auto" in str(self.model.hf_device_map)):
+                self.model.eval()
+            else:
+                self.model.to(self.device).eval()
         except RuntimeError as exc:
-            if "out of memory" in str(exc).lower() and self.device.type == "cuda":
-                # Fallback to CPU if GPU memory is insufficient.
+            message = str(exc).lower()
+            if "out of memory" in message and self.device.type == "cuda":
                 self.device = torch.device("cpu")
                 self.model.to(self.device).eval()
+            elif "offloaded" in message:
+                self.model.eval()
             else:
                 raise
 

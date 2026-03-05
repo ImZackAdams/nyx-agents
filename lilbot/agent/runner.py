@@ -51,11 +51,19 @@ class AgentRunner:
 
             if decision == "TOOL":
                 tool_name, tool_input = payload
-                result = self.tools.execute(
-                    tool_name,
-                    tool_input,
-                    confirm=self._confirm_tool,
-                )
+                tool = self.tools.get(tool_name)
+                required_keys = set(tool.spec().input_schema.keys())
+                missing = [key for key in required_keys if key not in tool_input]
+                if missing:
+                    self.context.add_observation(
+                        f"Tool call missing required fields: {missing}"
+                    )
+                    return AgentResult(
+                        final="Tool call was missing required inputs. Please try again.",
+                        steps=step,
+                    )
+
+                result = self.tools.execute(tool_name, tool_input, confirm=self._confirm_tool)
                 self.context.add_observation(f"Tool {tool_name} result: {result}")
                 continue
 
