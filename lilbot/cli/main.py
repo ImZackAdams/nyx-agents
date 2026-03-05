@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 
 from lilbot.agent.runner import AgentRunner
-from lilbot.llm.provider import EchoProvider
+from lilbot.llm.provider import EchoProvider, LocalHFProvider
 from lilbot.memory.vector_store import VectorStore
 from lilbot.retrieval.embedder import SimpleEmbedder
 from lilbot.retrieval.index import DocumentIndex
@@ -36,6 +36,7 @@ def main() -> None:
 
     run_cmd = sub.add_parser("run", help="Run the agent")
     run_cmd.add_argument("--docs", help="Folder of docs to index", default=None)
+    run_cmd.add_argument("--model-path", help="Local HF model path", default=None)
 
     args = parser.parse_args()
 
@@ -43,7 +44,10 @@ def main() -> None:
         parser.print_help()
         return
 
-    llm = EchoProvider()
+    if args.model_path:
+        llm = LocalHFProvider(args.model_path)
+    else:
+        llm = EchoProvider()
     registry = build_registry(args.docs)
     runner = AgentRunner(llm=llm, tools=registry, confirm=confirm_tool)
 
