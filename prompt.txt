@@ -1,6 +1,6 @@
-You are helping refactor an existing codebase called Athena / NyxAgents.
+You are helping refactor an existing codebase called lilbot.
 
-The goal is to convert Athena into a modular framework for running local LLM agents.
+The goal is to convert lilbot into a modular framework for running local LLM agents.
 
 This framework should resemble the architecture used by modern agent runtimes (such as OpenClaw-style systems), where an agent loop orchestrates LLM reasoning, tool usage, and memory.
 
@@ -12,7 +12,7 @@ Instead build a reusable agent framework with clean modules.
 
 CORE OBJECTIVE
 
-Athena should become a framework for building autonomous agents that can:
+lilbot should become a framework for building autonomous agents that can:
 
 - run locally
 - call tools
@@ -35,7 +35,7 @@ PROJECT STRUCTURE
 
 Refactor the codebase into something like:
 
-athena/
+lilbot/
     agent/
         runner.py
         planner.py
@@ -125,12 +125,7 @@ Used by the "search_docs" tool.
 
 LLM ABSTRACTION
 
-Create a provider interface so Athena can use:
-
-- Ollama
-- llama.cpp
-- OpenAI-compatible APIs
-- Claude-compatible APIs
+Create a provider interface so lilbot can use local models
 
 All LLM calls should go through:
 
@@ -168,7 +163,7 @@ Provide a simple CLI.
 
 Example:
 
-athena run
+lilbot run
 
 User types a request.
 
