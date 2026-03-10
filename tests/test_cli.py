@@ -15,6 +15,7 @@ from lilbot.cli.main import (
     ConversationMessage,
     main,
 )
+from lilbot.memory.memory import save_profile_memory
 
 
 class InterruptingLLM:
@@ -64,6 +65,18 @@ class CliParsingTests(unittest.TestCase):
         request = _infer_inline_request(parser, "!notes", ["groceries"])
         self.assertEqual(request, "!notes groceries")
 
+    def test_default_max_new_tokens_is_large_enough_for_normal_replies(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            parser = _build_parser()
+            args = parser.parse_args([])
+
+        self.assertEqual(args.max_new_tokens, 96)
+
+    def test_profile_prefix_command_is_rewritten_for_inline_usage(self) -> None:
+        parser = _build_parser()
+        request = _infer_inline_request(parser, "profile", ["preferences"])
+        self.assertEqual(request, "!profile preferences")
+
     def test_placeholder_assistant_responses_are_not_persisted(self) -> None:
         self.assertFalse(_should_persist_assistant_response("(echo provider) No model configured."))
         self.assertFalse(_should_persist_assistant_response("[]"))
@@ -95,6 +108,33 @@ class CliParsingTests(unittest.TestCase):
 
         self.assertIn("README.md", stdout.getvalue())
         self.assertIn("tool list_files", stderr.getvalue())
+
+    def test_profile_summary_request_does_not_initialize_provider(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        save_profile_memory("name: Zack", "name")
+
+        with (
+            patch("lilbot.cli.main.build_provider", side_effect=AssertionError("provider should not load")),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            main(
+                [
+                    "--backend",
+                    "hf",
+                    "--model-path",
+                    "/tmp/not-used",
+                    "--session-id",
+                    "cli-profile",
+                    "--prompt",
+                    "What do you know about me?",
+                ]
+            )
+
+        self.assertIn("What I know about you:", stdout.getvalue())
+        self.assertIn("name: Zack", stdout.getvalue())
+        self.assertIn("tool search_profile", stderr.getvalue())
 
     def test_clear_stays_local_in_repl(self) -> None:
         stdout = io.StringIO()

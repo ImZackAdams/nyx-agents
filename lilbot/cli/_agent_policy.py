@@ -7,13 +7,23 @@ from typing import Any
 
 from lilbot.cli._agent_protocol import _sanitize_answer_text
 from lilbot.cli._agent_types import ConversationMessage, TokenCallback
-from lilbot.memory.memory import search_notes, search_session_history
+from lilbot.memory.memory import search_notes, search_profile_memories, search_session_history
 
 
+DEFAULT_RELEVANT_PROFILE_LIMIT = 4
 DEFAULT_RELEVANT_NOTE_LIMIT = 3
 DEFAULT_RELEVANT_HISTORY_LIMIT = 4
 PERSONAL_FACT_PATTERN = re.compile(
-    r"\b(my name|who am i|what'?s my name|what is my name|my email|my phone|my address)\b",
+    r"\b(my name|who am i|what'?s my name|what is my name|my email|my phone|my address|my pronouns|my timezone)\b",
+    re.IGNORECASE,
+)
+ASSISTANT_IDENTITY_PATTERN = re.compile(
+    r"\b(?:what'?s your name|what is your name|who are you)\b",
+    re.IGNORECASE,
+)
+GREETING_PATTERN = re.compile(r"^\s*(?:hi|hello|hey)\b[!.? ]*$", re.IGNORECASE)
+PROFILE_REQUEST_PATTERN = re.compile(
+    r"\b(what do you know about me|tell me about me|summarize my profile|my profile|about me|what should you remember about me|what are my preferences|what do i prefer|what are my goals)\b",
     re.IGNORECASE,
 )
 CLI_ROUTING_PATTERN = re.compile(
@@ -35,7 +45,7 @@ HISTORY_REQUEST_PATTERN = re.compile(
 )
 README_REQUEST_PATTERN = re.compile(r"\breadme(?:\.md)?\b", re.IGNORECASE)
 FILE_LIST_REQUEST_PATTERN = re.compile(
-    r"\b(?:what|which|list|show|display)\b.*\b(?:files?|directories|folders?)\b|\b(?:files?|directories|folders?)\b.*\b(?:are in|in this|under)\b",
+    r"\b(?:what|which|list|show|display)\b.*\b(?:files?|director(?:y|ies)|folders?)\b|\b(?:files?|director(?:y|ies)|folders?)\b.*\b(?:are in|in this|under)\b|\bwhat(?:'s| is)?\s+in\s+this\s+(?:director(?:y|ies)|folder)\b",
     re.IGNORECASE,
 )
 NOTE_LIST_REQUEST_PATTERN = re.compile(
@@ -63,6 +73,26 @@ PHONE_VALUE_PATTERN = re.compile(
 )
 ADDRESS_VALUE_PATTERN = re.compile(
     r"\b(?:my )?address(?: is|:)\s+(.+)",
+    re.IGNORECASE,
+)
+PRONOUNS_VALUE_PATTERN = re.compile(
+    r"\b(?:my )?pronouns(?: are|:)\s+(.+)",
+    re.IGNORECASE,
+)
+TIMEZONE_VALUE_PATTERN = re.compile(
+    r"\b(?:my )?timezone(?: is|:)\s+([A-Za-z0-9_./+-]+)",
+    re.IGNORECASE,
+)
+PREFERENCE_VALUE_PATTERN = re.compile(
+    r"\b(?:i prefer|i usually use|i like to use)\s+(.+)",
+    re.IGNORECASE,
+)
+FAVORITE_VALUE_PATTERN = re.compile(
+    r"\bmy favorite\s+([A-Za-z0-9 _-]{2,30})\s+is\s+(.+)",
+    re.IGNORECASE,
+)
+GOAL_VALUE_PATTERN = re.compile(
+    r"\b(?:my goal is|i(?:'m| am) trying to|i want to)\s+(.+)",
     re.IGNORECASE,
 )
 NOTE_QUERY_STOPWORDS = frozenset(
@@ -94,6 +124,25 @@ NOTE_QUERY_STOPWORDS = frozenset(
         "which",
         "you",
         "who",
+    }
+)
+PROFILE_QUERY_STOPWORDS = frozenset(
+    {
+        "about",
+        "are",
+        "do",
+        "goals",
+        "i",
+        "know",
+        "me",
+        "my",
+        "preferences",
+        "profile",
+        "remember",
+        "should",
+        "tell",
+        "what",
+        "you",
     }
 )
 HISTORY_QUERY_STOPWORDS = frozenset(
@@ -169,6 +218,23 @@ def _observation_message(tool_name: str, observation: str) -> ConversationMessag
     )
 
 
+def _relevant_profile_context(
+    user_request: str,
+    limit: int = DEFAULT_RELEVANT_PROFILE_LIMIT,
+) -> str:
+    if not _should_prefetch_profile(user_request) and not _looks_like_personal_fact_request(user_request):
+        return ""
+
+    query = _profile_query_from_request(user_request)
+    memories = search_profile_memories(query, limit=limit)
+    if not memories:
+        return ""
+    return "\n".join(
+        f"- {memory['text']} ({memory['created_at']})"
+        for memory in memories
+    )
+
+
 def _relevant_note_context(
     user_request: str,
     limit: int = DEFAULT_RELEVANT_NOTE_LIMIT,
@@ -214,6 +280,7 @@ def _coerce_final_answer(
     *,
     user_request: str,
     final_text: str,
+    profile_context: str,
     note_context: str,
     history_context: str,
     last_tool_name: str | None,
@@ -221,9 +288,13 @@ def _coerce_final_answer(
 ) -> str:
     final_text = _collapse_repeated_paragraphs(_sanitize_answer_text(final_text))
 
+    if _is_greeting_request(user_request) and not _looks_like_greeting_answer(final_text):
+        return "Hello. I'm lilbot."
+
     if _looks_like_personal_fact_request(user_request):
         return _resolve_personal_fact_answer(
             user_request=user_request,
+            profile_context=profile_context,
             note_context=note_context,
             history_context=history_context,
             last_observation=last_observation,
@@ -235,7 +306,7 @@ def _coerce_final_answer(
             return fallback
 
     if last_tool_name and last_observation:
-        if last_tool_name in {"search_notes", "search_history"} and not _observation_has_results(
+        if last_tool_name in {"search_notes", "search_history", "search_profile"} and not _observation_has_results(
             last_observation
         ):
             fallback = _fallback_from_observation(user_request, last_tool_name, last_observation)
@@ -264,19 +335,21 @@ def _coerce_final_answer(
 def _resolve_personal_fact_answer(
     *,
     user_request: str,
+    profile_context: str,
     note_context: str,
     history_context: str,
     last_observation: str | None,
 ) -> str:
     fact_value = _extract_personal_fact_value(
         user_request,
+        profile_context,
         note_context,
         history_context,
         last_observation,
     )
     if fact_value:
         return fact_value
-    return "I don't know based on your saved notes or session history."
+    return "I don't know based on your saved profile, notes, or session history."
 
 
 def _personal_fact_declaration_answer(user_request: str) -> str | None:
@@ -307,6 +380,7 @@ def _recent_personal_fact_answer(
         fact_value = _extract_personal_fact_value(
             user_request,
             "",
+            "",
             message.content,
             None,
         )
@@ -318,6 +392,7 @@ def _recent_personal_fact_answer(
 def _fallback_answer(
     *,
     user_request: str,
+    profile_context: str,
     note_context: str,
     history_context: str,
     last_tool_name: str | None,
@@ -327,6 +402,7 @@ def _fallback_answer(
     if _looks_like_personal_fact_request(user_request):
         return _resolve_personal_fact_answer(
             user_request=user_request,
+            profile_context=profile_context,
             note_context=note_context,
             history_context=history_context,
             last_observation=last_observation,
@@ -355,7 +431,14 @@ def _direct_tool_answer(
     if last_tool_name == "search_history" and _is_direct_history_request(user_request):
         return _fallback_from_observation(user_request, last_tool_name, last_observation)
 
-    if last_tool_name == "list_files" and _is_file_listing_request(user_request):
+    if last_tool_name == "search_profile" and _is_direct_profile_request(user_request):
+        return _fallback_from_observation(user_request, last_tool_name, last_observation)
+
+    if last_tool_name == "list_files" and (
+        _is_file_listing_request(user_request)
+        or _is_summary_request(user_request)
+        or _is_repository_request(user_request)
+    ):
         return _fallback_from_observation(user_request, last_tool_name, last_observation)
 
     return None
@@ -371,6 +454,9 @@ def _fallback_from_observation(
 
     if tool_name in {"search_notes", "search_history"}:
         return _format_memory_observation(user_request, tool_name, observation)
+
+    if tool_name == "search_profile":
+        return _format_profile_observation(user_request, observation)
 
     if tool_name == "read_file":
         if _is_summary_request(user_request):
@@ -422,6 +508,29 @@ def _format_memory_observation(
         )
 
     return "Relevant session history:\n" + "\n".join(f"- {item}" for item in items)
+
+
+def _format_profile_observation(
+    user_request: str,
+    observation: str,
+) -> str:
+    lowered_observation = observation.lower()
+    if lowered_observation.startswith("no matching"):
+        return "I couldn't find matching profile memories."
+    if lowered_observation.startswith("no saved profile"):
+        return "I do not have any saved profile memories yet."
+
+    items = _extract_observation_items(observation)
+    if not items:
+        return observation
+
+    if _looks_like_personal_fact_request(user_request) and items:
+        return items[0]
+
+    if _is_direct_profile_request(user_request):
+        return "What I know about you:\n" + "\n".join(f"- {item}" for item in items)
+
+    return "Relevant profile memories:\n" + "\n".join(f"- {item}" for item in items)
 
 
 def _extract_observation_items(observation: str) -> list[str]:
@@ -599,6 +708,7 @@ def _natural_join(items: Sequence[str]) -> str:
 
 def _extract_personal_fact_value(
     user_request: str,
+    profile_context: str,
     note_context: str,
     history_context: str,
     last_observation: str | None,
@@ -607,7 +717,7 @@ def _extract_personal_fact_value(
     if not patterns:
         return None
 
-    evidence_chunks = [note_context, history_context, last_observation or ""]
+    evidence_chunks = [profile_context, note_context, history_context, last_observation or ""]
     for chunk in evidence_chunks:
         if not chunk.strip():
             continue
@@ -631,7 +741,72 @@ def _personal_fact_patterns(user_request: str) -> tuple[tuple[re.Pattern[str], .
         return (PHONE_VALUE_PATTERN,), "phone number"
     if "address" in lowered:
         return (ADDRESS_VALUE_PATTERN,), "address"
+    if "pronoun" in lowered:
+        return (PRONOUNS_VALUE_PATTERN,), "pronouns"
+    if "timezone" in lowered:
+        return (TIMEZONE_VALUE_PATTERN,), "timezone"
     return (), "details"
+
+
+def _profile_memory_candidate(user_request: str) -> tuple[str, str, str] | None:
+    stripped_request = user_request.strip()
+    if not stripped_request or stripped_request.endswith("?"):
+        return None
+
+    patterns_with_labels = (
+        (NAME_VALUE_PATTERN, "name"),
+        (EMAIL_VALUE_PATTERN, "email"),
+        (PHONE_VALUE_PATTERN, "phone number"),
+        (ADDRESS_VALUE_PATTERN, "address"),
+        (PRONOUNS_VALUE_PATTERN, "pronouns"),
+        (TIMEZONE_VALUE_PATTERN, "timezone"),
+    )
+    for pattern, label in patterns_with_labels:
+        match = pattern.search(stripped_request)
+        if match is None:
+            continue
+        value = _clean_fact_value(match.group(1))
+        if not value:
+            continue
+        display_value = _display_personal_fact_value(label, value)
+        return (
+            f"{label}: {display_value}",
+            label,
+            f"Okay. I'll remember that your {label} is {display_value}.",
+        )
+
+    favorite_match = FAVORITE_VALUE_PATTERN.search(stripped_request)
+    if favorite_match is not None:
+        topic = _clean_fact_value(favorite_match.group(1))
+        value = _clean_fact_value(favorite_match.group(2))
+        if topic and value:
+            return (
+                f"favorite {topic}: {value}",
+                "preference",
+                f"Okay. I'll remember that your favorite {topic} is {value}.",
+            )
+
+    preference_match = PREFERENCE_VALUE_PATTERN.search(stripped_request)
+    if preference_match is not None:
+        value = _clean_fact_value(preference_match.group(1))
+        if value:
+            return (
+                f"preference: {value}",
+                "preference",
+                f"Okay. I'll remember that you prefer {value}.",
+            )
+
+    goal_match = GOAL_VALUE_PATTERN.search(stripped_request)
+    if goal_match is not None:
+        value = _clean_fact_value(goal_match.group(1))
+        if value:
+            return (
+                f"goal: {value}",
+                "goal",
+                f"Okay. I'll remember that your goal is {value}.",
+            )
+
+    return None
 
 
 def _clean_fact_value(value: str) -> str:
@@ -656,6 +831,12 @@ def _looks_like_personal_fact_request(user_request: str) -> bool:
     return PERSONAL_FACT_PATTERN.search(user_request) is not None
 
 
+def _looks_like_profile_request(user_request: str) -> bool:
+    return PROFILE_REQUEST_PATTERN.search(user_request) is not None or _looks_like_personal_fact_request(
+        user_request
+    )
+
+
 def _is_summary_request(user_request: str) -> bool:
     return SUMMARY_HINT_PATTERN.search(user_request) is not None
 
@@ -672,6 +853,8 @@ def _allow_live_streaming(
     if _looks_like_personal_fact_request(user_request):
         return False
     if _is_summary_request(user_request):
+        return False
+    if _should_prefetch_profile(user_request):
         return False
     if _should_prefetch_notes(user_request) or _should_prefetch_history(user_request):
         return False
@@ -698,6 +881,10 @@ def _is_direct_note_request(user_request: str) -> bool:
 
 def _is_direct_history_request(user_request: str) -> bool:
     return HISTORY_LIST_REQUEST_PATTERN.search(user_request) is not None
+
+
+def _is_direct_profile_request(user_request: str) -> bool:
+    return _looks_like_profile_request(user_request)
 
 
 def _looks_like_unhelpful_answer(text: str) -> bool:
@@ -790,6 +977,7 @@ def _observation_has_results(observation: str) -> bool:
         (
             "no matching",
             "no saved notes",
+            "no saved profile",
             "no session history",
             "i couldn't find",
             "unable to ",
@@ -806,6 +994,10 @@ def _direct_answer(
     session_id: str,
     history: Sequence[ConversationMessage],
 ) -> str | None:
+    assistant_identity = _assistant_identity_answer(user_request)
+    if assistant_identity is not None:
+        return assistant_identity
+
     if CLI_ROUTING_PATTERN.search(user_request):
         return (
             "If the input starts with `!`, lilbot runs a local prefix command immediately. "
@@ -816,6 +1008,9 @@ def _direct_answer(
     session_answer = _session_id_answer(user_request, session_id)
     if session_answer is not None:
         return session_answer
+
+    if _looks_like_profile_request(user_request) and not _looks_like_personal_fact_request(user_request):
+        return None
 
     declaration_answer = _personal_fact_declaration_answer(user_request)
     if declaration_answer is not None:
@@ -843,6 +1038,21 @@ def _session_id_answer(user_request: str, session_id: str) -> str | None:
     return None
 
 
+def _assistant_identity_answer(user_request: str) -> str | None:
+    if ASSISTANT_IDENTITY_PATTERN.search(user_request) is None:
+        return None
+    return "I'm lilbot, your local CLI assistant."
+
+
+def _is_greeting_request(user_request: str) -> bool:
+    return GREETING_PATTERN.fullmatch(user_request.strip()) is not None
+
+
+def _looks_like_greeting_answer(text: str) -> bool:
+    lowered = text.strip().lower()
+    return any(token in lowered for token in ("hello", "hi", "hey", "greetings"))
+
+
 def _last_user_message(history: Sequence[ConversationMessage]) -> str | None:
     for message in reversed(history):
         if message.role == "user" and message.content.strip():
@@ -857,6 +1067,17 @@ def _prefetch_tool_requests(user_request: str, session_id: str) -> list[tuple[st
         requests.append(("read_file", {"path": "README.md", "max_chars": 4000}))
     elif _is_file_listing_request(user_request) or _is_repository_request(user_request):
         requests.append(("list_files", {"path": ".", "max_entries": 50}))
+
+    if _should_prefetch_profile(user_request):
+        profile_params: dict[str, Any] = {"limit": 8}
+        profile_query = _profile_query_from_request(user_request)
+        if profile_query:
+            profile_params["query"] = profile_query
+        requests.append(("search_profile", profile_params))
+    elif _looks_like_personal_fact_request(user_request):
+        personal_query = _personal_fact_query(user_request)
+        if personal_query:
+            requests.append(("search_profile", {"limit": 5, "query": personal_query}))
 
     if _should_prefetch_notes(user_request):
         note_params: dict[str, Any] = {"limit": 10}
@@ -885,6 +1106,10 @@ def _prefetch_tool_requests(user_request: str, session_id: str) -> list[tuple[st
     return requests
 
 
+def _should_prefetch_profile(user_request: str) -> bool:
+    return _looks_like_profile_request(user_request)
+
+
 def _should_prefetch_notes(user_request: str) -> bool:
     return NOTE_REQUEST_PATTERN.search(user_request) is not None
 
@@ -901,6 +1126,29 @@ def _history_query_from_request(user_request: str) -> str | None:
     return _query_from_request(user_request, HISTORY_QUERY_STOPWORDS)
 
 
+def _profile_query_from_request(user_request: str) -> str | None:
+    lowered = user_request.lower()
+    if PROFILE_REQUEST_PATTERN.search(user_request) is not None and "about me" in lowered:
+        return None
+    if "name" in lowered or "who am i" in lowered:
+        return "name"
+    if "email" in lowered:
+        return "email"
+    if "phone" in lowered:
+        return "phone number"
+    if "address" in lowered:
+        return "address"
+    if "pronoun" in lowered:
+        return "pronouns"
+    if "timezone" in lowered:
+        return "timezone"
+    if "goal" in lowered:
+        return "goal"
+    if any(token in lowered for token in ("prefer", "favorite", "favourite", "usually use", "like to use")):
+        return "preference"
+    return _query_from_request(user_request, PROFILE_QUERY_STOPWORDS)
+
+
 def _personal_fact_query(user_request: str) -> str | None:
     lowered = user_request.lower()
     if "name" in lowered or "who am i" in lowered:
@@ -908,9 +1156,13 @@ def _personal_fact_query(user_request: str) -> str | None:
     if "email" in lowered:
         return "email"
     if "phone" in lowered:
-        return "phone"
+        return "phone number"
     if "address" in lowered:
         return "address"
+    if "pronoun" in lowered:
+        return "pronouns"
+    if "timezone" in lowered:
+        return "timezone"
     return None
 
 

@@ -120,7 +120,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lilbot",
         description="Local LLM CLI with direct ! commands.",
-        epilog="Prefix commands: !help, !ls [path], !read <file>, !sys, !note <text>, !notes [query], !history [query]",
+        epilog=(
+            "Prefix commands: !help, !ls [path], !read <file>, !sys, !note <text>, "
+            "!notes [query], !remember <text>, !profile [query], !history [query]"
+        ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -150,7 +153,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-new-tokens",
         type=int,
-        default=_int_env("LILBOT_MAX_NEW_TOKENS", 48),
+        default=_int_env("LILBOT_MAX_NEW_TOKENS", 96),
         help="Maximum new tokens per response",
     )
     parser.add_argument(
@@ -530,6 +533,20 @@ def _handle_notes(args: list[str]) -> str:
     return execute_tool("search_notes", params)
 
 
+def _handle_remember(args: list[str]) -> str:
+    if not args:
+        return "Usage: !remember <text>"
+    return execute_tool("save_profile_memory", {"text": " ".join(args)})
+
+
+def _handle_profile(args: list[str]) -> str:
+    query = " ".join(args).strip()
+    params: dict[str, str | int] = {"limit": 8}
+    if query:
+        params["query"] = query
+    return execute_tool("search_profile", params)
+
+
 def _handle_history(args: list[str]) -> str:
     query = " ".join(args).strip()
     params: dict[str, str | int] = {"limit": 8}
@@ -575,6 +592,8 @@ PREFIX_COMMANDS = {
         PrefixCommand("sys", "!sys", "Show basic system information.", _handle_sys),
         PrefixCommand("note", "!note <text>", "Save a note to persistent memory.", _handle_note),
         PrefixCommand("notes", "!notes [query]", "List recent notes or search saved notes.", _handle_notes),
+        PrefixCommand("remember", "!remember <text>", "Save a durable personal memory.", _handle_remember),
+        PrefixCommand("profile", "!profile [query]", "List or search saved personal profile memories.", _handle_profile),
         PrefixCommand("history", "!history [query]", "List recent session history or search earlier conversation.", _handle_history),
     )
 }

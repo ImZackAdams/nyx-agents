@@ -15,7 +15,9 @@ from lilbot.cli._agent_policy import (
     _fallback_answer,
     _looks_like_personal_fact_request,
     _observation_message,
+    _profile_memory_candidate,
     _prefetch_tool_requests,
+    _relevant_profile_context,
     _relevant_history_context,
     _relevant_note_context,
     _resolve_personal_fact_answer,
@@ -67,6 +69,7 @@ def run_agent(
         return direct_answer
 
     working_messages = prefetch_state.working_messages
+    profile_context = prefetch_state.profile_context
     note_context = prefetch_state.note_context
     history_context = prefetch_state.history_context
     last_tool_name = prefetch_state.last_tool_name
@@ -88,6 +91,7 @@ def run_agent(
         prompt = build_agent_prompt(
             system_prompt=system_prompt,
             messages=working_messages,
+            profile_context=profile_context,
             note_context=note_context,
             history_context=history_context,
             tool_schemas=tool_schemas,
@@ -108,6 +112,7 @@ def run_agent(
             final_text = _coerce_final_answer(
                 user_request=user_request,
                 final_text=_final_text(parsed.raw),
+                profile_context=profile_context,
                 note_context=note_context,
                 history_context=history_context,
                 last_tool_name=fallback_tool_name or last_tool_name,
@@ -166,6 +171,7 @@ def run_agent(
 
     fallback = _fallback_answer(
         user_request=user_request,
+        profile_context=profile_context,
         note_context=note_context,
         history_context=history_context,
         last_tool_name=fallback_tool_name or last_tool_name,
@@ -208,6 +214,28 @@ def _prepare_agent_request(
     persist_direct_answer: bool,
 ) -> tuple[str | None, PrefetchState]:
     trimmed_history = _trim_history(history, history_limit)
+    profile_candidate = _profile_memory_candidate(user_request)
+    if profile_candidate is not None:
+        profile_text, profile_category, direct_answer = profile_candidate
+        params = {"text": profile_text, "category": profile_category}
+        if status_callback is not None:
+            status_callback(_tool_status_message("save_profile_memory", params))
+        observation = _execute_tool(tool_executor, "save_profile_memory", params)
+        answer = direct_answer if observation.startswith("Saved profile memory") else observation
+        if persist_direct_answer:
+            _append_exchange(history, user_request, answer, history_limit)
+        return answer, PrefetchState(
+            working_messages=list(trimmed_history),
+            profile_context="",
+            note_context="",
+            history_context="",
+            last_tool_name="save_profile_memory",
+            last_observation=observation,
+            fallback_tool_name=None,
+            fallback_observation=None,
+            seen_tool_calls={_tool_signature("save_profile_memory", params)},
+        )
+
     direct_answer = _direct_answer(
         user_request=user_request,
         session_id=session_id,
@@ -218,6 +246,7 @@ def _prepare_agent_request(
             _append_exchange(history, user_request, direct_answer, history_limit)
         return direct_answer, PrefetchState(
             working_messages=list(trimmed_history),
+            profile_context="",
             note_context="",
             history_context="",
             last_tool_name=None,
@@ -229,6 +258,7 @@ def _prepare_agent_request(
 
     working_messages = list(trimmed_history)
     working_messages.append(ConversationMessage("user", user_request))
+    profile_context = _relevant_profile_context(user_request)
     note_context = _relevant_note_context(user_request)
     history_context = _relevant_history_context(session_id, user_request)
     last_tool_name: str | None = None
@@ -259,6 +289,7 @@ def _prepare_agent_request(
     if _looks_like_personal_fact_request(user_request):
         direct_answer = _resolve_personal_fact_answer(
             user_request=user_request,
+            profile_context=profile_context,
             note_context=note_context,
             history_context=history_context,
             last_observation=fallback_observation or last_observation,
@@ -275,6 +306,7 @@ def _prepare_agent_request(
 
     return direct_answer, PrefetchState(
         working_messages=working_messages,
+        profile_context=profile_context,
         note_context=note_context,
         history_context=history_context,
         last_tool_name=last_tool_name,

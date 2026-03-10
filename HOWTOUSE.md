@@ -1,103 +1,85 @@
 # How To Use Lilbot
 
-`lilbot` is a local command-line assistant built around a local Hugging Face model, a small agent loop, and a handful of safe local tools.
+`lilbot` is a local command-line assistant with three layers:
 
-This guide is the detailed version of the README. It covers:
+1. deterministic `!` commands
+2. deterministic direct-answer routing for common requests
+3. a local-model agent loop for everything else
 
-- installation
-- model configuration
-- interactive and one-shot usage
-- built-in `!` commands
-- agent behavior
-- sessions and persistent memory
-- latency tuning
-- troubleshooting
-- how to extend the project
+This guide is the long-form manual for using those layers well.
 
-## What Lilbot Does
+## What Lilbot Is For
 
-`lilbot` has two main interaction modes:
+Lilbot is designed for grounded, local workflows rather than open-ended autonomy.
 
-- Prefix commands, such as `!ls` or `!notes`, which run deterministic local tools directly.
-- Normal prompts, such as `Summarize this repo`, which go through the LLM agent loop.
+Use it when you want to:
 
-When you give a normal prompt, the model can decide to:
+- inspect and summarize a local repository
+- keep personal memory in a local SQLite store
+- search earlier conversation by session
+- manage notes without leaving the terminal
+- combine a local model with a small, transparent toolset
 
-1. inspect local files
-2. search notes
-3. search earlier conversation in the current session
-4. inspect system information
-5. return a final answer
+Do not think of Lilbot as:
 
-That makes `lilbot` more useful than a plain text generator, while keeping the behavior bounded and understandable.
+- a web browser
+- a shell agent
+- a file editor
+- a task scheduler
+- a fully autonomous coding agent
 
-## Core Concepts
+It is intentionally narrower than that.
 
-Before using `lilbot`, it helps to know four concepts.
+## The Mental Model
 
-### 1. Workspace Root
+Most confusion disappears once you understand the three runtime lanes.
 
-File tools are restricted to a workspace root. By default, that is the directory where you start `lilbot`.
+### Lane 1: Prefix Commands
 
-Examples:
-
-```bash
-cd ~/Desktop/lilbot
-python3 -m lilbot
-```
-
-In that case, `!ls`, `!read`, and agent-driven file access are restricted to `~/Desktop/lilbot`.
-
-You can override the root with:
-
-```bash
-export LILBOT_WORKSPACE_ROOT=/path/to/workspace
-```
-
-### 2. Session ID
-
-Conversation history is grouped by session ID.
+Anything that begins with `!` is handled locally and deterministically.
 
 Examples:
 
 ```bash
-python3 -m lilbot --session-id work
-python3 -m lilbot --session-id personal
+!ls
+!read README.md
+!notes groceries
+!profile
 ```
 
-Those sessions keep separate persistent histories in the SQLite database.
+These commands do not need the model.
 
-### 3. Notes vs Session History
+### Lane 2: Deterministic Direct Answers
 
-`lilbot` stores two kinds of memory:
+Some natural-language requests are answered without full generation because local logic is already sufficient.
 
-- Notes: explicit facts you save with `!note` or by asking the model to remember something.
-- Session history: prior user and assistant messages within a named session.
+Examples:
 
-Notes are better for durable facts and reminders. Session history is better for recalling what was discussed in a thread.
+- `what is my name?`
+- `what do you know about me?`
+- `what is my session id?`
+- `what is your name?`
+- `summarize this repo`
+- `what is in this directory?`
 
-### 4. Agent Loop
+This keeps obvious workflows fast and reduces local-model drift.
 
-Normal prompts are not sent to the model once and printed blindly. The agent loop in `lilbot/cli/agent.py` asks the model to respond in one of two forms:
+### Lane 3: Agent Mode
+
+If a request is not satisfied by lanes 1 or 2, Lilbot runs the LLM agent loop.
+
+The model can ask for one tool at a time using a tiny protocol:
 
 ```text
 FINAL: <answer>
 TOOL: <tool_name> <json object>
 ```
 
-If the model asks for a tool, `lilbot` runs it, appends the observation, and lets the model continue until it reaches a final answer or the step limit.
-
-The agent also has a few safeguards:
-
-- repeated identical tool calls are refused
-- malformed role labels such as `[assistant] TOOL: ...` are normalized
-- if the model fails after a useful tool result, `lilbot` can fall back to that observation instead of returning a useless protocol error
-- summary requests over file contents or directory listings can fall back to deterministic summaries
-- personal-fact questions are expected to rely on notes, session history, or tool evidence rather than hallucination
+Lilbot executes the tool, appends the observation, and continues until the model reaches a final answer or hits the tool-step limit.
 
 ## Installation
 
-Create and activate a virtual environment:
+Create a virtual environment:
 
 ```bash
 python3 -m venv .venv
@@ -110,142 +92,167 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Optional GPU quantization support:
+Optional CUDA quantization support:
 
 ```bash
 pip install bitsandbytes
 ```
 
-If you want `.env` loading, install `python-dotenv`. In this project that is already included through the main requirements.
+`python-dotenv` is included by the main requirements, so `.env` loading works after a normal install.
 
-## Model Setup
+## Local Model Setup
 
-`lilbot` expects a local Hugging Face model directory. The directory should contain the model weights, tokenizer files, and model config.
+Lilbot uses a local Hugging Face model backend when it can find a model path.
 
-Set it with an environment variable:
+Provide a model path explicitly:
 
 ```bash
 export LILBOT_MODEL_PATH=/path/to/local/model
 ```
 
-Or pass it per run:
+Or:
 
 ```bash
 python3 -m lilbot --model-path /path/to/local/model
 ```
 
-If `lilbot/models/falcon3_10b_instruct` exists, `lilbot` will use that automatically.
+If `lilbot/models/falcon3_10b_instruct` exists, Lilbot will use it automatically by default.
 
-If no model path is available, `lilbot` falls back to the placeholder `EchoProvider`, which returns a stub response instead of real generation. That is useful for CLI testing, but not for real use.
+If no model path is available, Lilbot falls back to the lightweight echo backend. That is useful for CLI and test flows, but not for real answers.
 
 ## Configuration
 
-The CLI loads `.env` automatically when `python-dotenv` is available.
+Lilbot loads `.env` automatically when `python-dotenv` is available.
 
-Common settings:
+The project includes an [.env.example](.env.example) showing the supported environment variables.
+
+Common configuration:
 
 ```bash
 LILBOT_BACKEND=auto
-LILBOT_MODEL_PATH=/path/to/model
+LILBOT_MODEL_PATH=
+TEXT_MODEL_PATH=
 LILBOT_DEVICE=auto
-LILBOT_MAX_NEW_TOKENS=48
+LILBOT_MAX_NEW_TOKENS=96
 LILBOT_QUANTIZE_4BIT=1
 LILBOT_DO_SAMPLE=0
 LILBOT_STREAM=1
 LILBOT_MAX_AGENT_STEPS=4
 LILBOT_HISTORY_MESSAGES=8
 LILBOT_SESSION_ID=default
+LILBOT_SYSTEM_PROMPT=
 LILBOT_LOG_LEVEL=WARNING
-LILBOT_WORKSPACE_ROOT=/path/to/workspace
-LILBOT_MEMORY_DB_PATH=/path/to/memory_store.db
-LILBOT_MEMORY_JSON_PATH=/path/to/memory_store.json
+LILBOT_WORKSPACE_ROOT=
+LILBOT_MEMORY_DB_PATH=
+LILBOT_MEMORY_JSON_PATH=
 ```
 
-What these mean:
+### Main Settings
 
-- `LILBOT_BACKEND`
-  - `auto`: use the local Hugging Face backend when a model path is available, otherwise use the echo backend
-  - `hf`: require a local Hugging Face model path
-  - `echo`: use the lightweight placeholder backend for CLI/testing flows
-- `LILBOT_DEVICE`
-  - `auto`: prefer CUDA if available
-  - `cpu`: force CPU inference
-  - `cuda`: require CUDA, fail if unavailable
-- `LILBOT_MAX_NEW_TOKENS`
-  - caps response length
-  - lower is usually faster
-- `LILBOT_QUANTIZE_4BIT`
-  - enables 4-bit loading when CUDA and `bitsandbytes` are available
-- `LILBOT_DO_SAMPLE`
-  - `0` means greedy decoding, which is faster and more deterministic
-  - `1` enables sampling
-- `LILBOT_STREAM`
-  - `1` enables safe direct-answer streaming in the CLI
-  - `0` disables streaming and prints full answers only after each request completes
-- `LILBOT_MAX_AGENT_STEPS`
-  - maximum number of tool calls per request
-- `LILBOT_HISTORY_MESSAGES`
-  - number of recent messages loaded into the in-memory working context at startup
-- `LILBOT_SESSION_ID`
-  - default persistent session name
-- `LILBOT_MEMORY_DB_PATH`
-  - SQLite database path for notes and session history
-- `LILBOT_MEMORY_JSON_PATH`
-  - optional legacy JSON file path for one-time note import
+`LILBOT_BACKEND`
+
+- `auto`: prefer the local Hugging Face backend, otherwise use echo
+- `hf`: require a real local model
+- `echo`: never load a real model
+
+`LILBOT_DEVICE`
+
+- `auto`: prefer CUDA when available
+- `cpu`: force CPU inference
+- `cuda`: fail if CUDA is unavailable
+
+`LILBOT_MAX_NEW_TOKENS`
+
+- caps reply length
+- defaults to `96`
+- raise it for fuller answers
+- lower it if you need lower latency
+
+`LILBOT_QUANTIZE_4BIT`
+
+- only matters for CUDA-backed Hugging Face inference
+- requires `bitsandbytes`
+
+`LILBOT_DO_SAMPLE`
+
+- `0` means greedy decoding
+- `1` enables sampling
+
+`LILBOT_STREAM`
+
+- `1` enables safe direct-answer streaming
+- `0` buffers replies until completion
+
+`LILBOT_MAX_AGENT_STEPS`
+
+- limits how many tools the agent may call for one request
+
+`LILBOT_HISTORY_MESSAGES`
+
+- controls how many recent messages are loaded into the in-memory working context
+
+`LILBOT_SESSION_ID`
+
+- selects the current persistent session
+
+`LILBOT_WORKSPACE_ROOT`
+
+- restricts file tools to a chosen root
+- defaults to the directory where Lilbot starts
 
 ## Starting Lilbot
 
-Interactive mode:
+### Interactive REPL
 
 ```bash
 python3 -m lilbot
 ```
 
-Explicit interactive mode still works:
+You will see:
+
+```text
+Request (or 'exit'):
+```
+
+Local REPL commands:
+
+- `exit` or `quit`: leave the session
+- `clear` or `cls`: clear the screen
+- `help`, `commands`, or `?`: show command help without invoking the model
+
+### Explicit Interactive Mode
 
 ```bash
 python3 -m lilbot run
 ```
 
-One-shot prompt:
+### One-Shot Prompt
 
 ```bash
-python3 -m lilbot --prompt "Summarize this repository"
+python3 -m lilbot --prompt "What do you know about me?"
 ```
 
-One-shot prompt with explicit backend and streaming control:
+### Inline Request Without `--prompt`
 
 ```bash
-python3 -m lilbot --backend hf --stream --prompt "Summarize this repository"
-python3 -m lilbot --backend echo --no-stream --prompt "Hello"
-```
-
-Direct inline request without `--prompt`:
-
-```bash
-python3 -m lilbot "Summarize this repository"
-```
-
-Manual command as a direct request:
-
-```bash
+python3 -m lilbot "summarize this repo"
 python3 -m lilbot ls
-python3 -m lilbot read README.md
-python3 -m lilbot notes groceries
+python3 -m lilbot profile
 ```
 
-Show help:
+Lilbot rewrites known inline commands such as `ls`, `read`, `notes`, and `profile` into the corresponding deterministic handlers.
+
+### Supplying a System Prompt
 
 ```bash
-python3 -m lilbot --help
-python3 -m lilbot help
+python3 -m lilbot --system "Keep answers terse." --prompt "Explain this codebase"
 ```
 
 ## Bash `!` Gotcha
 
 In interactive `bash`, `!` triggers shell history expansion.
 
-This means this may fail:
+So this may fail:
 
 ```bash
 python3 -m lilbot !ls
@@ -258,15 +265,15 @@ python3 -m lilbot --prompt '!ls'
 python3 -m lilbot ls
 ```
 
-Inside the interactive `lilbot` prompt itself, `!ls` works normally.
+Inside the Lilbot REPL itself, `!ls` works normally.
 
 ## Prefix Commands
 
-Prefix commands are the deterministic tool layer. They do not need the LLM.
+Prefix commands are the deterministic, model-free tool layer.
 
 ### `!help`
 
-Show the available built-in commands.
+Show the built-in command list.
 
 Examples:
 
@@ -289,13 +296,13 @@ python3 -m lilbot ls lilbot
 
 Notes:
 
-- paths outside the workspace root are rejected
-- command-line shell flags like `-la` are ignored by the local command handler
-- output is capped for very large directories
+- shell flags like `-la` are ignored
+- paths outside the workspace root are refused
+- very large directories are truncated
 
 ### `!read <file>`
 
-Read a text file inside the workspace root.
+Read a text file under the workspace root.
 
 Examples:
 
@@ -308,12 +315,20 @@ python3 -m lilbot read README.md
 Notes:
 
 - binary files are not dumped
-- very large files are truncated
-- paths outside the workspace root are rejected
+- large files are truncated
+- paths outside the workspace root are refused
 
 ### `!sys`
 
 Show basic local system information.
+
+Typical output includes:
+
+- OS
+- Python version
+- current directory
+- CPU usage, when `psutil` is available
+- RAM usage, when `psutil` is available
 
 Examples:
 
@@ -322,437 +337,449 @@ Examples:
 python3 -m lilbot sys
 ```
 
-Typical output includes:
-
-- OS
-- Python version
-- current directory
-- CPU usage
-- RAM usage
-
 ### `!note <text>`
 
-Save a note to persistent memory.
+Save a general note.
+
+Use notes for:
+
+- reminders
+- shopping lists
+- project facts
+- recurring tasks
+- information that is useful but not really part of your identity
 
 Examples:
 
 ```bash
 !note Buy oat milk
-!note My preferred editor is Neovim
-python3 -m lilbot note "Book dentist appointment"
+!note Project alpha uses SQLite
+python3 -m lilbot note "Pick up coffee beans on Friday"
 ```
-
-Use notes for stable personal facts, tasks, preferences, and reminders.
 
 ### `!notes [query]`
 
-List recent saved notes or search them.
+List recent notes or search them.
 
 Examples:
 
 ```bash
 !notes
-!notes milk
+!notes coffee
 python3 -m lilbot notes groceries
 ```
 
-If you omit the query, `lilbot` returns recent notes. If you include text, it ranks likely matches.
+### `!remember <text>`
+
+Save a durable personal memory.
+
+Use this for stable facts about you:
+
+- your name
+- timezone
+- preferences
+- goals
+- recurring personal facts
+
+Examples:
+
+```bash
+!remember my name is Zack
+!remember my timezone is America/New_York
+!remember I prefer concise answers
+```
+
+### `!profile [query]`
+
+List recent profile memories or search them.
+
+Examples:
+
+```bash
+!profile
+!profile name
+!profile preferences
+python3 -m lilbot profile timezone
+```
 
 ### `!history [query]`
 
-List recent messages from the active session or search earlier conversation in that session.
+List or search persistent session history for the current session.
 
 Examples:
 
 ```bash
 !history
-!history memory
-python3 -m lilbot --session-id work history roadmap
+!history roadmap
+python3 -m lilbot --session-id work history decision
 ```
 
-This is session-specific. If you switch `--session-id`, you switch to a different history thread.
+This command is always scoped to the active session id.
 
-## Using Agent Mode
+## Memory-First Workflows
 
-Normal prompts go through the agent loop. This is where `lilbot` becomes more than a command launcher.
+Lilbot works best when you think about memory in three buckets.
 
-Examples:
+### Profile Memory
+
+Profile memory is for stable facts about you.
+
+Good profile memory:
+
+- `my name is Zack`
+- `my timezone is America/New_York`
+- `I prefer concise answers`
+- `my favorite editor is Neovim`
+- `my goal is to finish the lilbot CLI`
+
+You can save profile memory either by talking naturally:
 
 ```bash
-python3 -m lilbot "Summarize the current CLI behavior from the README."
-python3 -m lilbot "What notes do I have about groceries?"
-python3 -m lilbot "What did we decide about memory last time?"
-python3 -m lilbot "Read the main CLI file and explain how prompt parsing works."
+python3 -m lilbot "my name is Zack"
 ```
 
-What happens under the hood:
-
-1. `lilbot` loads recent session messages for the chosen session
-2. it retrieves relevant notes and relevant prior history for the current request
-3. it builds an agent prompt with tool definitions
-4. the model either answers directly or requests a tool
-5. tool observations are fed back to the model
-6. if the model misbehaves after a useful tool result, `lilbot` can fall back to the best observation it already has
-7. the final answer is printed and persisted into session history
-
-## What Tools the Agent Can Use
-
-The current toolset is intentionally small:
-
-- `list_files`
-- `read_file`
-- `system_info`
-- `save_note`
-- `search_notes`
-- `search_history`
-
-The agent is instructed to:
-
-- prefer tools over guessing when local state matters
-- prefer `search_notes` when the user may be asking about saved memory
-- prefer `search_history` when the user asks about earlier conversation
-- use `save_note` only when the user explicitly asks to remember or save something
-- avoid inventing personal facts that are not supported by notes, history, or tool output
-- summarize files instead of dumping raw contents when the request is a summary
-
-## Notes and Memory
-
-Lilbot stores memory in SQLite by default:
-
-```text
-lilbot/memory/memory_store.db
-```
-
-The database currently stores:
-
-- notes
-- session messages
-- small metadata entries, such as legacy import markers
-
-### Legacy JSON Import
-
-If `lilbot/memory/memory_store.json` exists, notes from that file are imported automatically the first time the SQLite store is opened.
-
-The JSON file is not deleted automatically. It remains as a legacy artifact unless you remove it yourself.
-
-### Good Uses for Notes
-
-Use notes for information like:
-
-- shopping lists
-- recurring tasks
-- personal preferences
-- project decisions you want to keep beyond one session
-- reminders that should survive across sessions
-
-Examples:
+Or explicitly:
 
 ```bash
-!note I prefer concise answers.
-!note Project alpha uses SQLite for memory.
-!note Pick up coffee beans on Friday.
+python3 -m lilbot remember "my timezone is America/New_York"
 ```
 
 Then later:
 
 ```bash
-!notes coffee
-python3 -m lilbot "What do I need to buy?"
+python3 -m lilbot "what is my name?"
+python3 -m lilbot "what do you know about me?"
 ```
 
-## Sessions
+### Notes
 
-Sessions are one of the most useful features for personal agent workflows.
+Notes are for general durable information that is useful to store, but not really part of your profile.
+
+Good notes:
+
+- `buy milk`
+- `project alpha uses SQLite`
+- `look into llama.cpp next week`
+- `remember to call the dentist`
+
+Examples:
+
+```bash
+python3 -m lilbot note "buy milk"
+python3 -m lilbot notes
+python3 -m lilbot "what notes do I have?"
+```
+
+### Session History
+
+Session history preserves prior conversation inside a named thread.
 
 Examples:
 
 ```bash
 python3 -m lilbot --session-id work
 python3 -m lilbot --session-id personal
-python3 -m lilbot --session-id repo-review
 ```
 
-Recommended usage:
+That keeps conversation state separate across contexts.
 
-- keep one session per major project
-- use a separate personal session for reminders and life admin
-- keep experimental prompts in a throwaway session
+### Current Memory Limitations
 
-Session history is automatically saved after successful LLM turns. Manual `!` commands are not stored as session exchanges unless they are part of a normal agent turn.
+Right now Lilbot does not yet support:
 
-## Performance and Latency
+- deleting notes from the CLI
+- deleting profile memories from the CLI
+- editing memory entries in place
+- scheduled reminders
 
-If `lilbot` feels slow, the biggest factor is usually the model runtime, not the CLI logic.
+The current memory model is intentionally simple and local.
 
-### Highest-Impact Ways to Speed It Up
+## Deterministic Direct Answers
 
-- use a smaller model
-- get CUDA working
-- enable 4-bit quantization when supported
-- keep `--max-new-tokens` low
-- leave sampling disabled unless you need it
-- leave streaming enabled so direct answers appear sooner
+Lilbot intentionally bypasses the model for a set of requests where local logic is enough.
 
-### Recommended Faster Settings
+That includes requests such as:
+
+- `what is my name?`
+- `what do you know about me?`
+- `what is your name?`
+- `what is my session id?`
+- `summarize this repo`
+- `what is in this directory?`
+
+This matters because:
+
+- the answer is usually faster
+- the model is not loaded unnecessarily
+- common local-model mistakes are avoided
+
+## Agent Mode in Detail
+
+If a prompt is not satisfied by deterministic logic, Lilbot enters the model-backed agent loop.
+
+### What the Agent Can Do
+
+The current tool registry includes:
+
+- file listing
+- file reading
+- system information
+- note save and search
+- profile save and search
+- session-history search
+
+### What the Agent Cannot Yet Do
+
+- edit files
+- run arbitrary shell commands
+- browse the web
+- delete memory entries
+
+### Tool Visibility
+
+When Lilbot uses a tool, it prints a line to `stderr`.
+
+Example:
+
+```text
+[lilbot] tool read_file {"max_chars": 2000, "path": "README.md"}
+```
+
+This makes it easy to tell whether a reply was grounded in local inspection or came straight from the model.
+
+### Guardrails
+
+Lilbot includes several guardrails:
+
+- repeated identical tool calls are blocked
+- malformed tool output is normalized where possible
+- repo summaries can fall back to deterministic directory summaries
+- personal-fact answers must come from saved profile memory, notes, or history
+- workspace file access is restricted to the workspace root
+
+## Workspace Root
+
+File tools are bounded to a workspace root.
+
+By default, the workspace root is the directory where you start Lilbot.
+
+Example:
 
 ```bash
-python3 -m lilbot \
-  --device auto \
-  --quantize-4bit \
-  --max-new-tokens 48 \
-  --no-sample \
-  "Summarize the README"
+cd ~/Desktop/lilbot
+python3 -m lilbot
 ```
 
-### CPU Warning
+In that case, all file reads and listings are restricted to `~/Desktop/lilbot`.
 
-If the model runs on CPU, latency will be much higher. The provider already warns about that.
-
-### Partial Offload Warning
-
-If the model is partly offloaded to CPU or disk, responses can still be slow even when CUDA is technically available.
-
-### Large Outputs
-
-Long prompts and long requested answers both increase latency. If you want a snappier assistant, ask narrower questions and keep response budgets short.
-
-## Troubleshooting
-
-### The assistant says it is using an echo provider
-
-Cause:
-
-- no local model path was found
-
-Fix:
-
-- set `LILBOT_MODEL_PATH`
-- or place a supported model under `lilbot/models/falcon3_10b_instruct`
-
-### Startup says `transformers` is too old
-
-Cause:
-
-- installed `transformers` is older than what your model needs
-
-Fix:
+You can override the root:
 
 ```bash
-pip install -U -r requirements.txt
+export LILBOT_WORKSPACE_ROOT=~/projects
+python3 -m lilbot
 ```
 
-### GPU is available but quantization is not used
+## Performance Tuning
 
-Possible causes:
+Performance depends mostly on your model, hardware, and reply budget.
 
-- `bitsandbytes` is missing
-- CUDA is unavailable to PyTorch
-- `--device cpu` was set
+### Sensible Local Defaults
 
-Fix:
+For a Falcon-style local setup, these defaults are pragmatic:
 
 ```bash
-pip install bitsandbytes
-python3 -m lilbot --device auto --quantize-4bit "test prompt"
+LILBOT_BACKEND=auto
+LILBOT_DEVICE=auto
+LILBOT_QUANTIZE_4BIT=1
+LILBOT_DO_SAMPLE=0
+LILBOT_STREAM=1
+LILBOT_MAX_NEW_TOKENS=96
 ```
 
-### Generation runs out of GPU memory
+### If Replies Feel Too Slow
 
-Try one or more of:
+Try:
 
-- lower `--max-new-tokens`
-- disable `--quantize-4bit` if the quantized path is unstable on your setup
-- use `--device cpu`
-- use a smaller model
+- lowering `LILBOT_MAX_NEW_TOKENS`
+- keeping greedy decoding with `LILBOT_DO_SAMPLE=0`
+- ensuring CUDA is actually available
+- enabling 4-bit quantization when supported
+- switching to a smaller model
 
-### `!ls` or `!read` says the path is outside the workspace root
+### If Replies Feel Too Short
 
-Cause:
+Raise the budget:
 
-- the path resolves outside the allowed workspace
+```bash
+python3 -m lilbot --max-new-tokens 160 "Explain the current memory system"
+```
 
-Fix:
+Or:
 
-- start `lilbot` from the right directory
-- or set `LILBOT_WORKSPACE_ROOT`
+```bash
+export LILBOT_MAX_NEW_TOKENS=160
+```
 
-### `!history` shows nothing
+### If the First Real Request Feels Slower
 
-Possible causes:
+In interactive mode, Lilbot delays model loading until a request actually needs the model.
 
-- you are in a new session ID
-- there were no successful LLM turns stored yet
-- you are searching for text that does not match earlier messages
+That means:
+
+- deterministic commands feel instant
+- the first real model-backed request pays the model load cost
+- later model-backed requests in the same process are faster
+
+### If the Model Should Use the GPU but Does Not
 
 Try:
 
 ```bash
-python3 -m lilbot --session-id default history
+python3 -m lilbot --device cuda
 ```
 
-### The model keeps repeating tool calls or prints weird protocol text
+That forces a clear failure when CUDA is unavailable instead of silently falling back.
 
-Lilbot now blocks repeated identical tool calls and strips common malformed role labels such as `[assistant] TOOL: ...`, but small local models can still be brittle.
+## Troubleshooting
 
-If this still happens often:
+### I only get `(echo provider) No model configured.`
 
-- lower task complexity
-- ask narrower questions
-- prefer direct `!` commands for deterministic retrieval
-- use a stronger or better-instruct local model
+Lilbot could not find or initialize a real model.
 
-### Bash rejects `!` commands on the command line
+Check:
 
-Use quoted `--prompt` input or omit `!` entirely on the shell command line:
+- `LILBOT_MODEL_PATH`
+- `TEXT_MODEL_PATH`
+- `--model-path`
+- whether `lilbot/models/falcon3_10b_instruct` exists
+- whether `torch`, `transformers`, and `accelerate` are installed
+
+### Replies are clipped
+
+Raise the token budget:
 
 ```bash
-python3 -m lilbot --prompt '!notes'
-python3 -m lilbot notes
+python3 -m lilbot --max-new-tokens 160
 ```
 
-### The model guesses personal facts incorrectly
-
-Recent agent updates push `lilbot` to rely on notes, history, and tool observations before answering things like your name or other personal facts.
-
-If you want those answers to be reliable:
-
-- save them explicitly with `!note`
-- keep related discussion in the same `--session-id`
-- ask `!notes` or `!history` directly if you want deterministic retrieval
-
-## Example Workflows
-
-### Workflow 1: Personal Notes Assistant
+Or set:
 
 ```bash
-python3 -m lilbot --session-id personal
+export LILBOT_MAX_NEW_TOKENS=160
 ```
 
-Inside the CLI:
+### `!` commands fail in bash
 
-```text
-!note Buy coffee filters
-!note I prefer concise answers
-What do I need to buy soon?
-What communication style do I prefer?
-```
+That is shell history expansion.
 
-### Workflow 2: Repo Assistant
+Use:
 
 ```bash
-python3 -m lilbot --session-id lilbot-dev
+python3 -m lilbot --prompt '!ls'
 ```
 
-Prompts:
-
-```text
-Read the README and summarize the user-facing features.
-What did we decide earlier about memory storage?
-List the main CLI arguments and explain when to use each one.
-```
-
-### Workflow 3: Workspace Inspection
+Or:
 
 ```bash
-python3 -m lilbot --session-id debug
+python3 -m lilbot ls
 ```
 
-Prompts:
+### The assistant starts giving stale or weird answers
 
-```text
-Read lilbot/cli/main.py and explain how one-shot prompt parsing works.
-Inspect the tools and tell me which ones are safe to expose to the model.
+Persistent session history can carry bad outputs forward inside the same session.
+
+If a session feels polluted, start a fresh one:
+
+```bash
+python3 -m lilbot --session-id fresh
 ```
 
-## File Map
+### File access is unexpectedly refused
 
-If you are developing `lilbot`, these are the key files:
+Check:
 
-- `lilbot/cli/main.py`
-  - CLI parsing
-  - interactive loop
-  - one-shot handling
-  - session loading and persistence
-- `lilbot/cli/agent.py`
-  - agent loop
-  - prompt construction
-  - response parsing
-  - tool protocol
-- `lilbot/llm/provider.py`
-  - local Hugging Face model loading
-  - quantization handling
-  - inference settings
-  - runtime warnings
-- `lilbot/tools/filesystem.py`
-  - safe file listing and reading
-- `lilbot/tools/notes.py`
-  - note save and retrieval
-- `lilbot/tools/history.py`
-  - session history retrieval
-- `lilbot/memory/memory.py`
-  - SQLite-backed notes and session storage
+- the current working directory
+- `LILBOT_WORKSPACE_ROOT`
+- whether the path is outside the workspace root
+
+### CPU replies are very slow
+
+That is expected for larger local models.
+
+Use CUDA if possible, reduce the model size, or lower `max_new_tokens`.
+
+### You want to stop generation
+
+Press `Ctrl+C`.
+
+Lilbot handles generation cancellation cleanly and returns to the prompt.
 
 ## Extending Lilbot
 
-The current codebase is intentionally simple. Adding a new tool is straightforward.
+The project is intentionally simple to extend.
+
+### Adding a Tool
 
 General pattern:
 
-1. implement the function in a `lilbot/tools/*.py` module
+1. implement a function in `lilbot/tools/`
 2. add a tool definition with `name`, `description`, `parameters`, `example`, and `execute`
-3. register it through `lilbot/tools/__init__.py`
-4. optionally add a manual `!` command in `lilbot/cli/main.py`
-5. update docs
+3. register it in `lilbot/tools/__init__.py`
+4. optionally add a matching prefix command in `lilbot/cli/main.py`
+5. add tests
+6. update docs
 
-If you add a new backend, keep it behind the provider factory in `lilbot/llm/provider.py` so the CLI does not need backend-specific branching.
+### Key Files
 
-When adding tools that can modify files or run shell commands, keep the current safety posture:
+- `lilbot/cli/main.py`
+  CLI entrypoint, parser, REPL, one-shot mode, and prefix commands
+- `lilbot/cli/agent.py`
+  agent loop orchestration
+- `lilbot/cli/_agent_policy.py`
+  routing heuristics, deterministic answers, and fallbacks
+- `lilbot/cli/_agent_prompting.py`
+  prompt construction
+- `lilbot/cli/_agent_protocol.py`
+  `FINAL:` / `TOOL:` parsing and stream normalization
+- `lilbot/llm/provider.py`
+  backend and local model loading
+- `lilbot/memory/memory.py`
+  SQLite-backed notes, profile memory, and session history
+- `tests/`
+  regression coverage
 
-- default to read-only where possible
+### Safety Posture for Future Tools
+
+If you add write-capable tools later, keep the current posture:
+
+- default to read-only when possible
 - require explicit user intent for writes
 - keep workspace boundaries clear
-- provide deterministic error messages
-
-## Current Limits
-
-`lilbot` is becoming a useful local agent, but there are still clear limits:
-
-- no streaming token output yet
-- limited toolset
-- no explicit human approval flow for risky future tools
-- no advanced retrieval ranking beyond simple text heuristics
-- performance is still tied heavily to your local model/runtime choice
-
-## Recommended Next Improvements
-
-If you want to keep pushing `lilbot` toward a stronger personal agent, the highest-value next steps are:
-
-- add streaming output
-- support a faster local backend such as `llama.cpp`
-- add better retrieval and memory ranking
-- add safe shell and editing tools with confirmation
-- add automated tests for agent loops, memory retrieval, and CLI parsing
-
-The first and last items are now partially in place: lilbot has direct-answer streaming and a lightweight `unittest` regression suite. The biggest remaining production jump is a faster backend plus stronger retrieval and tool control.
+- add deterministic error messages
+- add regression coverage before widening capability
 
 ## Running Tests
 
-Run the lightweight regression suite:
+Run the regression suite:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## Short Command Reference
+## Short Cheat Sheet
 
 ```bash
 python3 -m lilbot
 python3 -m lilbot --prompt "Hello"
-python3 -m lilbot "Summarize this repo"
-python3 -m lilbot help
+python3 -m lilbot "summarize this repo"
+python3 -m lilbot "what is in this directory?"
+python3 -m lilbot "my name is Zack"
+python3 -m lilbot "what do you know about me?"
+python3 -m lilbot --session-id work "what did we decide earlier?"
 python3 -m lilbot ls
 python3 -m lilbot read README.md
 python3 -m lilbot notes
+python3 -m lilbot remember "my timezone is America/New_York"
+python3 -m lilbot profile
 python3 -m lilbot history
-python3 -m lilbot --session-id work "What did we decide earlier?"
 ```

@@ -8,8 +8,10 @@ import unittest
 from lilbot.memory.memory import (
     load_session_history,
     save_note,
+    save_profile_memory,
     save_session_exchange,
     search_notes,
+    search_profile_memories,
     search_session_history,
 )
 
@@ -69,6 +71,25 @@ class SessionHistoryFilteringTests(unittest.TestCase):
             [(item["role"], item["content"]) for item in history],
             [("user", "real question"), ("assistant", "real answer")],
         )
+
+    def test_profile_singleton_categories_keep_latest_value(self) -> None:
+        first = save_profile_memory("name: Zack", "name")
+        second = save_profile_memory("name: Zachary", "name")
+
+        results = search_profile_memories("name", limit=5)
+
+        self.assertEqual(first["category"], "name")
+        self.assertEqual(second["category"], "name")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["text"], "name: Zachary")
+
+    def test_profile_search_returns_saved_preference(self) -> None:
+        save_profile_memory("preference: neovim", "preference")
+
+        results = search_profile_memories("neovim", limit=5)
+
+        self.assertTrue(results)
+        self.assertEqual(results[0]["text"], "preference: neovim")
 
     @unittest.skipUnless(_supports_fts5(), "SQLite FTS5 unavailable")
     def test_note_search_reaches_beyond_recent_200_rows(self) -> None:

@@ -19,7 +19,7 @@ TokenCallback = Callable[[str], None]
 class ProviderConfig:
     backend: str = "auto"
     model_path: str | None = None
-    max_new_tokens: int = 48
+    max_new_tokens: int = 96
     device: str = "auto"
     quantize_4bit: bool = True
     do_sample: bool = False

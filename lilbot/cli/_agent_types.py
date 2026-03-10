@@ -31,6 +31,7 @@ class ParsedResponse:
 @dataclass
 class PrefetchState:
     working_messages: list[ConversationMessage]
+    profile_context: str
     note_context: str
     history_context: str
     last_tool_name: str | None

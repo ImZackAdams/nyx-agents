@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from lilbot.cli.agent import ConversationMessage, run_agent
-from lilbot.memory.memory import save_note, save_session_exchange
+from lilbot.memory.memory import save_note, save_profile_memory, save_session_exchange
 from lilbot.tools import ALL_TOOL_DEFS, execute_tool
 
 
@@ -104,6 +104,24 @@ class AgentRegressionTests(unittest.TestCase):
         self.assertIn("Python CLI project", result)
         self.assertIn("lilbot/", result)
 
+    def test_repository_summary_request_bypasses_model_generation(self) -> None:
+        llm = FakeLLM([])
+
+        result = run_agent(
+            llm,
+            user_request="summarize this repo",
+            system_prompt="",
+            session_id="test-session",
+            history=[],
+            history_limit=8,
+            max_steps=2,
+            tool_schemas=ALL_TOOL_DEFS,
+            tool_executor=execute_tool,
+        )
+
+        self.assertIn("Python CLI project", result)
+        self.assertIn("lilbot/", result)
+
     def test_unknown_personal_fact_returns_unknown_without_evidence(self) -> None:
         llm = FakeLLM(["FINAL: Zack"])
 
@@ -119,7 +137,7 @@ class AgentRegressionTests(unittest.TestCase):
             tool_executor=execute_tool,
         )
 
-        self.assertEqual(result, "I don't know based on your saved notes or session history.")
+        self.assertEqual(result, "I don't know based on your saved profile, notes, or session history.")
 
     def test_unknown_personal_fact_ignores_prior_hallucinated_history(self) -> None:
         save_session_exchange("test-session", "What is my name?", "Zack")
@@ -137,7 +155,7 @@ class AgentRegressionTests(unittest.TestCase):
             tool_executor=execute_tool,
         )
 
-        self.assertEqual(result, "I don't know based on your saved notes or session history.")
+        self.assertEqual(result, "I don't know based on your saved profile, notes, or session history.")
 
     def test_personal_fact_statement_is_acknowledged_and_used_in_followup(self) -> None:
         history: list[ConversationMessage] = []
@@ -166,8 +184,109 @@ class AgentRegressionTests(unittest.TestCase):
             tool_executor=execute_tool,
         )
 
-        self.assertEqual(first_result, "Okay. I'll use Zack as your name in this session.")
+        self.assertEqual(first_result, "Okay. I'll remember that your name is Zack.")
         self.assertEqual(second_result, "Your name appears to be Zack.")
+
+    def test_personal_fact_statement_persists_across_sessions(self) -> None:
+        first_result = run_agent(
+            FakeLLM([]),
+            user_request="my name is zack",
+            system_prompt="",
+            session_id="test-session",
+            history=[],
+            history_limit=8,
+            max_steps=2,
+            tool_schemas=ALL_TOOL_DEFS,
+            tool_executor=execute_tool,
+        )
+
+        second_result = run_agent(
+            FakeLLM([]),
+            user_request="what is my name?",
+            system_prompt="",
+            session_id="test-session",
+            history=[],
+            history_limit=8,
+            max_steps=2,
+            tool_schemas=ALL_TOOL_DEFS,
+            tool_executor=execute_tool,
+        )
+
+        self.assertEqual(first_result, "Okay. I'll remember that your name is Zack.")
+        self.assertEqual(second_result, "Your name appears to be Zack.")
+
+    def test_profile_summary_request_bypasses_model_generation(self) -> None:
+        save_profile_memory("name: Zack", "name")
+        save_profile_memory("preference: neovim", "preference")
+        llm = FakeLLM([])
+
+        result = run_agent(
+            llm,
+            user_request="What do you know about me?",
+            system_prompt="",
+            session_id="test-session",
+            history=[],
+            history_limit=8,
+            max_steps=2,
+            tool_schemas=ALL_TOOL_DEFS,
+            tool_executor=execute_tool,
+        )
+
+        self.assertIn("What I know about you:", result)
+        self.assertIn("name: Zack", result)
+        self.assertIn("preference: neovim", result)
+
+    def test_directory_listing_question_bypasses_model_generation(self) -> None:
+        llm = FakeLLM([])
+
+        result = run_agent(
+            llm,
+            user_request="what is in this directory?",
+            system_prompt="",
+            session_id="test-session",
+            history=[],
+            history_limit=8,
+            max_steps=2,
+            tool_schemas=ALL_TOOL_DEFS,
+            tool_executor=execute_tool,
+        )
+
+        self.assertIn("README.md", result)
+        self.assertIn("lilbot/", result)
+
+    def test_assistant_identity_question_has_direct_answer(self) -> None:
+        llm = FakeLLM([])
+
+        result = run_agent(
+            llm,
+            user_request="what is your name?",
+            system_prompt="",
+            session_id="test-session",
+            history=[],
+            history_limit=8,
+            max_steps=2,
+            tool_schemas=ALL_TOOL_DEFS,
+            tool_executor=execute_tool,
+        )
+
+        self.assertEqual(result, "I'm lilbot, your local CLI assistant.")
+
+    def test_greeting_has_direct_answer(self) -> None:
+        llm = FakeLLM(["FINAL: Zack"])
+
+        result = run_agent(
+            llm,
+            user_request="hello",
+            system_prompt="",
+            session_id="test-session",
+            history=[],
+            history_limit=8,
+            max_steps=2,
+            tool_schemas=ALL_TOOL_DEFS,
+            tool_executor=execute_tool,
+        )
+
+        self.assertEqual(result, "Hello. I'm lilbot.")
 
     def test_streams_safe_direct_final_answers(self) -> None:
         llm = FakeLLM(["FINAL: Hello there"])

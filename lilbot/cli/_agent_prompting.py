@@ -10,6 +10,7 @@ def build_agent_prompt(
     *,
     system_prompt: str,
     messages: Sequence[ConversationMessage],
+    profile_context: str,
     note_context: str,
     history_context: str,
     tool_schemas: Sequence[Mapping[str, object]],
@@ -19,6 +20,8 @@ def build_agent_prompt(
     ]
     if system_prompt.strip():
         sections.append(f"Additional system guidance:\n{system_prompt.strip()}")
+    if profile_context:
+        sections.append(f"Known personal profile:\n{profile_context}")
     if note_context:
         sections.append(f"Potentially relevant notes:\n{note_context}")
     if history_context:
@@ -53,12 +56,15 @@ def _base_agent_instructions(tool_schemas: Sequence[Mapping[str, object]]) -> st
             "Use at most one tool per message.",
             "After you receive an Observation, either call another tool or answer with FINAL.",
             "Prefer tools over guessing when the answer depends on local files, notes, or system state.",
-            "Potentially relevant notes or past conversation may already be provided above. Use them directly if they are sufficient.",
+            "Potentially relevant personal profile, notes, or past conversation may already be provided above. Use them directly if they are sufficient.",
+            "If the request is about the user, their preferences, goals, or stable personal facts, prefer search_profile before answering.",
+            "Do not answer unrelated requests with personal profile information.",
             "If the request may relate to saved notes, prefer search_notes before answering.",
             "If the request asks about earlier conversation, prefer search_history before answering.",
             "If you are asked to summarize a file, summarize it instead of pasting raw file contents.",
             "Never prefix your answer with [assistant] or Assistant:.",
             "Only use save_note when the user explicitly asks you to remember, store, or save information.",
+            "Use save_profile_memory when the user explicitly asks you to remember a stable personal fact, preference, or goal.",
             "For personal facts about the user, only answer when supported by notes, history, or tool observations. Otherwise say you do not know.",
             "Never invent tool results.",
             "Available tools:",

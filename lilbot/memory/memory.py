@@ -14,9 +14,10 @@ from typing import Any, Iterator
 
 DEFAULT_NOTE_LIMIT = 10
 DEFAULT_SESSION_LIMIT = 12
+DEFAULT_PROFILE_LIMIT = 8
 MEMORY_DB_ENV = "LILBOT_MEMORY_DB_PATH"
 LEGACY_JSON_ENV = "LILBOT_MEMORY_JSON_PATH"
-FTS_SCHEMA_VERSION = "1"
+FTS_SCHEMA_VERSION = "2"
 TOKEN_PATTERN = re.compile(r"[a-z0-9_]{2,}")
 SESSION_NOISE_PATTERN = re.compile(r"^\s*(?:\[\]|\{\}|null|\(empty response\))\s*$", re.IGNORECASE)
 SESSION_PROTOCOL_PATTERN = re.compile(
@@ -27,6 +28,16 @@ SESSION_SPECIAL_TOKEN_PATTERN = re.compile(r"<\|(?:assistant|user|system)\|>")
 SESSION_NOISE_RESPONSES = {
     "(echo provider) No model configured.",
 }
+PROFILE_SINGLETON_CATEGORIES = frozenset(
+    {
+        "name",
+        "email",
+        "phone number",
+        "address",
+        "pronouns",
+        "timezone",
+    }
+)
 _FTS5_AVAILABLE: bool | None = None
 
 
@@ -70,6 +81,16 @@ def _initialize_schema(connection: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_notes_created_at
         ON notes (created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS profile_memories (
+            id INTEGER PRIMARY KEY,
+            category TEXT NOT NULL,
+            text TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_profile_memories_created_at
+        ON profile_memories (created_at DESC);
 
         CREATE TABLE IF NOT EXISTS metadata (
             key TEXT PRIMARY KEY,
@@ -119,6 +140,24 @@ def _initialize_full_text_search(connection: sqlite3.Connection) -> None:
                 INSERT INTO notes_fts(rowid, text) VALUES (new.id, new.text);
             END;
 
+            CREATE VIRTUAL TABLE IF NOT EXISTS profile_memories_fts
+            USING fts5(text, content='profile_memories', content_rowid='id');
+
+            CREATE TRIGGER IF NOT EXISTS profile_memories_ai AFTER INSERT ON profile_memories BEGIN
+                INSERT INTO profile_memories_fts(rowid, text) VALUES (new.id, new.text);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS profile_memories_ad AFTER DELETE ON profile_memories BEGIN
+                INSERT INTO profile_memories_fts(profile_memories_fts, rowid, text)
+                VALUES ('delete', old.id, old.text);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS profile_memories_au AFTER UPDATE ON profile_memories BEGIN
+                INSERT INTO profile_memories_fts(profile_memories_fts, rowid, text)
+                VALUES ('delete', old.id, old.text);
+                INSERT INTO profile_memories_fts(rowid, text) VALUES (new.id, new.text);
+            END;
+
             CREATE VIRTUAL TABLE IF NOT EXISTS session_messages_fts
             USING fts5(
                 session_id UNINDEXED,
@@ -157,6 +196,7 @@ def _initialize_full_text_search(connection: sqlite3.Connection) -> None:
         return
 
     connection.execute("INSERT INTO notes_fts(notes_fts) VALUES ('rebuild')")
+    connection.execute("INSERT INTO profile_memories_fts(profile_memories_fts) VALUES ('rebuild')")
     connection.execute("INSERT INTO session_messages_fts(session_messages_fts) VALUES ('rebuild')")
     _set_metadata(connection, "fts_schema_version", FTS_SCHEMA_VERSION)
     connection.commit()
@@ -255,6 +295,11 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def _normalize_profile_category(category: Any) -> str:
+    normalized = " ".join(str(category or "profile").strip().lower().split())
+    return normalized or "profile"
+
+
 def _rank_text_records(
     records: list[dict[str, Any]],
     *,
@@ -319,6 +364,34 @@ def _search_notes_fts(
         JOIN notes ON notes.id = notes_fts.rowid
         WHERE notes_fts MATCH ?
         ORDER BY bm25(notes_fts), notes.created_at DESC, notes.id DESC
+        LIMIT ?
+        """,
+        (match_expression, limit),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def _search_profile_memories_fts(
+    connection: sqlite3.Connection,
+    query: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    match_expression = _fts_match_expression(query)
+    if not match_expression:
+        return []
+
+    rows = connection.execute(
+        """
+        SELECT profile_memories.id,
+               profile_memories.category,
+               profile_memories.text,
+               profile_memories.created_at
+        FROM profile_memories_fts
+        JOIN profile_memories ON profile_memories.id = profile_memories_fts.rowid
+        WHERE profile_memories_fts MATCH ?
+        ORDER BY bm25(profile_memories_fts),
+                 profile_memories.created_at DESC,
+                 profile_memories.id DESC
         LIMIT ?
         """,
         (match_expression, limit),
@@ -412,6 +485,60 @@ def save_note(text: str) -> dict[str, Any]:
     }
 
 
+def save_profile_memory(text: str, category: str | None = None) -> dict[str, Any]:
+    clean_text = text.strip()
+    if not clean_text:
+        raise ValueError("Profile memory text cannot be empty.")
+
+    clean_category = _normalize_profile_category(category)
+    created_at = _utc_now()
+    with _connect() as connection:
+        if clean_category in PROFILE_SINGLETON_CATEGORIES:
+            existing = connection.execute(
+                """
+                SELECT id, category, text, created_at
+                FROM profile_memories
+                WHERE category = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """,
+                (clean_category,),
+            ).fetchone()
+            if existing is not None and str(existing["text"]).strip().lower() == clean_text.lower():
+                return dict(existing)
+            connection.execute(
+                "DELETE FROM profile_memories WHERE category = ?",
+                (clean_category,),
+            )
+        else:
+            existing = connection.execute(
+                """
+                SELECT id, category, text, created_at
+                FROM profile_memories
+                WHERE category = ? AND lower(text) = lower(?)
+                ORDER BY id ASC
+                LIMIT 1
+                """,
+                (clean_category, clean_text),
+            ).fetchone()
+            if existing is not None:
+                return dict(existing)
+
+        cursor = connection.execute(
+            "INSERT INTO profile_memories (category, text, created_at) VALUES (?, ?, ?)",
+            (clean_category, clean_text, created_at),
+        )
+        profile_id = int(cursor.lastrowid)
+        connection.commit()
+
+    return {
+        "id": profile_id,
+        "category": clean_category,
+        "text": clean_text,
+        "created_at": created_at,
+    }
+
+
 def search_notes(query: str | None = None, limit: int = DEFAULT_NOTE_LIMIT) -> list[dict[str, Any]]:
     max_results = _coerce_limit(limit)
     clean_query = (query or "").strip()
@@ -433,6 +560,32 @@ def search_notes(query: str | None = None, limit: int = DEFAULT_NOTE_LIMIT) -> l
 
     notes = [dict(row) for row in rows]
     return _rank_text_records(notes, query=clean_query, limit=max_results)
+
+
+def search_profile_memories(
+    query: str | None = None,
+    limit: int = DEFAULT_PROFILE_LIMIT,
+) -> list[dict[str, Any]]:
+    max_results = _coerce_limit(limit, default=DEFAULT_PROFILE_LIMIT)
+    clean_query = (query or "").strip()
+
+    with _connect() as connection:
+        if clean_query and _FTS5_AVAILABLE:
+            fts_rows = _search_profile_memories_fts(connection, clean_query, max_results)
+            if fts_rows:
+                return fts_rows
+
+        rows = connection.execute(
+            """
+            SELECT id, category, text, created_at
+            FROM profile_memories
+            ORDER BY created_at DESC, id DESC
+            LIMIT 200
+            """
+        ).fetchall()
+
+    memories = [dict(row) for row in rows]
+    return _rank_text_records(memories, query=clean_query, limit=max_results)
 
 
 def save_session_exchange(session_id: str, user_content: str, assistant_content: str) -> None:
