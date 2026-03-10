@@ -30,6 +30,7 @@ python3 -m lilbot
 ```bash
 python3 -m lilbot --prompt "!sys"
 python3 -m lilbot --prompt "!read README.md"
+python3 -m lilbot --prompt "!notes"
 ```
 
 ## 5. Ask the model a prompt

@@ -87,7 +87,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lilbot",
         description="Local LLM CLI with direct ! commands.",
-        epilog="Prefix commands: !help, !ls [path], !read <file>, !sys, !note <text>",
+        epilog="Prefix commands: !help, !ls [path], !read <file>, !sys, !note <text>, !notes [query]",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -337,6 +337,14 @@ def _handle_note(args: list[str]) -> str:
     return execute_tool("save_note", {"text": " ".join(args)})
 
 
+def _handle_notes(args: list[str]) -> str:
+    query = " ".join(args).strip()
+    params: dict[str, str | int] = {"limit": 10}
+    if query:
+        params["query"] = query
+    return execute_tool("search_notes", params)
+
+
 def _print_error(message: str) -> None:
     print(f"[lilbot] {message}", file=sys.stderr)
 
@@ -349,6 +357,7 @@ PREFIX_COMMANDS = {
         PrefixCommand("read", "!read <file>", "Read a text file under the workspace root.", _handle_read),
         PrefixCommand("sys", "!sys", "Show basic system information.", _handle_sys),
         PrefixCommand("note", "!note <text>", "Save a note to persistent memory.", _handle_note),
+        PrefixCommand("notes", "!notes [query]", "List recent notes or search saved notes.", _handle_notes),
     )
 }
 

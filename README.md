@@ -42,6 +42,7 @@ Inside the CLI, or through `--prompt`, you can run:
 - `!read <file>`
 - `!sys`
 - `!note <text>`
+- `!notes [query]`
 
 Filesystem commands are limited to the workspace root used when you start the CLI. Override that root with `LILBOT_WORKSPACE_ROOT=/path/to/workspace` if needed.
 In interactive `bash`, quote `!` commands like `python3 -m lilbot --prompt '!ls'`, or omit `!` on the command line and use `python3 -m lilbot ls`.
@@ -58,6 +59,7 @@ LILBOT_QUANTIZE_4BIT=1
 LILBOT_DO_SAMPLE=0
 LILBOT_LOG_LEVEL=WARNING
 LILBOT_WORKSPACE_ROOT=/path/to/workspace
+LILBOT_MEMORY_DB_PATH=/path/to/memory_store.db
 ```
 
 Notes:
@@ -66,6 +68,7 @@ Notes:
 - Greedy decoding is the default because it is faster and more predictable than sampling for CLI use. Re-enable sampling with `--sample`.
 - `--quantize-4bit` only applies when CUDA and `bitsandbytes` are available.
 - Use `--device cpu` on CPU-only machines or when GPU memory is too tight.
+- Notes are now stored in SQLite by default at `lilbot/memory/memory_store.db`. Existing `memory_store.json` notes are imported automatically the first time the new store is opened.
 
 ## License
 MIT. See `LICENSE`.

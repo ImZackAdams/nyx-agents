@@ -15,7 +15,7 @@ def save_note(params: Dict[str, Any]) -> str:
 
     try:
         note = _save_note(str(text))
-    except (OSError, ValueError) as exc:
+    except Exception as exc:
         return f"Unable to save note: {exc}"
 
     return f"Saved note {note['id']}: {note['text']}"
@@ -23,12 +23,17 @@ def save_note(params: Dict[str, Any]) -> str:
 
 def search_notes(params: Dict[str, Any]) -> str:
     query = params.get("query") or params.get("text")
-    if not query:
-        return "Missing required parameter: query"
+    limit = params.get("limit", 10)
 
-    results = _search_notes(str(query))
+    try:
+        results = _search_notes(str(query) if query else None, limit=int(limit))
+    except Exception as exc:
+        return f"Unable to search notes: {exc}"
+
     if not results:
-        return "No matching notes."
+        if query:
+            return "No matching notes."
+        return "No saved notes."
 
     lines = [
         f"[{note['id']}] {note['text']} ({note['created_at']})"
@@ -45,7 +50,7 @@ TOOL_DEFS = [
     },
     {
         "name": "search_notes",
-        "description": "Search saved notes by text query.",
+        "description": "Search saved notes by text query or list recent notes.",
         "execute": search_notes,
     },
 ]
