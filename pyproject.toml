@@ -31,4 +31,4 @@ dependencies = [
 lilbot = "lilbot.cli.main:main"
 
 [tool.setuptools]
-packages = ["lilbot", "lilbot.cli", "lilbot.llm"]
+packages = ["lilbot", "lilbot.cli", "lilbot.llm", "lilbot.memory", "lilbot.tools"]
