@@ -1,67 +1,177 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import shlex
+import sys
 import time
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from pathlib import Path
 
 from lilbot.llm.provider import EchoProvider, LocalHFProvider
-from lilbot.tools.filesystem import list_files, read_file
-from lilbot.tools.notes import save_note
-from lilbot.tools.system import system_info
+from lilbot.tools import execute_tool
+
+
+LOGGER = logging.getLogger("lilbot")
+VALID_DEVICES = ("auto", "cpu", "cuda")
+
+
+@dataclass(frozen=True)
+class PrefixCommand:
+    name: str
+    usage: str
+    description: str
+    handler: Callable[[list[str]], str]
 
 
 def _default_model_path() -> str | None:
-    candidates = []
+    candidates: list[Path] = []
     env_path = os.getenv("LILBOT_MODEL_PATH") or os.getenv("TEXT_MODEL_PATH")
     if env_path:
-        candidates.append(env_path)
-    candidates.append(os.path.join(os.getcwd(), "lilbot", "models", "falcon3_10b_instruct"))
+        candidates.append(Path(env_path).expanduser())
+
+    package_model = Path(__file__).resolve().parents[1] / "models" / "falcon3_10b_instruct"
+    candidates.append(package_model)
+    candidates.append(Path.cwd() / "lilbot" / "models" / "falcon3_10b_instruct")
+
     for path in candidates:
-        if path and os.path.exists(path):
-            return path
+        if path.exists():
+            return str(path.resolve())
     return None
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(prog="lilbot")
-    sub = parser.add_subparsers(dest="command")
+def _bool_env(name: str, default: bool = False) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
 
-    run_cmd = sub.add_parser("run", help="Run the CLI")
-    run_cmd.add_argument("--system", help="Optional system prompt", default=os.getenv("LILBOT_SYSTEM_PROMPT", ""))
-    run_cmd.add_argument("--model-path", help="Local HF model path", default=None)
-    run_cmd.add_argument("--device", help="auto|cpu|cuda", default=os.getenv("LILBOT_DEVICE", "cuda"))
-    run_cmd.add_argument("--max-new-tokens", type=int, default=int(os.getenv("LILBOT_MAX_NEW_TOKENS", "96")))
-    run_cmd.add_argument(
-        "--quantize-4bit",
-        action="store_true",
-        default=os.getenv("LILBOT_QUANTIZE_4BIT", "1").lower() in {"1", "true", "yes", "on"},
-        help="Enable 4-bit quantization (GPU)",
-    )
-    run_cmd.add_argument("--prompt", help="Run a single prompt non-interactively", default=None)
 
-    args = parser.parse_args()
+def _int_env(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    try:
+        value = int(raw_value)
+    except ValueError:
+        LOGGER.warning("Ignoring invalid integer for %s: %s", name, raw_value)
+        return default
+    return value if value > 0 else default
 
-    if args.command != "run":
-        parser.print_help()
+
+def _load_dotenv() -> None:
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
         return
+    load_dotenv()
+
+
+def _configure_logging() -> None:
+    level_name = os.getenv("LILBOT_LOG_LEVEL", "WARNING").upper()
+    level = getattr(logging, level_name, logging.WARNING)
+    logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
+
+
+def _device_env(default: str = "auto") -> str:
+    value = (os.getenv("LILBOT_DEVICE") or default).strip().lower()
+    if value in VALID_DEVICES:
+        return value
+    LOGGER.warning("Ignoring invalid device for LILBOT_DEVICE: %s", value)
+    return default
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="lilbot",
+        description="Local LLM CLI with direct ! commands.",
+        epilog="Prefix commands: !help, !ls [path], !read <file>, !sys, !note <text>",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "command",
+        nargs="?",
+        default="run",
+        help="Optional explicit 'run' keyword for interactive mode",
+    )
+    parser.add_argument(
+        "--system",
+        help="Optional system prompt",
+        default=os.getenv("LILBOT_SYSTEM_PROMPT", ""),
+    )
+    parser.add_argument("--model-path", help="Local HF model path", default=None)
+    parser.add_argument(
+        "--device",
+        help="Preferred inference device",
+        choices=VALID_DEVICES,
+        default=_device_env(),
+    )
+    parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=_int_env("LILBOT_MAX_NEW_TOKENS", 48),
+        help="Maximum new tokens per response",
+    )
+    parser.add_argument(
+        "--quantize-4bit",
+        action=argparse.BooleanOptionalAction,
+        default=_bool_env("LILBOT_QUANTIZE_4BIT", True),
+        help="Enable 4-bit quantization when CUDA and bitsandbytes are available",
+    )
+    parser.add_argument(
+        "--sample",
+        action=argparse.BooleanOptionalAction,
+        default=_bool_env("LILBOT_DO_SAMPLE", False),
+        help="Enable sampling; disabling it is faster and more deterministic",
+    )
+    parser.add_argument("--prompt", help="Run a single prompt non-interactively", default=None)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    _load_dotenv()
+    _configure_logging()
+
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    parser = _build_parser()
+    args, extras = parser.parse_known_args(raw_argv)
+    inline_request = _infer_inline_request(parser, args.command, extras)
+    if args.prompt is None and inline_request is not None:
+        args.prompt = inline_request
 
     llm: EchoProvider | LocalHFProvider | None = None
+    llm_error: str | None = None
 
     # Load the model only when a prompt actually needs the LLM.
-    def get_llm() -> EchoProvider | LocalHFProvider:
-        nonlocal llm
-        if llm is None:
-            model_path = args.model_path or _default_model_path()
+    def get_llm() -> EchoProvider | LocalHFProvider | None:
+        nonlocal llm, llm_error
+        if llm is not None:
+            return llm
+        if llm_error is not None:
+            return None
+
+        model_path = args.model_path or _default_model_path()
+        try:
             if model_path:
                 llm = LocalHFProvider(
                     model_path,
                     device=args.device,
                     max_new_tokens=args.max_new_tokens,
                     quantize_4bit=args.quantize_4bit,
+                    do_sample=args.sample,
                 )
+                _print_error(llm.runtime_summary)
+                for message in llm.load_warnings:
+                    _print_error(message)
             else:
                 llm = EchoProvider()
+        except Exception as exc:
+            llm_error = f"Failed to load local model: {exc}"
+            LOGGER.error("Model load failed: %s", exc)
+            _print_error(llm_error)
+            return None
         return llm
 
     if args.prompt:
@@ -69,8 +179,17 @@ def main() -> None:
         if prefix_result is not None:
             print(f"\n{prefix_result}\n")
             return
+
+        provider = get_llm()
+        if provider is None:
+            return
+
         prompt = _build_prompt(args.system, args.prompt)
-        result, elapsed = _generate_with_timing(get_llm(), prompt)
+        response = _run_llm_request(provider, prompt)
+        if response is None:
+            return
+
+        result, elapsed = response
         print(f"\n{result}\n")
         print(f"[completed in {elapsed:.2f}s]\n")
         return
@@ -86,12 +205,26 @@ def main() -> None:
         if user_request.lower() in {"exit", "quit"}:
             print("Bye.")
             return
+        if user_request.lower() in {"help", "commands", "?"}:
+            print(f"\n{_prefix_help()}\n")
+            continue
+
         prefix_result = _run_prefix_command(user_request)
         if prefix_result is not None:
             print(f"\n{prefix_result}\n")
             continue
+
+        provider = get_llm()
+        if provider is None:
+            print("\nLLM unavailable. Fix the model configuration and restart lilbot.\n")
+            continue
+
         prompt = _build_prompt(args.system, user_request)
-        result, elapsed = _generate_with_timing(get_llm(), prompt)
+        response = _run_llm_request(provider, prompt)
+        if response is None:
+            continue
+
+        result, elapsed = response
         print(f"\n{result}\n")
         print(f"[completed in {elapsed:.2f}s]\n")
 
@@ -100,6 +233,18 @@ def _build_prompt(system_prompt: str, user_request: str) -> str:
     if system_prompt:
         return f"{system_prompt}\n\nUser: {user_request}\nAssistant:"
     return f"User: {user_request}\nAssistant:"
+
+
+def _run_llm_request(
+    llm: EchoProvider | LocalHFProvider,
+    prompt: str,
+) -> tuple[str, float] | None:
+    try:
+        return _generate_with_timing(llm, prompt)
+    except Exception as exc:
+        LOGGER.error("Generation failed: %s", exc)
+        _print_error(f"Generation failed: {exc}")
+        return None
 
 
 def _generate_with_timing(llm: EchoProvider | LocalHFProvider, prompt: str) -> tuple[str, float]:
@@ -122,35 +267,90 @@ def _run_prefix_command(user_input: str) -> str | None:
         return _prefix_help()
 
     command, *args = parts
-    if command == "ls":
-        path = " ".join(args) if args else "."
-        output = list_files({"path": path})
-        if output.startswith(("Path not found:", "Not a directory:")):
-            return output
-        if path == ".":
-            return f"Files in current directory:\n{output}"
-        return f"Files in {path}:\n{output}"
+    prefix_command = PREFIX_COMMANDS.get(command)
+    if prefix_command is None:
+        return f"Unknown command: !{command}\n{_prefix_help()}"
 
-    if command == "read":
-        if not args:
-            return "Usage: !read <file>"
-        return read_file({"path": " ".join(args)})
+    return prefix_command.handler(args)
 
-    if command == "sys":
-        if args:
-            return "Usage: !sys"
-        return system_info({})
 
-    if command == "note":
-        if not args:
-            return "Usage: !note <text>"
-        return save_note({"text": " ".join(args)})
+def _infer_inline_request(
+    parser: argparse.ArgumentParser,
+    command: str | None,
+    extras: list[str],
+) -> str | None:
+    if command in {None, "run"}:
+        if extras and any(token.startswith("-") for token in extras):
+            parser.error(f"unrecognized arguments: {' '.join(extras)}")
+        if extras:
+            return " ".join(extras)
+        return None
 
-    return f"Unknown command: !{command}\n{_prefix_help()}"
+    request = " ".join([command, *extras]).strip()
+    if not request:
+        return None
+    if command.startswith("!"):
+        return request
+    if command in PREFIX_COMMANDS:
+        return f"!{request}"
+    return request
 
 
 def _prefix_help() -> str:
-    return "Available commands: !ls [path], !read <file>, !sys, !note <text>"
+    lines = ["Available commands:"]
+    for command in PREFIX_COMMANDS.values():
+        lines.append(f"{command.usage}  {command.description}")
+    return "\n".join(lines)
+
+
+def _handle_help(_: list[str]) -> str:
+    return _prefix_help()
+
+
+def _handle_ls(args: list[str]) -> str:
+    path_parts = [arg for arg in args if not arg.startswith("-")]
+    path = " ".join(path_parts) if path_parts else "."
+    output = execute_tool("list_files", {"path": path})
+    if output.startswith(
+        ("Path not found:", "Not a directory:", "Unable to list", "Path is outside", "Invalid path:")
+    ):
+        return output
+    location = "current directory" if path == "." else path
+    return f"Files in {location}:\n{output}"
+
+
+def _handle_read(args: list[str]) -> str:
+    if not args:
+        return "Usage: !read <file>"
+    return execute_tool("read_file", {"path": " ".join(args)})
+
+
+def _handle_sys(args: list[str]) -> str:
+    if args:
+        return "Usage: !sys"
+    return execute_tool("system_info", {})
+
+
+def _handle_note(args: list[str]) -> str:
+    if not args:
+        return "Usage: !note <text>"
+    return execute_tool("save_note", {"text": " ".join(args)})
+
+
+def _print_error(message: str) -> None:
+    print(f"[lilbot] {message}", file=sys.stderr)
+
+
+PREFIX_COMMANDS = {
+    command.name: command
+    for command in (
+        PrefixCommand("help", "!help", "Show command help.", _handle_help),
+        PrefixCommand("ls", "!ls [path]", "List files under the workspace root.", _handle_ls),
+        PrefixCommand("read", "!read <file>", "Read a text file under the workspace root.", _handle_read),
+        PrefixCommand("sys", "!sys", "Show basic system information.", _handle_sys),
+        PrefixCommand("note", "!note <text>", "Save a note to persistent memory.", _handle_note),
+    )
+}
 
 
 if __name__ == "__main__":

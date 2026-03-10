@@ -21,10 +21,16 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-  "torch",
-  "transformers",
+  "torch>=2.1",
+  "transformers>=4.36",
+  "accelerate>=0.26",
+  "python-dotenv",
+  "psutil",
+]
+
+[project.optional-dependencies]
+quantization = [
   "bitsandbytes",
-  "accelerate",
 ]
 
 [project.scripts]

@@ -1,14 +1,5 @@
-tweepy
 python-dotenv
-torch
-transformers
-bitsandbytes
-diffusers
-accelerate
-feedparser
-beautifulsoup4
-playwright
-nltk
+torch>=2.1
+transformers>=4.36
+accelerate>=0.26
 psutil
-pillow
-pyyaml

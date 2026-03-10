@@ -15,4 +15,4 @@ if [ ! -f .env ]; then
   echo "Created .env from .env.example. Fill in required values before running."
 fi
 
-echo "Setup complete. Run: python src/sim-main.py"
+echo "Setup complete. Run: python -m lilbot"

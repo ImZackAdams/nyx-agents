@@ -13,7 +13,11 @@ def save_note(params: Dict[str, Any]) -> str:
     if not text:
         return "Missing required parameter: text"
 
-    note = _save_note(str(text))
+    try:
+        note = _save_note(str(text))
+    except (OSError, ValueError) as exc:
+        return f"Unable to save note: {exc}"
+
     return f"Saved note {note['id']}: {note['text']}"
 
 

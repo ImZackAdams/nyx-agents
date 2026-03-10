@@ -8,7 +8,7 @@ Thanks for helping improve this project. This repo is an OSS MVP, so clarity and
 3. Add notes in your PR description about how to test.
 
 ## Development Notes
-- Use the simulator (`python src/sim-main.py`) for safe testing.
+- Use `python -m lilbot --prompt "!sys"` or other prefix commands for lightweight smoke tests.
 - Avoid introducing new dependencies unless required.
 - Keep persona and brand specifics out of core logic.
 

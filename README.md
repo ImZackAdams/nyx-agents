@@ -1,33 +1,71 @@
 # Lilbot
 
-A minimal local‑LLM CLI for running a model on your machine.
+`lilbot` is a small local-LLM CLI with a few built-in `!` commands for common workstation tasks.
+
+## Install
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Optional extras:
+```bash
+pip install bitsandbytes
+```
 
 ## Run
+Interactive mode:
 ```bash
-python3 -m lilbot run
+python3 -m lilbot
 ```
 
-Optional environment defaults:
+One-shot prompt:
 ```bash
-export LILBOT_MODEL_PATH=/path/to/model
-export LILBOT_DEVICE=cuda
-export LILBOT_QUANTIZE_4BIT=1
-export LILBOT_MAX_NEW_TOKENS=64
+python3 -m lilbot --prompt "Hello"
 ```
 
-Then:
+`lilbot run` still works if you prefer the explicit form.
+
+You can also pass a direct one-shot request without `--prompt`:
 ```bash
-python3 -m lilbot run
+python3 -m lilbot help
+python3 -m lilbot ls
+python3 -m lilbot "Summarize this project"
 ```
 
-## One‑shot prompt
+## Prefix Commands
+Inside the CLI, or through `--prompt`, you can run:
+
+- `!help`
+- `!ls [path]`
+- `!read <file>`
+- `!sys`
+- `!note <text>`
+
+Filesystem commands are limited to the workspace root used when you start the CLI. Override that root with `LILBOT_WORKSPACE_ROOT=/path/to/workspace` if needed.
+In interactive `bash`, quote `!` commands like `python3 -m lilbot --prompt '!ls'`, or omit `!` on the command line and use `python3 -m lilbot ls`.
+
+## Configuration
+`lilbot` loads `.env` automatically when `python-dotenv` is installed.
+
+Common environment variables:
 ```bash
-python3 -m lilbot run --prompt "Hello"
+LILBOT_MODEL_PATH=/path/to/model
+LILBOT_DEVICE=auto
+LILBOT_MAX_NEW_TOKENS=48
+LILBOT_QUANTIZE_4BIT=1
+LILBOT_DO_SAMPLE=0
+LILBOT_LOG_LEVEL=WARNING
+LILBOT_WORKSPACE_ROOT=/path/to/workspace
 ```
 
-## Notes
-- The default model path is `lilbot/models/falcon3_10b_instruct` if it exists.
-- Use `--device cpu` if CUDA isn’t available.
+Notes:
+- The default model path is `lilbot/models/falcon3_10b_instruct` when that directory exists.
+- The default response budget is intentionally shorter now to reduce latency for local use. Raise `--max-new-tokens` when you want longer replies.
+- Greedy decoding is the default because it is faster and more predictable than sampling for CLI use. Re-enable sampling with `--sample`.
+- `--quantize-4bit` only applies when CUDA and `bitsandbytes` are available.
+- Use `--device cpu` on CPU-only machines or when GPU memory is too tight.
 
 ## License
 MIT. See `LICENSE`.
