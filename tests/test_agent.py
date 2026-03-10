@@ -139,6 +139,36 @@ class AgentRegressionTests(unittest.TestCase):
 
         self.assertEqual(result, "I don't know based on your saved notes or session history.")
 
+    def test_personal_fact_statement_is_acknowledged_and_used_in_followup(self) -> None:
+        history: list[ConversationMessage] = []
+
+        first_result = run_agent(
+            FakeLLM([]),
+            user_request="my name is zack",
+            system_prompt="",
+            session_id="test-session",
+            history=history,
+            history_limit=8,
+            max_steps=2,
+            tool_schemas=ALL_TOOL_DEFS,
+            tool_executor=execute_tool,
+        )
+
+        second_result = run_agent(
+            FakeLLM([]),
+            user_request="what is my name?",
+            system_prompt="",
+            session_id="test-session",
+            history=history,
+            history_limit=8,
+            max_steps=2,
+            tool_schemas=ALL_TOOL_DEFS,
+            tool_executor=execute_tool,
+        )
+
+        self.assertEqual(first_result, "Okay. I'll use Zack as your name in this session.")
+        self.assertEqual(second_result, "Your name appears to be Zack.")
+
     def test_streams_safe_direct_final_answers(self) -> None:
         llm = FakeLLM(["FINAL: Hello there"])
         chunks: list[str] = []
@@ -256,6 +286,25 @@ class AgentRegressionTests(unittest.TestCase):
         result = run_agent(
             llm,
             user_request="What notes do I have?",
+            system_prompt="",
+            session_id="test-session",
+            history=[],
+            history_limit=8,
+            max_steps=2,
+            tool_schemas=ALL_TOOL_DEFS,
+            tool_executor=execute_tool,
+        )
+
+        self.assertIn("Matching notes:", result)
+        self.assertIn("buy milk", result)
+
+    def test_note_listing_request_ignores_filler_query_words(self) -> None:
+        save_note("buy milk")
+        llm = FakeLLM([])
+
+        result = run_agent(
+            llm,
+            user_request="what are my notes",
             system_prompt="",
             session_id="test-session",
             history=[],

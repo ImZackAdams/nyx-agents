@@ -16,6 +16,7 @@ DEFAULT_NOTE_LIMIT = 10
 DEFAULT_SESSION_LIMIT = 12
 MEMORY_DB_ENV = "LILBOT_MEMORY_DB_PATH"
 LEGACY_JSON_ENV = "LILBOT_MEMORY_JSON_PATH"
+FTS_SCHEMA_VERSION = "1"
 TOKEN_PATTERN = re.compile(r"[a-z0-9_]{2,}")
 SESSION_NOISE_PATTERN = re.compile(r"^\s*(?:\[\]|\{\}|null|\(empty response\))\s*$", re.IGNORECASE)
 SESSION_PROTOCOL_PATTERN = re.compile(
@@ -26,6 +27,7 @@ SESSION_SPECIAL_TOKEN_PATTERN = re.compile(r"<\|(?:assistant|user|system)\|>")
 SESSION_NOISE_RESPONSES = {
     "(echo provider) No model configured.",
 }
+_FTS5_AVAILABLE: bool | None = None
 
 
 def get_store_path() -> Path:
@@ -87,6 +89,77 @@ def _initialize_schema(connection: sqlite3.Connection) -> None:
         """
     )
     _migrate_legacy_store(connection)
+    _initialize_full_text_search(connection)
+
+
+def _initialize_full_text_search(connection: sqlite3.Connection) -> None:
+    global _FTS5_AVAILABLE
+
+    if _FTS5_AVAILABLE is False:
+        return
+
+    try:
+        connection.executescript(
+            """
+            CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts
+            USING fts5(text, content='notes', content_rowid='id');
+
+            CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
+                INSERT INTO notes_fts(rowid, text) VALUES (new.id, new.text);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
+                INSERT INTO notes_fts(notes_fts, rowid, text)
+                VALUES ('delete', old.id, old.text);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
+                INSERT INTO notes_fts(notes_fts, rowid, text)
+                VALUES ('delete', old.id, old.text);
+                INSERT INTO notes_fts(rowid, text) VALUES (new.id, new.text);
+            END;
+
+            CREATE VIRTUAL TABLE IF NOT EXISTS session_messages_fts
+            USING fts5(
+                session_id UNINDEXED,
+                role UNINDEXED,
+                content,
+                content='session_messages',
+                content_rowid='id'
+            );
+
+            CREATE TRIGGER IF NOT EXISTS session_messages_ai AFTER INSERT ON session_messages BEGIN
+                INSERT INTO session_messages_fts(rowid, session_id, role, content)
+                VALUES (new.id, new.session_id, new.role, new.content);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS session_messages_ad AFTER DELETE ON session_messages BEGIN
+                INSERT INTO session_messages_fts(session_messages_fts, rowid, session_id, role, content)
+                VALUES ('delete', old.id, old.session_id, old.role, old.content);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS session_messages_au AFTER UPDATE ON session_messages BEGIN
+                INSERT INTO session_messages_fts(session_messages_fts, rowid, session_id, role, content)
+                VALUES ('delete', old.id, old.session_id, old.role, old.content);
+                INSERT INTO session_messages_fts(rowid, session_id, role, content)
+                VALUES (new.id, new.session_id, new.role, new.content);
+            END;
+            """
+        )
+    except sqlite3.OperationalError as exc:
+        if "fts5" not in str(exc).lower():
+            raise
+        _FTS5_AVAILABLE = False
+        return
+
+    _FTS5_AVAILABLE = True
+    if _metadata_value(connection, "fts_schema_version") == FTS_SCHEMA_VERSION:
+        return
+
+    connection.execute("INSERT INTO notes_fts(notes_fts) VALUES ('rebuild')")
+    connection.execute("INSERT INTO session_messages_fts(session_messages_fts) VALUES ('rebuild')")
+    _set_metadata(connection, "fts_schema_version", FTS_SCHEMA_VERSION)
+    connection.commit()
 
 
 def _metadata_value(connection: sqlite3.Connection, key: str) -> str | None:
@@ -223,6 +296,70 @@ def _rank_text_records(
     return fallback_records[:limit]
 
 
+def _fts_match_expression(query: str) -> str | None:
+    tokens = list(dict.fromkeys(TOKEN_PATTERN.findall(query.strip().lower())))
+    if not tokens:
+        return None
+    return " OR ".join(f"{token}*" for token in tokens[:8])
+
+
+def _search_notes_fts(
+    connection: sqlite3.Connection,
+    query: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    match_expression = _fts_match_expression(query)
+    if not match_expression:
+        return []
+
+    rows = connection.execute(
+        """
+        SELECT notes.id, notes.text, notes.created_at
+        FROM notes_fts
+        JOIN notes ON notes.id = notes_fts.rowid
+        WHERE notes_fts MATCH ?
+        ORDER BY bm25(notes_fts), notes.created_at DESC, notes.id DESC
+        LIMIT ?
+        """,
+        (match_expression, limit),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def _search_session_history_fts(
+    connection: sqlite3.Connection,
+    session_id: str,
+    query: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    match_expression = _fts_match_expression(query)
+    if not match_expression:
+        return []
+
+    # Fetch extras so noise filtering does not collapse the result set too aggressively.
+    raw_limit = max(limit * 3, 24)
+    rows = connection.execute(
+        """
+        SELECT session_messages.id,
+               session_messages.session_id,
+               session_messages.role,
+               session_messages.content,
+               session_messages.created_at
+        FROM session_messages_fts
+        JOIN session_messages ON session_messages.id = session_messages_fts.rowid
+        WHERE session_messages_fts MATCH ?
+          AND session_messages.session_id = ?
+        ORDER BY bm25(session_messages_fts),
+                 session_messages.created_at DESC,
+                 session_messages.id DESC
+        LIMIT ?
+        """,
+        (match_expression, session_id, raw_limit),
+    ).fetchall()
+    filtered = _filter_session_messages([dict(row) for row in rows])
+    return filtered[:limit]
+
+
 def _is_noise_assistant_text(content: str) -> bool:
     content = content.strip()
     if not content:
@@ -277,8 +414,14 @@ def save_note(text: str) -> dict[str, Any]:
 
 def search_notes(query: str | None = None, limit: int = DEFAULT_NOTE_LIMIT) -> list[dict[str, Any]]:
     max_results = _coerce_limit(limit)
+    clean_query = (query or "").strip()
 
     with _connect() as connection:
+        if clean_query and _FTS5_AVAILABLE:
+            fts_rows = _search_notes_fts(connection, clean_query, max_results)
+            if fts_rows:
+                return fts_rows
+
         rows = connection.execute(
             """
             SELECT id, text, created_at
@@ -289,7 +432,7 @@ def search_notes(query: str | None = None, limit: int = DEFAULT_NOTE_LIMIT) -> l
         ).fetchall()
 
     notes = [dict(row) for row in rows]
-    return _rank_text_records(notes, query=query or "", limit=max_results)
+    return _rank_text_records(notes, query=clean_query, limit=max_results)
 
 
 def save_session_exchange(session_id: str, user_content: str, assistant_content: str) -> None:
@@ -353,7 +496,18 @@ def search_session_history(
         return []
 
     max_results = _coerce_limit(limit, default=DEFAULT_SESSION_LIMIT)
+    clean_query = (query or "").strip()
     with _connect() as connection:
+        if clean_query and _FTS5_AVAILABLE:
+            fts_rows = _search_session_history_fts(
+                connection,
+                clean_session,
+                clean_query,
+                max_results,
+            )
+            if fts_rows:
+                return fts_rows
+
         rows = connection.execute(
             """
             SELECT id, session_id, role, content, created_at
@@ -368,4 +522,9 @@ def search_session_history(
     messages = [dict(row) for row in rows]
     messages.reverse()
     filtered_messages = _filter_session_messages(messages)
-    return _rank_text_records(filtered_messages, query=query or "", limit=max_results, text_key="content")
+    return _rank_text_records(
+        filtered_messages,
+        query=clean_query,
+        limit=max_results,
+        text_key="content",
+    )

@@ -1,10 +1,28 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import tempfile
 import unittest
 
-from lilbot.memory.memory import load_session_history, save_session_exchange, search_session_history
+from lilbot.memory.memory import (
+    load_session_history,
+    save_note,
+    save_session_exchange,
+    search_notes,
+    search_session_history,
+)
+
+
+def _supports_fts5() -> bool:
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.execute("CREATE VIRTUAL TABLE test_fts USING fts5(content)")
+    except sqlite3.OperationalError:
+        return False
+    finally:
+        connection.close()
+    return True
 
 
 class SessionHistoryFilteringTests(unittest.TestCase):
@@ -51,3 +69,26 @@ class SessionHistoryFilteringTests(unittest.TestCase):
             [(item["role"], item["content"]) for item in history],
             [("user", "real question"), ("assistant", "real answer")],
         )
+
+    @unittest.skipUnless(_supports_fts5(), "SQLite FTS5 unavailable")
+    def test_note_search_reaches_beyond_recent_200_rows(self) -> None:
+        save_note("scarletmemorytoken anchor note")
+        for index in range(220):
+            save_note(f"filler note {index}")
+
+        results = search_notes("scarletmemorytoken", limit=5)
+
+        self.assertTrue(results)
+        self.assertEqual(results[0]["text"], "scarletmemorytoken anchor note")
+
+    @unittest.skipUnless(_supports_fts5(), "SQLite FTS5 unavailable")
+    def test_session_history_search_reaches_beyond_recent_200_rows(self) -> None:
+        save_session_exchange("default", "scarletsessiontoken question", "first answer")
+        for index in range(220):
+            save_session_exchange("default", f"filler user {index}", f"filler assistant {index}")
+
+        history = search_session_history("default", "scarletsessiontoken", limit=5)
+
+        self.assertTrue(history)
+        self.assertEqual(history[0]["role"], "user")
+        self.assertEqual(history[0]["content"], "scarletsessiontoken question")
