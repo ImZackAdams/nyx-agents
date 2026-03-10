@@ -145,11 +145,13 @@ The CLI loads `.env` automatically when `python-dotenv` is available.
 Common settings:
 
 ```bash
+LILBOT_BACKEND=auto
 LILBOT_MODEL_PATH=/path/to/model
 LILBOT_DEVICE=auto
 LILBOT_MAX_NEW_TOKENS=48
 LILBOT_QUANTIZE_4BIT=1
 LILBOT_DO_SAMPLE=0
+LILBOT_STREAM=1
 LILBOT_MAX_AGENT_STEPS=4
 LILBOT_HISTORY_MESSAGES=8
 LILBOT_SESSION_ID=default
@@ -161,6 +163,10 @@ LILBOT_MEMORY_JSON_PATH=/path/to/memory_store.json
 
 What these mean:
 
+- `LILBOT_BACKEND`
+  - `auto`: use the local Hugging Face backend when a model path is available, otherwise use the echo backend
+  - `hf`: require a local Hugging Face model path
+  - `echo`: use the lightweight placeholder backend for CLI/testing flows
 - `LILBOT_DEVICE`
   - `auto`: prefer CUDA if available
   - `cpu`: force CPU inference
@@ -173,6 +179,9 @@ What these mean:
 - `LILBOT_DO_SAMPLE`
   - `0` means greedy decoding, which is faster and more deterministic
   - `1` enables sampling
+- `LILBOT_STREAM`
+  - `1` enables safe direct-answer streaming in the CLI
+  - `0` disables streaming and prints full answers only after each request completes
 - `LILBOT_MAX_AGENT_STEPS`
   - maximum number of tool calls per request
 - `LILBOT_HISTORY_MESSAGES`
@@ -202,6 +211,13 @@ One-shot prompt:
 
 ```bash
 python3 -m lilbot --prompt "Summarize this repository"
+```
+
+One-shot prompt with explicit backend and streaming control:
+
+```bash
+python3 -m lilbot --backend hf --stream --prompt "Summarize this repository"
+python3 -m lilbot --backend echo --no-stream --prompt "Hello"
 ```
 
 Direct inline request without `--prompt`:
@@ -475,6 +491,7 @@ If `lilbot` feels slow, the biggest factor is usually the model runtime, not the
 - enable 4-bit quantization when supported
 - keep `--max-new-tokens` low
 - leave sampling disabled unless you need it
+- leave streaming enabled so direct answers appear sooner
 
 ### Recommended Faster Settings
 
@@ -687,6 +704,8 @@ General pattern:
 4. optionally add a manual `!` command in `lilbot/cli/main.py`
 5. update docs
 
+If you add a new backend, keep it behind the provider factory in `lilbot/llm/provider.py` so the CLI does not need backend-specific branching.
+
 When adding tools that can modify files or run shell commands, keep the current safety posture:
 
 - default to read-only where possible
@@ -713,6 +732,16 @@ If you want to keep pushing `lilbot` toward a stronger personal agent, the highe
 - add better retrieval and memory ranking
 - add safe shell and editing tools with confirmation
 - add automated tests for agent loops, memory retrieval, and CLI parsing
+
+The first and last items are now partially in place: lilbot has direct-answer streaming and a lightweight `unittest` regression suite. The biggest remaining production jump is a faster backend plus stronger retrieval and tool control.
+
+## Running Tests
+
+Run the lightweight regression suite:
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## Short Command Reference
 

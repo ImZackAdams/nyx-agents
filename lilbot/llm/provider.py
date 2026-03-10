@@ -1,24 +1,51 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import os
+import queue
+from threading import Thread
 import warnings
-from typing import Protocol
+from typing import Callable, Protocol
 
 
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("USE_TF", "0")
 
+VALID_BACKENDS = {"auto", "hf", "echo"}
+TokenCallback = Callable[[str], None]
+
+
+@dataclass(frozen=True)
+class ProviderConfig:
+    backend: str = "auto"
+    model_path: str | None = None
+    max_new_tokens: int = 48
+    device: str = "auto"
+    quantize_4bit: bool = True
+    do_sample: bool = False
+
 
 class LLMProvider(Protocol):
-    def generate(self, prompt: str) -> str:
+    runtime_summary: str
+    load_warnings: list[str]
+
+    def generate(self, prompt: str, *, on_token: TokenCallback | None = None) -> str:
         ...
 
 
 class EchoProvider:
     """Placeholder provider for local testing."""
 
-    def generate(self, prompt: str) -> str:
-        return "FINAL: (echo provider) No model configured."
+    def __init__(self) -> None:
+        self.runtime_summary = "Using echo backend"
+        self.load_warnings: list[str] = []
+
+    def generate(self, prompt: str, *, on_token: TokenCallback | None = None) -> str:
+        del prompt
+        response = "FINAL: (echo provider) No model configured."
+        if on_token is not None:
+            on_token(response)
+        return response
 
 
 class LocalHFProvider:
@@ -50,17 +77,18 @@ class LocalHFProvider:
         if not os.path.exists(self.model_path):
             raise FileNotFoundError(f"Model path not found: {self.model_path}")
 
-        # Lazy import to keep base deps minimal unless used.
+        # Lazy import keeps base CLI usage light unless the model is actually needed.
         try:
             import torch
             import transformers
-            from transformers import AutoModelForCausalLM, AutoTokenizer
+            from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
         except ImportError as exc:
             raise RuntimeError(
                 "Missing model dependencies. Install torch, transformers, and accelerate."
             ) from exc
 
         self.torch = torch
+        self.TextIteratorStreamer = TextIteratorStreamer
         self.transformers_version = getattr(transformers, "__version__", "unknown")
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(
@@ -78,7 +106,7 @@ class LocalHFProvider:
         if use_cuda and hasattr(torch.backends, "cuda") and hasattr(torch.backends.cuda, "matmul"):
             torch.backends.cuda.matmul.allow_tf32 = True
 
-        model_kwargs = {
+        model_kwargs: dict[str, object] = {
             "trust_remote_code": True,
             "low_cpu_mem_usage": True,
         }
@@ -92,7 +120,6 @@ class LocalHFProvider:
 
         self.model = self._load_model(AutoModelForCausalLM, dict(model_kwargs))
 
-        # If accelerate offloads parts to CPU, .to() is not allowed.
         if not hasattr(self.model, "hf_device_map"):
             self.model.to(self.device)
         self.model.eval()
@@ -204,15 +231,71 @@ class LocalHFProvider:
 
         return " | ".join(summary)
 
-    def generate(self, prompt: str) -> str:
-        inputs = self.tokenizer(
+    def generate(self, prompt: str, *, on_token: TokenCallback | None = None) -> str:
+        inputs = self._tokenize_prompt(prompt)
+        generate_kwargs = self._generate_kwargs()
+
+        if on_token is None:
+            outputs = self._run_generation(inputs, generate_kwargs)
+            generated = self.tokenizer.decode(
+                outputs[0][inputs["input_ids"].shape[1]:],
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True,
+            ).strip()
+            return _normalize_generated_text(generated)
+
+        streamer = self.TextIteratorStreamer(
+            self.tokenizer,
+            skip_prompt=True,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True,
+            timeout=0.1,
+        )
+        stream_kwargs = dict(generate_kwargs)
+        stream_kwargs["streamer"] = streamer
+
+        error_holder: dict[str, Exception] = {}
+        worker = Thread(
+            target=self._run_generation_thread,
+            args=(inputs, stream_kwargs, error_holder),
+            daemon=True,
+        )
+        worker.start()
+
+        chunks: list[str] = []
+        iterator = iter(streamer)
+        while True:
+            try:
+                chunk = next(iterator)
+            except queue.Empty:
+                if worker.is_alive():
+                    continue
+                break
+            except StopIteration:
+                break
+
+            if chunk:
+                chunks.append(chunk)
+                on_token(chunk)
+
+        worker.join()
+        if "exception" in error_holder:
+            exc = error_holder["exception"]
+            self._handle_generation_error(exc)
+            raise exc
+
+        return _normalize_generated_text("".join(chunks))
+
+    def _tokenize_prompt(self, prompt: str) -> object:
+        return self.tokenizer(
             prompt,
             return_tensors="pt",
             truncation=True,
             max_length=self.max_input_tokens,
         ).to(self.device)
 
-        generate_kwargs = {
+    def _generate_kwargs(self) -> dict[str, object]:
+        kwargs: dict[str, object] = {
             "max_new_tokens": self.max_new_tokens,
             "do_sample": self.do_sample,
             "repetition_penalty": 1.05,
@@ -221,39 +304,84 @@ class LocalHFProvider:
             "eos_token_id": self.tokenizer.eos_token_id,
         }
         if self.do_sample:
-            generate_kwargs["temperature"] = 0.7
-            generate_kwargs["top_p"] = 0.9
+            kwargs["temperature"] = 0.7
+            kwargs["top_p"] = 0.9
+        return kwargs
 
+    def _run_generation(self, inputs: object, generate_kwargs: dict[str, object]) -> object:
         try:
             with self.torch.inference_mode():
-                outputs = self.model.generate(
+                return self.model.generate(
                     **inputs,
                     **generate_kwargs,
                 )
-        except RuntimeError as exc:
-            message = str(exc).lower()
-            if "out of memory" in message and self.device.type == "cuda":
-                self.torch.cuda.empty_cache()
-                raise RuntimeError(
-                    "Model ran out of GPU memory during generation. Retry with "
-                    "`--device cpu`, disable `--quantize-4bit`, or lower `--max-new-tokens`."
-                ) from exc
+        except Exception as exc:
+            self._handle_generation_error(exc)
             raise
 
-        generated = self.tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[1]:],
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=True,
-        ).strip()
+    def _run_generation_thread(
+        self,
+        inputs: object,
+        generate_kwargs: dict[str, object],
+        error_holder: dict[str, Exception],
+    ) -> None:
+        try:
+            self._run_generation(inputs, generate_kwargs)
+        except Exception as exc:  # pragma: no cover - exercised through generate()
+            error_holder["exception"] = exc
 
-        # Remove common chat markers if they slip through.
-        for marker in ("<|assistant|>", "<|user|>", "<|system|>"):
-            generated = generated.replace(marker, "").strip()
+    def _handle_generation_error(self, exc: Exception) -> None:
+        if not isinstance(exc, RuntimeError):
+            return
+        message = str(exc).lower()
+        if "out of memory" in message and self.device.type == "cuda":
+            self.torch.cuda.empty_cache()
+            raise RuntimeError(
+                "Model ran out of GPU memory during generation. Retry with "
+                "`--device cpu`, disable `--quantize-4bit`, or lower `--max-new-tokens`."
+            ) from exc
 
-        if not generated:
-            generated = "(empty response)"
 
-        # Ensure required format if model doesn't follow instructions
-        if not generated.startswith(("FINAL:", "TOOL:")):
-            generated = f"FINAL: {generated}"
-        return generated
+def build_provider(config: ProviderConfig) -> LLMProvider:
+    backend = (config.backend or "auto").strip().lower()
+    if backend not in VALID_BACKENDS:
+        allowed = ", ".join(sorted(VALID_BACKENDS))
+        raise ValueError(f"backend must be one of: {allowed}")
+
+    if backend == "echo":
+        return EchoProvider()
+
+    if backend == "hf":
+        if not config.model_path:
+            raise RuntimeError("The Hugging Face backend requires --model-path or LILBOT_MODEL_PATH.")
+        return LocalHFProvider(
+            config.model_path,
+            device=config.device,
+            max_new_tokens=config.max_new_tokens,
+            quantize_4bit=config.quantize_4bit,
+            do_sample=config.do_sample,
+        )
+
+    if config.model_path:
+        return LocalHFProvider(
+            config.model_path,
+            device=config.device,
+            max_new_tokens=config.max_new_tokens,
+            quantize_4bit=config.quantize_4bit,
+            do_sample=config.do_sample,
+        )
+    return EchoProvider()
+
+
+def _normalize_generated_text(generated: str) -> str:
+    text = generated.strip()
+
+    for marker in ("<|assistant|>", "<|user|>", "<|system|>"):
+        text = text.replace(marker, "").strip()
+
+    if not text:
+        text = "(empty response)"
+
+    if not text.startswith(("FINAL:", "TOOL:")):
+        text = f"FINAL: {text}"
+    return text

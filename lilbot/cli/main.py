@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import shlex
 import sys
 import time
@@ -14,15 +15,25 @@ from lilbot.cli.agent import (
     ConversationMessage,
     DEFAULT_AGENT_MAX_STEPS,
     DEFAULT_HISTORY_MESSAGES,
+    maybe_answer_without_llm,
     run_agent,
 )
-from lilbot.llm.provider import EchoProvider, LocalHFProvider
+from lilbot.llm.provider import LLMProvider, ProviderConfig, build_provider
 from lilbot.memory.memory import load_session_history, save_session_exchange
 from lilbot.tools import ALL_TOOL_DEFS, execute_tool
 
 
 LOGGER = logging.getLogger("lilbot")
+VALID_BACKENDS = ("auto", "hf", "echo")
 VALID_DEVICES = ("auto", "cpu", "cuda")
+NON_PERSISTENT_ASSISTANT_RESPONSES = {
+    "(echo provider) No model configured.",
+}
+NON_PERSISTENT_ASSISTANT_PATTERN = re.compile(r"^\s*(?:\[\]|\{\}|null|\(empty response\))\s*$", re.IGNORECASE)
+NON_PERSISTENT_PROTOCOL_PATTERN = re.compile(
+    r"^\s*(?:<\|(?:assistant|user|system)\|>\s*)*(?:FINAL:|TOOL:)",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -31,6 +42,13 @@ class PrefixCommand:
     usage: str
     description: str
     handler: Callable[[list[str]], str]
+
+
+@dataclass(frozen=True)
+class LLMRunResult:
+    text: str
+    elapsed: float
+    streamed: bool
 
 
 def _default_model_path() -> str | None:
@@ -90,6 +108,14 @@ def _device_env(default: str = "auto") -> str:
     return default
 
 
+def _backend_env(default: str = "auto") -> str:
+    value = (os.getenv("LILBOT_BACKEND") or default).strip().lower()
+    if value in VALID_BACKENDS:
+        return value
+    LOGGER.warning("Ignoring invalid backend for LILBOT_BACKEND: %s", value)
+    return default
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lilbot",
@@ -107,6 +133,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--system",
         help="Optional system prompt",
         default=os.getenv("LILBOT_SYSTEM_PROMPT", ""),
+    )
+    parser.add_argument(
+        "--backend",
+        help="LLM backend selection",
+        choices=VALID_BACKENDS,
+        default=_backend_env(),
     )
     parser.add_argument("--model-path", help="Local HF model path", default=None)
     parser.add_argument(
@@ -132,6 +164,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=_bool_env("LILBOT_DO_SAMPLE", False),
         help="Enable sampling; disabling it is faster and more deterministic",
+    )
+    parser.add_argument(
+        "--stream",
+        action=argparse.BooleanOptionalAction,
+        default=_bool_env("LILBOT_STREAM", True),
+        help="Stream direct final answers as they are generated when it is safe to do so",
     )
     parser.add_argument(
         "--max-agent-steps",
@@ -165,7 +203,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if args.prompt is None and inline_request is not None:
         args.prompt = inline_request
 
-    llm: EchoProvider | LocalHFProvider | None = None
+    llm: LLMProvider | None = None
     llm_error: str | None = None
     session_id = args.session_id.strip() or "default"
     os.environ["LILBOT_SESSION_ID"] = session_id
@@ -175,7 +213,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     ]
 
     # Load the model only when a prompt actually needs the LLM.
-    def get_llm() -> EchoProvider | LocalHFProvider | None:
+    def get_llm() -> LLMProvider | None:
         nonlocal llm, llm_error
         if llm is not None:
             return llm
@@ -184,22 +222,22 @@ def main(argv: Sequence[str] | None = None) -> None:
 
         model_path = args.model_path or _default_model_path()
         try:
-            if model_path:
-                llm = LocalHFProvider(
-                    model_path,
+            llm = build_provider(
+                ProviderConfig(
+                    backend=args.backend,
+                    model_path=model_path,
                     device=args.device,
                     max_new_tokens=args.max_new_tokens,
                     quantize_4bit=args.quantize_4bit,
                     do_sample=args.sample,
                 )
-                _print_error(llm.runtime_summary)
-                for message in llm.load_warnings:
-                    _print_error(message)
-            else:
-                llm = EchoProvider()
+            )
+            _print_error(llm.runtime_summary)
+            for message in llm.load_warnings:
+                _print_error(message)
         except Exception as exc:
-            llm_error = f"Failed to load local model: {exc}"
-            LOGGER.error("Model load failed: %s", exc)
+            llm_error = f"Failed to initialize LLM backend: {exc}"
+            LOGGER.error("LLM backend initialization failed: %s", exc)
             _print_error(llm_error)
             return None
         return llm
@@ -208,6 +246,17 @@ def main(argv: Sequence[str] | None = None) -> None:
         prefix_result = _run_prefix_command(args.prompt)
         if prefix_result is not None:
             print(f"\n{prefix_result}\n")
+            return
+
+        direct_response = _run_direct_agent_request(
+            user_request=args.prompt,
+            session_id=session_id,
+            history=session_history,
+            history_limit=args.history_messages,
+        )
+        if direct_response is not None:
+            _persist_session_exchange(session_id, args.prompt, direct_response.text)
+            _render_llm_result(direct_response)
             return
 
         provider = get_llm()
@@ -222,14 +271,13 @@ def main(argv: Sequence[str] | None = None) -> None:
             history=session_history,
             history_limit=args.history_messages,
             max_steps=args.max_agent_steps,
+            stream=args.stream,
         )
         if response is None:
             return
 
-        result, elapsed = response
-        _persist_session_exchange(session_id, args.prompt, result)
-        print(f"\n{result}\n")
-        print(f"[completed in {elapsed:.2f}s]\n")
+        _persist_session_exchange(session_id, args.prompt, response.text)
+        _render_llm_result(response)
         return
 
     while True:
@@ -243,6 +291,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         if user_request.lower() in {"exit", "quit"}:
             print("Bye.")
             return
+        if user_request.lower() in {"clear", "cls"}:
+            _clear_screen()
+            continue
         if user_request.lower() in {"help", "commands", "?"}:
             print(f"\n{_prefix_help()}\n")
             continue
@@ -250,6 +301,17 @@ def main(argv: Sequence[str] | None = None) -> None:
         prefix_result = _run_prefix_command(user_request)
         if prefix_result is not None:
             print(f"\n{prefix_result}\n")
+            continue
+
+        direct_response = _run_direct_agent_request(
+            user_request=user_request,
+            session_id=session_id,
+            history=session_history,
+            history_limit=args.history_messages,
+        )
+        if direct_response is not None:
+            _persist_session_exchange(session_id, user_request, direct_response.text)
+            _render_llm_result(direct_response)
             continue
 
         provider = get_llm()
@@ -265,18 +327,17 @@ def main(argv: Sequence[str] | None = None) -> None:
             history=session_history,
             history_limit=args.history_messages,
             max_steps=args.max_agent_steps,
+            stream=args.stream,
         )
         if response is None:
             continue
 
-        result, elapsed = response
-        _persist_session_exchange(session_id, user_request, result)
-        print(f"\n{result}\n")
-        print(f"[completed in {elapsed:.2f}s]\n")
+        _persist_session_exchange(session_id, user_request, response.text)
+        _render_llm_result(response)
 
 
 def _run_llm_request(
-    llm: EchoProvider | LocalHFProvider,
+    llm: LLMProvider,
     *,
     user_request: str,
     system_prompt: str,
@@ -284,9 +345,11 @@ def _run_llm_request(
     history: list[ConversationMessage],
     history_limit: int,
     max_steps: int,
-) -> tuple[str, float] | None:
+    stream: bool,
+) -> LLMRunResult | None:
+    stream_printer = StreamPrinter() if stream else None
     try:
-        return _generate_with_timing(
+        result, elapsed = _generate_with_timing(
             lambda: run_agent(
                 llm,
                 user_request=user_request,
@@ -298,12 +361,45 @@ def _run_llm_request(
                 tool_schemas=ALL_TOOL_DEFS,
                 tool_executor=execute_tool,
                 status_callback=_emit_tool_status,
+                token_callback=stream_printer.write if stream_printer is not None else None,
             )
         )
+        if stream_printer is not None:
+            stream_printer.close()
+        return LLMRunResult(result, elapsed, streamed=bool(stream_printer and stream_printer.started))
+    except KeyboardInterrupt:
+        if stream_printer is not None:
+            stream_printer.close()
+        _print_error("Generation cancelled.")
+        return None
     except Exception as exc:
+        if stream_printer is not None:
+            stream_printer.close()
         LOGGER.error("Generation failed: %s", exc)
         _print_error(f"Generation failed: {exc}")
         return None
+
+
+def _run_direct_agent_request(
+    *,
+    user_request: str,
+    session_id: str,
+    history: list[ConversationMessage],
+    history_limit: int,
+) -> LLMRunResult | None:
+    result, elapsed = _generate_with_timing(
+        lambda: maybe_answer_without_llm(
+            user_request=user_request,
+            session_id=session_id,
+            history=history,
+            history_limit=history_limit,
+            tool_executor=execute_tool,
+            status_callback=_emit_tool_status,
+        )
+    )
+    if result is None:
+        return None
+    return LLMRunResult(result, elapsed, streamed=False)
 
 
 def _generate_with_timing(operation: Callable[[], str]) -> tuple[str, float]:
@@ -311,6 +407,36 @@ def _generate_with_timing(operation: Callable[[], str]) -> tuple[str, float]:
     result = operation()
     elapsed = time.perf_counter() - started_at
     return result, elapsed
+
+
+class StreamPrinter:
+    def __init__(self) -> None:
+        self.started = False
+        self._needs_newline = False
+
+    def write(self, text: str) -> None:
+        if not text:
+            return
+        if not self.started:
+            print()
+            self.started = True
+        print(text, end="", flush=True)
+        self._needs_newline = not text.endswith("\n")
+
+    def close(self) -> None:
+        if self.started and self._needs_newline:
+            print()
+            self._needs_newline = False
+
+
+def _render_llm_result(result: LLMRunResult) -> None:
+    if not result.streamed:
+        print(f"\n{result.text}\n")
+    print(f"[completed in {result.elapsed:.2f}s]\n")
+
+
+def _clear_screen() -> None:
+    print("\033[2J\033[H", end="", flush=True)
 
 
 def _run_prefix_command(user_input: str) -> str | None:
@@ -421,10 +547,23 @@ def _emit_tool_status(message: str) -> None:
 
 
 def _persist_session_exchange(session_id: str, user_request: str, assistant_response: str) -> None:
+    if not _should_persist_assistant_response(assistant_response):
+        return
     try:
         save_session_exchange(session_id, user_request, assistant_response)
     except Exception as exc:
         _print_error(f"Unable to persist session history: {exc}")
+
+
+def _should_persist_assistant_response(response: str) -> bool:
+    stripped = response.strip()
+    if not stripped:
+        return False
+    if stripped in NON_PERSISTENT_ASSISTANT_RESPONSES:
+        return False
+    if NON_PERSISTENT_PROTOCOL_PATTERN.match(stripped) is not None:
+        return False
+    return NON_PERSISTENT_ASSISTANT_PATTERN.fullmatch(stripped) is None
 
 
 PREFIX_COMMANDS = {

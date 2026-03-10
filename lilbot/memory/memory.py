@@ -17,6 +17,15 @@ DEFAULT_SESSION_LIMIT = 12
 MEMORY_DB_ENV = "LILBOT_MEMORY_DB_PATH"
 LEGACY_JSON_ENV = "LILBOT_MEMORY_JSON_PATH"
 TOKEN_PATTERN = re.compile(r"[a-z0-9_]{2,}")
+SESSION_NOISE_PATTERN = re.compile(r"^\s*(?:\[\]|\{\}|null|\(empty response\))\s*$", re.IGNORECASE)
+SESSION_PROTOCOL_PATTERN = re.compile(
+    r"^\s*(?:<\|(?:assistant|user|system)\|>\s*)*(?:FINAL:|TOOL:)",
+    re.IGNORECASE,
+)
+SESSION_SPECIAL_TOKEN_PATTERN = re.compile(r"<\|(?:assistant|user|system)\|>")
+SESSION_NOISE_RESPONSES = {
+    "(echo provider) No model configured.",
+}
 
 
 def get_store_path() -> Path:
@@ -214,6 +223,37 @@ def _rank_text_records(
     return fallback_records[:limit]
 
 
+def _is_noise_assistant_text(content: str) -> bool:
+    content = content.strip()
+    if not content:
+        return True
+    if content in SESSION_NOISE_RESPONSES:
+        return True
+    if SESSION_NOISE_PATTERN.fullmatch(content) is not None:
+        return True
+    if SESSION_PROTOCOL_PATTERN.match(content) is not None:
+        return True
+    return SESSION_SPECIAL_TOKEN_PATTERN.search(content) is not None
+
+
+def _is_noise_assistant_message(record: dict[str, Any]) -> bool:
+    role = str(record.get("role", "")).strip().lower()
+    if role != "assistant":
+        return False
+    return _is_noise_assistant_text(str(record.get("content", "")))
+
+
+def _filter_session_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    filtered: list[dict[str, Any]] = []
+    for message in messages:
+        if _is_noise_assistant_message(message):
+            if filtered and str(filtered[-1].get("role", "")).strip().lower() == "user":
+                filtered.pop()
+            continue
+        filtered.append(message)
+    return filtered
+
+
 def save_note(text: str) -> dict[str, Any]:
     clean_text = text.strip()
     if not clean_text:
@@ -257,9 +297,13 @@ def save_session_exchange(session_id: str, user_content: str, assistant_content:
     if not clean_session:
         raise ValueError("session_id cannot be empty.")
 
+    clean_assistant = assistant_content.strip()
+    if _is_noise_assistant_text(clean_assistant):
+        return
+
     records = (
         ("user", user_content.strip()),
-        ("assistant", assistant_content.strip()),
+        ("assistant", clean_assistant),
     )
     created_at = _utc_now()
     with _connect() as connection:
@@ -296,7 +340,7 @@ def load_session_history(session_id: str, limit: int = DEFAULT_SESSION_LIMIT) ->
 
     messages = [dict(row) for row in rows]
     messages.reverse()
-    return messages
+    return _filter_session_messages(messages)
 
 
 def search_session_history(
@@ -322,4 +366,6 @@ def search_session_history(
         ).fetchall()
 
     messages = [dict(row) for row in rows]
-    return _rank_text_records(messages, query=query or "", limit=max_results, text_key="content")
+    messages.reverse()
+    filtered_messages = _filter_session_messages(messages)
+    return _rank_text_records(filtered_messages, query=query or "", limit=max_results, text_key="content")

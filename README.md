@@ -71,11 +71,13 @@ The agent now has a few defensive behaviors too: repeated identical tool calls a
 
 Common environment variables:
 ```bash
+LILBOT_BACKEND=auto
 LILBOT_MODEL_PATH=/path/to/model
 LILBOT_DEVICE=auto
 LILBOT_MAX_NEW_TOKENS=48
 LILBOT_QUANTIZE_4BIT=1
 LILBOT_DO_SAMPLE=0
+LILBOT_STREAM=1
 LILBOT_MAX_AGENT_STEPS=4
 LILBOT_HISTORY_MESSAGES=8
 LILBOT_SESSION_ID=default
@@ -85,15 +87,24 @@ LILBOT_MEMORY_DB_PATH=/path/to/memory_store.db
 ```
 
 Notes:
+- `--backend auto` uses the local Hugging Face backend when a model path is available and otherwise falls back to the echo backend. `--backend echo` is useful for CLI/testing workflows.
 - The default model path is `lilbot/models/falcon3_10b_instruct` when that directory exists.
 - The default response budget is intentionally shorter now to reduce latency for local use. Raise `--max-new-tokens` when you want longer replies.
 - Greedy decoding is the default because it is faster and more predictable than sampling for CLI use. Re-enable sampling with `--sample`.
+- `--stream` is enabled by default. Lilbot streams direct final answers when it is safe to do so, while keeping tool calls and fragile fallback cases buffered for correctness.
 - `--quantize-4bit` only applies when CUDA and `bitsandbytes` are available.
 - Use `--device cpu` on CPU-only machines or when GPU memory is too tight.
 - Notes are now stored in SQLite by default at `lilbot/memory/memory_store.db`. Existing `memory_store.json` notes are imported automatically the first time the new store is opened.
 - Session history is stored in the same SQLite database. Use `--session-id work` or `LILBOT_SESSION_ID=work` to keep separate long-running conversations.
 - `!history` shows recent conversation for the active session. `!history memory` searches earlier messages in that session.
 - `LILBOT_MAX_AGENT_STEPS` limits how many tool calls the model can make before the request is stopped.
+
+## Verification
+Run the lightweight regression suite with:
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## License
 MIT. See `LICENSE`.
