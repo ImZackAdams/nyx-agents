@@ -46,11 +46,20 @@ TOOL_DEFS = [
     {
         "name": "save_note",
         "description": "Save a note to persistent memory.",
+        "parameters": {
+            "text": "The note text to save.",
+        },
+        "example": {"text": "buy milk"},
         "execute": save_note,
     },
     {
         "name": "search_notes",
         "description": "Search saved notes by text query or list recent notes.",
+        "parameters": {
+            "query": "Optional text query for note retrieval.",
+            "limit": "Optional positive integer result limit.",
+        },
+        "example": {"query": "groceries", "limit": 5},
         "execute": search_notes,
     },
 ]

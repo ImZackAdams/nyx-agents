@@ -13,6 +13,7 @@ from typing import Any, Iterator
 
 
 DEFAULT_NOTE_LIMIT = 10
+DEFAULT_SESSION_LIMIT = 12
 MEMORY_DB_ENV = "LILBOT_MEMORY_DB_PATH"
 LEGACY_JSON_ENV = "LILBOT_MEMORY_JSON_PATH"
 TOKEN_PATTERN = re.compile(r"[a-z0-9_]{2,}")
@@ -63,6 +64,17 @@ def _initialize_schema(connection: sqlite3.Connection) -> None:
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS session_messages (
+            id INTEGER PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_session_messages_session_created
+        ON session_messages (session_id, created_at DESC, id DESC);
         """
     )
     _migrate_legacy_store(connection)
@@ -161,6 +173,47 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def _rank_text_records(
+    records: list[dict[str, Any]],
+    *,
+    query: str,
+    limit: int,
+    text_key: str = "text",
+) -> list[dict[str, Any]]:
+    clean_query = query.strip().lower()
+    if not clean_query:
+        return records[:limit]
+
+    query_tokens = sorted(set(TOKEN_PATTERN.findall(clean_query)))
+    scored_records: list[tuple[int, str, int, dict[str, Any]]] = []
+    fallback_records: list[dict[str, Any]] = []
+
+    for record in records:
+        text_lower = str(record.get(text_key, "")).lower()
+        if clean_query in text_lower:
+            fallback_records.append(record)
+
+        score = 0
+        if clean_query in text_lower:
+            score += max(3, len(query_tokens) + 1)
+        score += sum(1 for token in query_tokens if token in text_lower)
+        if score > 0:
+            scored_records.append(
+                (
+                    score,
+                    str(record.get("created_at", "")),
+                    int(record.get("id", 0)),
+                    record,
+                )
+            )
+
+    if scored_records:
+        scored_records.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+        return [record for _, _, _, record in scored_records[:limit]]
+
+    return fallback_records[:limit]
+
+
 def save_note(text: str) -> dict[str, Any]:
     clean_text = text.strip()
     if not clean_text:
@@ -183,7 +236,6 @@ def save_note(text: str) -> dict[str, Any]:
 
 
 def search_notes(query: str | None = None, limit: int = DEFAULT_NOTE_LIMIT) -> list[dict[str, Any]]:
-    clean_query = (query or "").strip()
     max_results = _coerce_limit(limit)
 
     with _connect() as connection:
@@ -197,28 +249,77 @@ def search_notes(query: str | None = None, limit: int = DEFAULT_NOTE_LIMIT) -> l
         ).fetchall()
 
     notes = [dict(row) for row in rows]
-    if not clean_query:
-        return notes[:max_results]
+    return _rank_text_records(notes, query=query or "", limit=max_results)
 
-    query_lower = clean_query.lower()
-    query_tokens = sorted(set(TOKEN_PATTERN.findall(query_lower)))
-    scored_notes: list[tuple[int, str, int, dict[str, Any]]] = []
-    fallback_notes: list[dict[str, Any]] = []
 
-    for note in notes:
-        text_lower = str(note.get("text", "")).lower()
-        if query_lower and query_lower in text_lower:
-            fallback_notes.append(note)
+def save_session_exchange(session_id: str, user_content: str, assistant_content: str) -> None:
+    clean_session = session_id.strip()
+    if not clean_session:
+        raise ValueError("session_id cannot be empty.")
 
-        score = 0
-        if query_lower and query_lower in text_lower:
-            score += max(3, len(query_tokens) + 1)
-        score += sum(1 for token in query_tokens if token in text_lower)
-        if score > 0:
-            scored_notes.append((score, str(note["created_at"]), int(note["id"]), note))
+    records = (
+        ("user", user_content.strip()),
+        ("assistant", assistant_content.strip()),
+    )
+    created_at = _utc_now()
+    with _connect() as connection:
+        for role, content in records:
+            if not content:
+                continue
+            connection.execute(
+                """
+                INSERT INTO session_messages (session_id, role, content, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (clean_session, role, content, created_at),
+            )
+        connection.commit()
 
-    if scored_notes:
-        scored_notes.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
-        return [note for _, _, _, note in scored_notes[:max_results]]
 
-    return fallback_notes[:max_results]
+def load_session_history(session_id: str, limit: int = DEFAULT_SESSION_LIMIT) -> list[dict[str, Any]]:
+    clean_session = session_id.strip()
+    if not clean_session:
+        return []
+
+    max_results = _coerce_limit(limit, default=DEFAULT_SESSION_LIMIT)
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT id, session_id, role, content, created_at
+            FROM session_messages
+            WHERE session_id = ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?
+            """,
+            (clean_session, max_results),
+        ).fetchall()
+
+    messages = [dict(row) for row in rows]
+    messages.reverse()
+    return messages
+
+
+def search_session_history(
+    session_id: str,
+    query: str | None = None,
+    limit: int = DEFAULT_SESSION_LIMIT,
+) -> list[dict[str, Any]]:
+    clean_session = session_id.strip()
+    if not clean_session:
+        return []
+
+    max_results = _coerce_limit(limit, default=DEFAULT_SESSION_LIMIT)
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT id, session_id, role, content, created_at
+            FROM session_messages
+            WHERE session_id = ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT 200
+            """,
+            (clean_session,),
+        ).fetchall()
+
+    messages = [dict(row) for row in rows]
+    return _rank_text_records(messages, query=query or "", limit=max_results, text_key="content")

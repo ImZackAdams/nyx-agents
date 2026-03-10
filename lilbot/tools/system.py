@@ -30,6 +30,8 @@ TOOL_DEFS = [
     {
         "name": "system_info",
         "description": "Get basic system information.",
+        "parameters": {},
+        "example": {},
         "execute": system_info,
     }
 ]

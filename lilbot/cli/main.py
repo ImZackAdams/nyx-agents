@@ -17,6 +17,7 @@ from lilbot.cli.agent import (
     run_agent,
 )
 from lilbot.llm.provider import EchoProvider, LocalHFProvider
+from lilbot.memory.memory import load_session_history, save_session_exchange
 from lilbot.tools import ALL_TOOL_DEFS, execute_tool
 
 
@@ -93,7 +94,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lilbot",
         description="Local LLM CLI with direct ! commands.",
-        epilog="Prefix commands: !help, !ls [path], !read <file>, !sys, !note <text>, !notes [query]",
+        epilog="Prefix commands: !help, !ls [path], !read <file>, !sys, !note <text>, !notes [query], !history [query]",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -144,6 +145,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=_int_env("LILBOT_HISTORY_MESSAGES", DEFAULT_HISTORY_MESSAGES),
         help="Number of recent conversation messages to retain in session history",
     )
+    parser.add_argument(
+        "--session-id",
+        default=os.getenv("LILBOT_SESSION_ID", "default"),
+        help="Persistent session identifier for conversation history",
+    )
     parser.add_argument("--prompt", help="Run a single prompt non-interactively", default=None)
     return parser
 
@@ -161,7 +167,12 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     llm: EchoProvider | LocalHFProvider | None = None
     llm_error: str | None = None
-    session_history: list[ConversationMessage] = []
+    session_id = args.session_id.strip() or "default"
+    os.environ["LILBOT_SESSION_ID"] = session_id
+    session_history = [
+        ConversationMessage(str(message["role"]), str(message["content"]))
+        for message in load_session_history(session_id, limit=args.history_messages)
+    ]
 
     # Load the model only when a prompt actually needs the LLM.
     def get_llm() -> EchoProvider | LocalHFProvider | None:
@@ -207,7 +218,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             provider,
             user_request=args.prompt,
             system_prompt=args.system,
-            history=[],
+            session_id=session_id,
+            history=session_history,
             history_limit=args.history_messages,
             max_steps=args.max_agent_steps,
         )
@@ -215,6 +227,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             return
 
         result, elapsed = response
+        _persist_session_exchange(session_id, args.prompt, result)
         print(f"\n{result}\n")
         print(f"[completed in {elapsed:.2f}s]\n")
         return
@@ -248,6 +261,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             provider,
             user_request=user_request,
             system_prompt=args.system,
+            session_id=session_id,
             history=session_history,
             history_limit=args.history_messages,
             max_steps=args.max_agent_steps,
@@ -256,6 +270,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             continue
 
         result, elapsed = response
+        _persist_session_exchange(session_id, user_request, result)
         print(f"\n{result}\n")
         print(f"[completed in {elapsed:.2f}s]\n")
 
@@ -265,6 +280,7 @@ def _run_llm_request(
     *,
     user_request: str,
     system_prompt: str,
+    session_id: str,
     history: list[ConversationMessage],
     history_limit: int,
     max_steps: int,
@@ -275,6 +291,7 @@ def _run_llm_request(
                 llm,
                 user_request=user_request,
                 system_prompt=system_prompt,
+                session_id=session_id,
                 history=history,
                 history_limit=history_limit,
                 max_steps=max_steps,
@@ -387,12 +404,27 @@ def _handle_notes(args: list[str]) -> str:
     return execute_tool("search_notes", params)
 
 
+def _handle_history(args: list[str]) -> str:
+    query = " ".join(args).strip()
+    params: dict[str, str | int] = {"limit": 8}
+    if query:
+        params["query"] = query
+    return execute_tool("search_history", params)
+
+
 def _print_error(message: str) -> None:
     print(f"[lilbot] {message}", file=sys.stderr)
 
 
 def _emit_tool_status(message: str) -> None:
     _print_error(message)
+
+
+def _persist_session_exchange(session_id: str, user_request: str, assistant_response: str) -> None:
+    try:
+        save_session_exchange(session_id, user_request, assistant_response)
+    except Exception as exc:
+        _print_error(f"Unable to persist session history: {exc}")
 
 
 PREFIX_COMMANDS = {
@@ -404,6 +436,7 @@ PREFIX_COMMANDS = {
         PrefixCommand("sys", "!sys", "Show basic system information.", _handle_sys),
         PrefixCommand("note", "!note <text>", "Save a note to persistent memory.", _handle_note),
         PrefixCommand("notes", "!notes [query]", "List recent notes or search saved notes.", _handle_notes),
+        PrefixCommand("history", "!history [query]", "List recent session history or search earlier conversation.", _handle_history),
     )
 }
 

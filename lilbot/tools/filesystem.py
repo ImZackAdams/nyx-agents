@@ -122,12 +122,22 @@ def read_file(params: Dict[str, Any]) -> str:
 TOOL_DEFS = [
     {
         "name": "list_files",
-        "description": "List files in a directory.",
+        "description": "List files in a workspace-relative directory.",
+        "parameters": {
+            "path": "Workspace-relative directory path. Defaults to '.'.",
+            "max_entries": "Optional positive integer entry limit.",
+        },
+        "example": {"path": ".", "max_entries": 50},
         "execute": list_files,
     },
     {
         "name": "read_file",
-        "description": "Read a file from disk.",
+        "description": "Read a UTF-8 text file under the workspace root.",
+        "parameters": {
+            "path": "Workspace-relative file path.",
+            "max_chars": "Optional positive integer character limit.",
+        },
+        "example": {"path": "README.md", "max_chars": 2000},
         "execute": read_file,
     },
 ]
