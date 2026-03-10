@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 import sqlite3
 from typing import Any, Iterator
 
@@ -14,6 +15,7 @@ from typing import Any, Iterator
 DEFAULT_NOTE_LIMIT = 10
 MEMORY_DB_ENV = "LILBOT_MEMORY_DB_PATH"
 LEGACY_JSON_ENV = "LILBOT_MEMORY_JSON_PATH"
+TOKEN_PATTERN = re.compile(r"[a-z0-9_]{2,}")
 
 
 def get_store_path() -> Path:
@@ -185,26 +187,38 @@ def search_notes(query: str | None = None, limit: int = DEFAULT_NOTE_LIMIT) -> l
     max_results = _coerce_limit(limit)
 
     with _connect() as connection:
-        if clean_query:
-            rows = connection.execute(
-                """
-                SELECT id, text, created_at
-                FROM notes
-                WHERE instr(lower(text), lower(?)) > 0
-                ORDER BY created_at DESC, id DESC
-                LIMIT ?
-                """,
-                (clean_query, max_results),
-            ).fetchall()
-        else:
-            rows = connection.execute(
-                """
-                SELECT id, text, created_at
-                FROM notes
-                ORDER BY created_at DESC, id DESC
-                LIMIT ?
-                """,
-                (max_results,),
-            ).fetchall()
+        rows = connection.execute(
+            """
+            SELECT id, text, created_at
+            FROM notes
+            ORDER BY created_at DESC, id DESC
+            LIMIT 200
+            """
+        ).fetchall()
 
-    return [dict(row) for row in rows]
+    notes = [dict(row) for row in rows]
+    if not clean_query:
+        return notes[:max_results]
+
+    query_lower = clean_query.lower()
+    query_tokens = sorted(set(TOKEN_PATTERN.findall(query_lower)))
+    scored_notes: list[tuple[int, str, int, dict[str, Any]]] = []
+    fallback_notes: list[dict[str, Any]] = []
+
+    for note in notes:
+        text_lower = str(note.get("text", "")).lower()
+        if query_lower and query_lower in text_lower:
+            fallback_notes.append(note)
+
+        score = 0
+        if query_lower and query_lower in text_lower:
+            score += max(3, len(query_tokens) + 1)
+        score += sum(1 for token in query_tokens if token in text_lower)
+        if score > 0:
+            scored_notes.append((score, str(note["created_at"]), int(note["id"]), note))
+
+    if scored_notes:
+        scored_notes.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+        return [note for _, _, _, note in scored_notes[:max_results]]
+
+    return fallback_notes[:max_results]

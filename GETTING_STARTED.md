@@ -37,3 +37,5 @@ python3 -m lilbot --prompt "!notes"
 ```bash
 python3 -m lilbot --prompt "Summarize this project."
 ```
+
+The model can now use local tools automatically for normal prompts, so queries like `What notes do I have about groceries?` or `Read the README and summarize it.` can trigger note lookup or file reads before the final answer.

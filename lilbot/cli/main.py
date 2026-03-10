@@ -10,8 +10,14 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from lilbot.cli.agent import (
+    ConversationMessage,
+    DEFAULT_AGENT_MAX_STEPS,
+    DEFAULT_HISTORY_MESSAGES,
+    run_agent,
+)
 from lilbot.llm.provider import EchoProvider, LocalHFProvider
-from lilbot.tools import execute_tool
+from lilbot.tools import ALL_TOOL_DEFS, execute_tool
 
 
 LOGGER = logging.getLogger("lilbot")
@@ -126,6 +132,18 @@ def _build_parser() -> argparse.ArgumentParser:
         default=_bool_env("LILBOT_DO_SAMPLE", False),
         help="Enable sampling; disabling it is faster and more deterministic",
     )
+    parser.add_argument(
+        "--max-agent-steps",
+        type=int,
+        default=_int_env("LILBOT_MAX_AGENT_STEPS", DEFAULT_AGENT_MAX_STEPS),
+        help="Maximum tool-use steps per LLM request",
+    )
+    parser.add_argument(
+        "--history-messages",
+        type=int,
+        default=_int_env("LILBOT_HISTORY_MESSAGES", DEFAULT_HISTORY_MESSAGES),
+        help="Number of recent conversation messages to retain in session history",
+    )
     parser.add_argument("--prompt", help="Run a single prompt non-interactively", default=None)
     return parser
 
@@ -143,6 +161,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     llm: EchoProvider | LocalHFProvider | None = None
     llm_error: str | None = None
+    session_history: list[ConversationMessage] = []
 
     # Load the model only when a prompt actually needs the LLM.
     def get_llm() -> EchoProvider | LocalHFProvider | None:
@@ -184,8 +203,14 @@ def main(argv: Sequence[str] | None = None) -> None:
         if provider is None:
             return
 
-        prompt = _build_prompt(args.system, args.prompt)
-        response = _run_llm_request(provider, prompt)
+        response = _run_llm_request(
+            provider,
+            user_request=args.prompt,
+            system_prompt=args.system,
+            history=[],
+            history_limit=args.history_messages,
+            max_steps=args.max_agent_steps,
+        )
         if response is None:
             return
 
@@ -219,8 +244,14 @@ def main(argv: Sequence[str] | None = None) -> None:
             print("\nLLM unavailable. Fix the model configuration and restart lilbot.\n")
             continue
 
-        prompt = _build_prompt(args.system, user_request)
-        response = _run_llm_request(provider, prompt)
+        response = _run_llm_request(
+            provider,
+            user_request=user_request,
+            system_prompt=args.system,
+            history=session_history,
+            history_limit=args.history_messages,
+            max_steps=args.max_agent_steps,
+        )
         if response is None:
             continue
 
@@ -229,27 +260,38 @@ def main(argv: Sequence[str] | None = None) -> None:
         print(f"[completed in {elapsed:.2f}s]\n")
 
 
-def _build_prompt(system_prompt: str, user_request: str) -> str:
-    if system_prompt:
-        return f"{system_prompt}\n\nUser: {user_request}\nAssistant:"
-    return f"User: {user_request}\nAssistant:"
-
-
 def _run_llm_request(
     llm: EchoProvider | LocalHFProvider,
-    prompt: str,
+    *,
+    user_request: str,
+    system_prompt: str,
+    history: list[ConversationMessage],
+    history_limit: int,
+    max_steps: int,
 ) -> tuple[str, float] | None:
     try:
-        return _generate_with_timing(llm, prompt)
+        return _generate_with_timing(
+            lambda: run_agent(
+                llm,
+                user_request=user_request,
+                system_prompt=system_prompt,
+                history=history,
+                history_limit=history_limit,
+                max_steps=max_steps,
+                tool_schemas=ALL_TOOL_DEFS,
+                tool_executor=execute_tool,
+                status_callback=_emit_tool_status,
+            )
+        )
     except Exception as exc:
         LOGGER.error("Generation failed: %s", exc)
         _print_error(f"Generation failed: {exc}")
         return None
 
 
-def _generate_with_timing(llm: EchoProvider | LocalHFProvider, prompt: str) -> tuple[str, float]:
+def _generate_with_timing(operation: Callable[[], str]) -> tuple[str, float]:
     started_at = time.perf_counter()
-    result = llm.generate(prompt)
+    result = operation()
     elapsed = time.perf_counter() - started_at
     return result, elapsed
 
@@ -347,6 +389,10 @@ def _handle_notes(args: list[str]) -> str:
 
 def _print_error(message: str) -> None:
     print(f"[lilbot] {message}", file=sys.stderr)
+
+
+def _emit_tool_status(message: str) -> None:
+    _print_error(message)
 
 
 PREFIX_COMMANDS = {
