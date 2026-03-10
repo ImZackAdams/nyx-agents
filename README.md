@@ -64,6 +64,7 @@ python3 -m lilbot "What did we decide about memory last time?"
 The CLI prints tool calls to stderr as they happen so you can see what the agent is doing.
 The agent can save notes too, but it only does that when you explicitly ask it to remember or save something.
 Conversation history is stored persistently, so the agent can retrieve earlier messages from the current session when relevant.
+The agent now has a few defensive behaviors too: repeated identical tool calls are blocked, malformed protocol output is normalized, file/listing summary requests fall back to deterministic summaries when the model gets sloppy, and personal-fact questions only answer from notes/history instead of guessing.
 
 ## Configuration
 `lilbot` loads `.env` automatically when `python-dotenv` is installed.

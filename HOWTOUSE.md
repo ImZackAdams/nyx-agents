@@ -87,6 +87,14 @@ TOOL: <tool_name> <json object>
 
 If the model asks for a tool, `lilbot` runs it, appends the observation, and lets the model continue until it reaches a final answer or the step limit.
 
+The agent also has a few safeguards:
+
+- repeated identical tool calls are refused
+- malformed role labels such as `[assistant] TOOL: ...` are normalized
+- if the model fails after a useful tool result, `lilbot` can fall back to that observation instead of returning a useless protocol error
+- summary requests over file contents or directory listings can fall back to deterministic summaries
+- personal-fact questions are expected to rely on notes, session history, or tool evidence rather than hallucination
+
 ## Installation
 
 Create and activate a virtual environment:
@@ -368,7 +376,8 @@ What happens under the hood:
 3. it builds an agent prompt with tool definitions
 4. the model either answers directly or requests a tool
 5. tool observations are fed back to the model
-6. the final answer is printed and persisted into session history
+6. if the model misbehaves after a useful tool result, `lilbot` can fall back to the best observation it already has
+7. the final answer is printed and persisted into session history
 
 ## What Tools the Agent Can Use
 
@@ -387,6 +396,8 @@ The agent is instructed to:
 - prefer `search_notes` when the user may be asking about saved memory
 - prefer `search_history` when the user asks about earlier conversation
 - use `save_note` only when the user explicitly asks to remember or save something
+- avoid inventing personal facts that are not supported by notes, history, or tool output
+- summarize files instead of dumping raw contents when the request is a summary
 
 ## Notes and Memory
 
@@ -562,6 +573,17 @@ Try:
 python3 -m lilbot --session-id default history
 ```
 
+### The model keeps repeating tool calls or prints weird protocol text
+
+Lilbot now blocks repeated identical tool calls and strips common malformed role labels such as `[assistant] TOOL: ...`, but small local models can still be brittle.
+
+If this still happens often:
+
+- lower task complexity
+- ask narrower questions
+- prefer direct `!` commands for deterministic retrieval
+- use a stronger or better-instruct local model
+
 ### Bash rejects `!` commands on the command line
 
 Use quoted `--prompt` input or omit `!` entirely on the shell command line:
@@ -570,6 +592,16 @@ Use quoted `--prompt` input or omit `!` entirely on the shell command line:
 python3 -m lilbot --prompt '!notes'
 python3 -m lilbot notes
 ```
+
+### The model guesses personal facts incorrectly
+
+Recent agent updates push `lilbot` to rely on notes, history, and tool observations before answering things like your name or other personal facts.
+
+If you want those answers to be reliable:
+
+- save them explicitly with `!note`
+- keep related discussion in the same `--session-id`
+- ask `!notes` or `!history` directly if you want deterministic retrieval
 
 ## Example Workflows
 
