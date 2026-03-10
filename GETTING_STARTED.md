@@ -1,54 +1,71 @@
 # Getting Started
 
-Need the complete guide after this quick start? Read [HOWTOUSE.md](HOWTOUSE.md).
+Need the full manual after this? Read [HOWTOUSE.md](HOWTOUSE.md).
 
-## 1. Install dependencies
+## 1. Install the base CLI
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e .
 ```
 
-Install `bitsandbytes` separately if you want 4-bit GPU quantization.
+This installs the deterministic CLI experience without heavy model dependencies.
 
-## 2. Configure the model
-You can use `.env` or exported environment variables:
+## 2. Prepare local state
+
 ```bash
-LILBOT_BACKEND=auto
-LILBOT_MODEL_PATH=/path/to/model
-LILBOT_DEVICE=auto
-LILBOT_MAX_NEW_TOKENS=48
-LILBOT_QUANTIZE_4BIT=1
-LILBOT_DO_SAMPLE=0
-LILBOT_STREAM=1
-LILBOT_SESSION_ID=default
+python -m lilbot init
+python -m lilbot doctor
 ```
 
-If `lilbot/models/falcon3_10b_instruct` exists, `lilbot` will use it automatically.
+`init` creates Lilbot's user data directories and copies `.env.example` to `.env` when a template exists in the current directory.
 
-## 3. Start the CLI
+`doctor` shows:
+
+- workspace root
+- memory paths
+- configured model path status
+- dependency checks
+- next steps
+
+## 3. Try the no-model workflows
+
 ```bash
-python3 -m lilbot
+python -m lilbot "what files are in this project?"
+python -m lilbot note "buy milk"
+python -m lilbot "what notes do I have?"
+python -m lilbot "my name is Zack"
+python -m lilbot "what is my name?"
 ```
 
-## 4. Try a one-shot command
+## 4. Add local-model support when you want it
+
 ```bash
-python3 -m lilbot --prompt "!sys"
-python3 -m lilbot --prompt "!read README.md"
-python3 -m lilbot --prompt "!notes"
-python3 -m lilbot --prompt "!history"
+pip install -e ".[hf]"
 ```
 
-## 5. Ask the model a prompt
+Optional 4-bit GPU support:
+
 ```bash
-python3 -m lilbot --prompt "Summarize this project."
+pip install -e ".[hf,quantization]"
 ```
 
-The model can now use local tools automatically for normal prompts, so queries like `What notes do I have about groceries?` or `Read the README and summarize it.` can trigger note lookup or file reads before the final answer.
+Then point Lilbot at a local model:
 
-Session history is stored persistently in SQLite alongside notes. Use `--session-id project-a` if you want a separate conversation thread, and use `!history [query]` to inspect or search what was said earlier in that session.
+```bash
+export LILBOT_MODEL_PATH=/path/to/local/model
+```
 
-Run the lightweight regression tests with:
+Or place one in Lilbot's default app-data model directory and rerun `python -m lilbot doctor`.
+
+## 5. Start the CLI
+
+```bash
+python -m lilbot
+```
+
+## 6. Run the regression suite
 
 ```bash
 python -m unittest discover -s tests -v

@@ -8,11 +8,12 @@ fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
 
-pip install -r requirements.txt
+pip install -e .
 
 if [ ! -f .env ]; then
   cp .env.example .env
   echo "Created .env from .env.example. Fill in required values before running."
 fi
 
-echo "Setup complete. Run: python -m lilbot"
+echo "Setup complete. Run: python -m lilbot init"
+echo "Optional local-model support: pip install -e \".[hf]\""

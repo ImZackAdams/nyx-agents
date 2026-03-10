@@ -5,6 +5,7 @@ import os
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest.mock import patch
 
 from lilbot.cli.main import (
@@ -82,6 +83,11 @@ class CliParsingTests(unittest.TestCase):
         self.assertFalse(_should_persist_assistant_response("[]"))
         self.assertFalse(_should_persist_assistant_response("FINAL: hello"))
         self.assertFalse(_should_persist_assistant_response("<|assistant|>\nFINAL: hello"))
+        self.assertFalse(
+            _should_persist_assistant_response(
+                "No local model is configured yet, so Lilbot can only run deterministic features right now."
+            )
+        )
         self.assertTrue(_should_persist_assistant_response("real answer"))
 
     def test_deterministic_agent_request_does_not_initialize_provider(self) -> None:
@@ -169,3 +175,53 @@ class CliParsingTests(unittest.TestCase):
 
         self.assertIsNone(result)
         self.assertIn("Generation cancelled.", stderr.getvalue())
+
+    def test_echo_backend_prompt_shows_setup_guidance(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            main(["--backend", "echo", "--prompt", "hello"])
+
+        self.assertIn("No local model is configured yet", stdout.getvalue())
+        self.assertIn("python -m lilbot doctor", stdout.getvalue())
+        self.assertNotIn("(echo provider)", stdout.getvalue())
+        self.assertEqual(stderr.getvalue(), "")
+
+    def test_doctor_command_reports_setup_details(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with (
+            patch.dict(os.environ, {"LILBOT_HOME": self.tempdir.name}, clear=False),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            main(["doctor"])
+
+        output = stdout.getvalue()
+        self.assertIn("Lilbot doctor", output)
+        self.assertIn("Dependency check:", output)
+        self.assertIn("Default model directory:", output)
+        self.assertEqual(stderr.getvalue(), "")
+
+    def test_init_command_creates_env_from_template(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        workspace = Path(self.tempdir.name) / "workspace"
+        workspace.mkdir()
+        (workspace / ".env.example").write_text("LILBOT_BACKEND=auto\n", encoding="utf-8")
+        app_home = Path(self.tempdir.name) / "app-home"
+
+        with (
+            patch.dict(os.environ, {"LILBOT_HOME": str(app_home)}, clear=False),
+            patch("lilbot.cli.main.Path.cwd", return_value=workspace),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            main(["init"])
+
+        self.assertTrue((workspace / ".env").exists())
+        self.assertIn("Lilbot init", stdout.getvalue())
+        self.assertIn(str(app_home / "models" / "default"), stdout.getvalue())
+        self.assertEqual(stderr.getvalue(), "")

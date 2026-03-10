@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import logging
 import os
 import re
@@ -18,9 +19,23 @@ from lilbot.cli.agent import (
     maybe_answer_without_llm,
     run_agent,
 )
-from lilbot.llm.provider import LLMProvider, ProviderConfig, build_provider
-from lilbot.memory.memory import load_session_history, save_session_exchange
+from lilbot.llm.provider import EchoProvider, LLMProvider, ProviderConfig, build_provider
+from lilbot.memory.memory import (
+    get_legacy_store_path,
+    get_store_path,
+    load_session_history,
+    save_session_exchange,
+)
+from lilbot.paths import (
+    app_data_dir,
+    configured_model_path,
+    default_model_dir,
+    ensure_app_directories,
+    is_complete_model_path,
+    resolve_default_model_path,
+)
 from lilbot.tools import ALL_TOOL_DEFS, execute_tool
+from lilbot.tools.filesystem import get_workspace_root
 
 
 LOGGER = logging.getLogger("lilbot")
@@ -29,6 +44,9 @@ VALID_DEVICES = ("auto", "cpu", "cuda")
 NON_PERSISTENT_ASSISTANT_RESPONSES = {
     "(echo provider) No model configured.",
 }
+NON_PERSISTENT_ASSISTANT_PREFIXES = (
+    "No local model is configured yet, so Lilbot can only run deterministic features right now.",
+)
 NON_PERSISTENT_ASSISTANT_PATTERN = re.compile(r"^\s*(?:\[\]|\{\}|null|\(empty response\))\s*$", re.IGNORECASE)
 NON_PERSISTENT_PROTOCOL_PATTERN = re.compile(
     r"^\s*(?:<\|(?:assistant|user|system)\|>\s*)*(?:FINAL:|TOOL:)",
@@ -52,19 +70,7 @@ class LLMRunResult:
 
 
 def _default_model_path() -> str | None:
-    candidates: list[Path] = []
-    env_path = os.getenv("LILBOT_MODEL_PATH") or os.getenv("TEXT_MODEL_PATH")
-    if env_path:
-        candidates.append(Path(env_path).expanduser())
-
-    package_model = Path(__file__).resolve().parents[1] / "models" / "falcon3_10b_instruct"
-    candidates.append(package_model)
-    candidates.append(Path.cwd() / "lilbot" / "models" / "falcon3_10b_instruct")
-
-    for path in candidates:
-        if path.exists():
-            return str(path.resolve())
-    return None
+    return resolve_default_model_path()
 
 
 def _bool_env(name: str, default: bool = False) -> bool:
@@ -119,10 +125,11 @@ def _backend_env(default: str = "auto") -> str:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lilbot",
-        description="Local LLM CLI with direct ! commands.",
+        description="Local-first CLI assistant with deterministic tools and optional local-model replies.",
         epilog=(
             "Prefix commands: !help, !ls [path], !read <file>, !sys, !note <text>, "
-            "!notes [query], !remember <text>, !profile [query], !history [query]"
+            "!notes [query], !remember <text>, !profile [query], !history [query], "
+            "!doctor, !init"
         ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -210,10 +217,16 @@ def main(argv: Sequence[str] | None = None) -> None:
     llm_error: str | None = None
     session_id = args.session_id.strip() or "default"
     os.environ["LILBOT_SESSION_ID"] = session_id
-    session_history = [
-        ConversationMessage(str(message["role"]), str(message["content"]))
-        for message in load_session_history(session_id, limit=args.history_messages)
-    ]
+    session_history: list[ConversationMessage] | None = None
+
+    def get_session_history() -> list[ConversationMessage]:
+        nonlocal session_history
+        if session_history is None:
+            session_history = [
+                ConversationMessage(str(message["role"]), str(message["content"]))
+                for message in load_session_history(session_id, limit=args.history_messages)
+            ]
+        return session_history
 
     # Load the model only when a prompt actually needs the LLM.
     def get_llm() -> LLMProvider | None:
@@ -235,13 +248,15 @@ def main(argv: Sequence[str] | None = None) -> None:
                     do_sample=args.sample,
                 )
             )
-            _print_error(llm.runtime_summary)
-            for message in llm.load_warnings:
-                _print_error(message)
+            if not isinstance(llm, EchoProvider):
+                _print_error(llm.runtime_summary)
+                for message in llm.load_warnings:
+                    _print_error(message)
         except Exception as exc:
             llm_error = f"Failed to initialize LLM backend: {exc}"
             LOGGER.error("LLM backend initialization failed: %s", exc)
             _print_error(llm_error)
+            _print_error("Run `python -m lilbot doctor` for setup guidance.")
             return None
         return llm
 
@@ -254,7 +269,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         direct_response = _run_direct_agent_request(
             user_request=args.prompt,
             session_id=session_id,
-            history=session_history,
+            history=get_session_history(),
             history_limit=args.history_messages,
         )
         if direct_response is not None:
@@ -265,13 +280,16 @@ def main(argv: Sequence[str] | None = None) -> None:
         provider = get_llm()
         if provider is None:
             return
+        if isinstance(provider, EchoProvider):
+            _render_llm_result(_run_no_model_request(args.prompt))
+            return
 
         response = _run_llm_request(
             provider,
             user_request=args.prompt,
             system_prompt=args.system,
             session_id=session_id,
-            history=session_history,
+            history=get_session_history(),
             history_limit=args.history_messages,
             max_steps=args.max_agent_steps,
             stream=args.stream,
@@ -309,7 +327,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         direct_response = _run_direct_agent_request(
             user_request=user_request,
             session_id=session_id,
-            history=session_history,
+            history=get_session_history(),
             history_limit=args.history_messages,
         )
         if direct_response is not None:
@@ -319,7 +337,10 @@ def main(argv: Sequence[str] | None = None) -> None:
 
         provider = get_llm()
         if provider is None:
-            print("\nLLM unavailable. Fix the model configuration and restart lilbot.\n")
+            print("\nLLM unavailable. Run `python -m lilbot doctor` and retry.\n")
+            continue
+        if isinstance(provider, EchoProvider):
+            _render_llm_result(_run_no_model_request(user_request))
             continue
 
         response = _run_llm_request(
@@ -327,7 +348,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             user_request=user_request,
             system_prompt=args.system,
             session_id=session_id,
-            history=session_history,
+            history=get_session_history(),
             history_limit=args.history_messages,
             max_steps=args.max_agent_steps,
             stream=args.stream,
@@ -402,6 +423,11 @@ def _run_direct_agent_request(
     )
     if result is None:
         return None
+    return LLMRunResult(result, elapsed, streamed=False)
+
+
+def _run_no_model_request(user_request: str) -> LLMRunResult:
+    result, elapsed = _generate_with_timing(lambda: _no_model_configured_response(user_request))
     return LLMRunResult(result, elapsed, streamed=False)
 
 
@@ -555,6 +581,133 @@ def _handle_history(args: list[str]) -> str:
     return execute_tool("search_history", params)
 
 
+def _handle_doctor(args: list[str]) -> str:
+    if args:
+        return "Usage: !doctor"
+
+    configured_path = configured_model_path()
+    resolved_path = _default_model_path()
+    default_path = default_model_dir()
+    memory_db_path = get_store_path()
+    legacy_json_path = get_legacy_store_path()
+
+    lines = [
+        "Lilbot doctor",
+        f"Workspace root: {get_workspace_root()}",
+        f"App data directory: {app_data_dir()}",
+        f"Memory DB: {_describe_path(memory_db_path, create_hint='created on first write')}",
+        f"Legacy import file: {_describe_path(legacy_json_path, create_hint='optional legacy import source')}",
+    ]
+
+    if configured_path:
+        config_status = "ready" if is_complete_model_path(configured_path) else "not a complete model directory"
+        lines.append(f"Configured model path: {Path(configured_path).expanduser()} ({config_status})")
+    else:
+        lines.append("Configured model path: (not set)")
+
+    lines.append(
+        f"Default model directory: {default_path} "
+        f"({'ready' if is_complete_model_path(default_path) else 'empty'})"
+    )
+
+    if resolved_path:
+        lines.append(f"Model auto-discovery target: {resolved_path}")
+    else:
+        lines.append("Model auto-discovery target: (none)")
+
+    lines.extend(
+        (
+            "Dependency check:",
+            f"- python-dotenv: {_module_status('dotenv')}",
+            f"- psutil: {_module_status('psutil')}",
+            f"- torch: {_module_status('torch')}",
+            f"- transformers: {_module_status('transformers')}",
+            f"- accelerate: {_module_status('accelerate')}",
+            f"- bitsandbytes: {_module_status('bitsandbytes')}",
+        )
+    )
+
+    lines.extend(
+        (
+            "Next steps:",
+            f"- Run `python -m lilbot init` to create local data directories{_init_env_suffix()}.",
+            "- Install local-model support with `pip install -e \".[hf]\"`.",
+            '- Use `pip install -e ".[hf,quantization]"` if you want 4-bit GPU loading.',
+            f"- Point `LILBOT_MODEL_PATH` at a local model directory, or place one at {default_path}.",
+            '- Try a deterministic demo now: `python -m lilbot "what files are in this project?"`.',
+        )
+    )
+    return "\n".join(lines)
+
+
+def _handle_init(args: list[str]) -> str:
+    if args:
+        return "Usage: !init"
+
+    created_directories = ensure_app_directories()
+    env_example = Path.cwd() / ".env.example"
+    env_path = Path.cwd() / ".env"
+    env_message: str
+
+    if env_path.exists():
+        env_message = f"Local config already exists: {env_path}"
+    elif env_example.is_file():
+        env_path.write_text(env_example.read_text(encoding="utf-8"), encoding="utf-8")
+        env_message = f"Created local config from template: {env_path}"
+    else:
+        env_message = "No .env.example found in the current directory, so no local config file was created."
+
+    lines = [
+        "Lilbot init",
+        *[f"Prepared directory: {directory}" for directory in created_directories],
+        env_message,
+        f"Recommended model directory: {default_model_dir()}",
+        f"Memory DB path: {get_store_path()}",
+        "Next steps:",
+        "- Install base CLI dependencies with `pip install -e .`.",
+        "- Install local-model support with `pip install -e \".[hf]\"`.",
+        f"- Put a model under {default_model_dir()} or set `LILBOT_MODEL_PATH`.",
+        "- Run `python -m lilbot doctor` to verify the setup.",
+        '- Try a deterministic demo: `python -m lilbot "what files are in this project?"`.',
+    ]
+    return "\n".join(lines)
+
+
+def _describe_path(path: Path, *, create_hint: str) -> str:
+    resolved = path.expanduser()
+    if resolved.exists():
+        return f"{resolved} (exists)"
+    return f"{resolved} ({create_hint})"
+
+
+def _module_status(module_name: str) -> str:
+    return "installed" if importlib.util.find_spec(module_name) is not None else "missing"
+
+
+def _init_env_suffix() -> str:
+    return " and copy `.env.example` into `.env` when available"
+
+
+def _no_model_configured_response(user_request: str) -> str:
+    del user_request
+    return "\n".join(
+        (
+            "No local model is configured yet, so Lilbot can only run deterministic features right now.",
+            "",
+            "Try one of these now:",
+            '- `python -m lilbot "what files are in this project?"`',
+            '- `python -m lilbot note "buy milk"`',
+            '- `python -m lilbot "what notes do I have?"`',
+            "",
+            "Next steps:",
+            "- `python -m lilbot doctor`",
+            "- `python -m lilbot init`",
+            '- `pip install -e ".[hf]"`',
+            f"- Set `LILBOT_MODEL_PATH` to a local model directory, or place one at `{default_model_dir()}`.",
+        )
+    )
+
+
 def _print_error(message: str) -> None:
     print(f"[lilbot] {message}", file=sys.stderr)
 
@@ -578,6 +731,8 @@ def _should_persist_assistant_response(response: str) -> bool:
         return False
     if stripped in NON_PERSISTENT_ASSISTANT_RESPONSES:
         return False
+    if any(stripped.startswith(prefix) for prefix in NON_PERSISTENT_ASSISTANT_PREFIXES):
+        return False
     if NON_PERSISTENT_PROTOCOL_PATTERN.match(stripped) is not None:
         return False
     return NON_PERSISTENT_ASSISTANT_PATTERN.fullmatch(stripped) is None
@@ -595,6 +750,8 @@ PREFIX_COMMANDS = {
         PrefixCommand("remember", "!remember <text>", "Save a durable personal memory.", _handle_remember),
         PrefixCommand("profile", "!profile [query]", "List or search saved personal profile memories.", _handle_profile),
         PrefixCommand("history", "!history [query]", "List recent session history or search earlier conversation.", _handle_history),
+        PrefixCommand("doctor", "!doctor", "Show setup checks and next steps.", _handle_doctor),
+        PrefixCommand("init", "!init", "Prepare local data directories and optional .env.", _handle_init),
     )
 }
 

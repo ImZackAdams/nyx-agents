@@ -11,6 +11,8 @@ import re
 import sqlite3
 from typing import Any, Iterator
 
+from lilbot.paths import default_legacy_memory_json_path, default_memory_db_path
+
 
 DEFAULT_NOTE_LIMIT = 10
 DEFAULT_SESSION_LIMIT = 12
@@ -45,14 +47,14 @@ def get_store_path() -> Path:
     configured_path = os.getenv(MEMORY_DB_ENV)
     if configured_path:
         return Path(configured_path).expanduser().resolve()
-    return Path(__file__).with_name("memory_store.db")
+    return default_memory_db_path()
 
 
 def get_legacy_store_path() -> Path:
     configured_path = os.getenv(LEGACY_JSON_ENV)
     if configured_path:
         return Path(configured_path).expanduser().resolve()
-    return Path(__file__).with_name("memory_store.json")
+    return default_legacy_memory_json_path()
 
 
 @contextmanager

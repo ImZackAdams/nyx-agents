@@ -1,70 +1,70 @@
 # Lilbot
 
-`lilbot` is a local-first CLI assistant that can inspect your workspace, remember stable facts about you, and use local tools before it answers.
+`lilbot` is a local-first CLI assistant for two jobs:
 
-It sits in a practical middle ground:
+- inspect the workspace you are currently in
+- remember durable notes, profile facts, and session history locally
 
-- more useful than a plain local chatbot
-- simpler and safer than a fully autonomous agent
-- especially good at workspace inspection, personal memory, and session continuity
+It is intentionally narrower than a coding agent. The point is to be useful fast, stay understandable, and still get better when you add a local model.
 
-For the full operating guide, examples, troubleshooting, and extension notes, see [HOWTOUSE.md](HOWTOUSE.md).
+## Why It Is Different
 
-## What Lilbot Is Good At
-
-Lilbot currently shines in four areas:
-
-- `Local workspace help`
-  Read files, list directories, summarize a repository, and answer questions grounded in the current workspace.
-- `Memory-first assistance`
-  Keep durable profile memories, general notes, and session history in SQLite.
-- `Deterministic command handling`
-  Built-in `!` commands bypass the model and run local tools directly.
-- `Model-assisted tool use`
-  For normal prompts, the LLM can inspect files, search notes, search profile memory, search session history, and then answer.
+- `Useful before model setup`
+  Deterministic commands and direct-answer routes work without `torch`, `transformers`, or a configured model.
+- `Local by default`
+  Workspace inspection stays inside the workspace root, and memory stays on your machine.
+- `Transparent tool use`
+  When Lilbot uses a tool, it prints the tool call to `stderr`.
+- `Small enough to extend`
+  The runtime is a compact Python CLI with explicit tool definitions and regression tests.
 
 ## Quick Start
 
-Create a virtual environment and install dependencies:
+Install the base CLI:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e .
+python -m lilbot init
 ```
 
-Optional CUDA quantization support:
+Try the no-model flow immediately:
 
 ```bash
-pip install bitsandbytes
+python -m lilbot "what files are in this project?"
+python -m lilbot note "buy milk"
+python -m lilbot "what notes do I have?"
+python -m lilbot doctor
 ```
 
-Start the interactive CLI:
+Add local-model support only when you want it:
 
 ```bash
-python3 -m lilbot
+pip install -e ".[hf]"
 ```
 
-Run a one-shot prompt:
+Add 4-bit GPU quantization support:
 
 ```bash
-python3 -m lilbot --prompt "Summarize this repository"
+pip install -e ".[hf,quantization]"
 ```
 
-Use an inline request without `--prompt`:
+## First Run Experience
 
-```bash
-python3 -m lilbot "What do you know about me?"
-python3 -m lilbot ls
-python3 -m lilbot read README.md
-```
+If no model is configured, Lilbot does not dump a useless placeholder anymore. It gives setup guidance and points you toward deterministic features that already work.
 
-## Killer Demo
+Two commands matter on day one:
 
-One short session shows what Lilbot is for:
+- `python -m lilbot init`
+  Creates Lilbot's user data directories and copies `.env.example` to `.env` when a template exists in the current directory.
+- `python -m lilbot doctor`
+  Shows workspace root, memory paths, model path status, dependency checks, and next steps.
+
+## A Short Demo
 
 ```text
-$ python3 -m lilbot
+$ python -m lilbot
 Request (or 'exit'): my name is Zack
 [lilbot] tool save_profile_memory {"category": "name", "text": "name: Zack"}
 
@@ -72,39 +72,23 @@ Okay. I'll remember that your name is Zack.
 
 Request (or 'exit'): what is my name?
 [lilbot] tool search_profile {"limit": 8, "query": "name"}
-[lilbot] tool search_notes {"limit": 5, "query": "name"}
-[lilbot] tool search_history {"limit": 6, "query": "name", "session_id": "default"}
 
 Your name appears to be Zack.
 
-Request (or 'exit'): summarize this repo
+Request (or 'exit'): what files are in this project?
 [lilbot] tool list_files {"max_entries": 50, "path": "."}
 
-This repository appears to be a Python CLI project. The main application code lives in `lilbot/`.
+.env.example
+README.md
+lilbot/
+tests/
 ```
 
-That is the core loop: remember something durable, retrieve it deterministically later, and inspect the local repo when a prompt depends on local files.
+## Core Workflows
 
-## First Examples
+### 1. Deterministic Commands
 
-```bash
-python3 -m lilbot "what is in this directory?"
-python3 -m lilbot "summarize this repo"
-python3 -m lilbot "my name is Zack"
-python3 -m lilbot "what is my name?"
-python3 -m lilbot "what do you know about me?"
-python3 -m lilbot --session-id work "what did we decide earlier?"
-```
-
-## Interaction Model
-
-Lilbot has three practical lanes:
-
-### 1. Prefix Commands
-
-Commands that begin with `!` run local handlers directly.
-
-Available commands:
+Commands starting with `!` skip the model entirely.
 
 - `!help`
 - `!ls [path]`
@@ -115,210 +99,93 @@ Available commands:
 - `!remember <text>`
 - `!profile [query]`
 - `!history [query]`
+- `!doctor`
+- `!init`
 
-These do not require the model.
+These also work as inline commands:
+
+```bash
+python -m lilbot ls
+python -m lilbot read README.md
+python -m lilbot notes groceries
+```
 
 ### 2. Deterministic Direct Answers
 
-Some requests are answered without model generation when local logic is enough. Examples include:
+Some natural-language requests bypass model generation because local logic is already enough.
 
-- profile lookups such as `what is my name?`
-- profile summaries such as `what do you know about me?`
-- repository and directory listing summaries
-- session-id questions
-- assistant identity questions such as `what is your name?`
+Examples:
 
-This keeps common workflows fast and reduces model sloppiness.
+- `what is my name?`
+- `what do you know about me?`
+- `what is my session id?`
+- `what is in this directory?`
+- `summarize this repo`
 
 ### 3. Agent Mode
 
-Everything else goes through the agent loop. The model can choose a local tool, see the result, and continue until it returns a final answer.
+If a request is not satisfied by the first two lanes, Lilbot can use a local model plus a small tool surface:
 
-Lilbot prints tool activity to `stderr` as it happens so you can see what the agent is doing.
+- file listing
+- file reading
+- notes save/search
+- profile save/search
+- session-history search
+- system info
 
-## Agent Loop Architecture
-
-The runtime path is intentionally small and explicit:
+The protocol is deliberately tiny:
 
 ```text
-user request
-   |
-   v
-lilbot/cli/main.py
-   |
-   +--> prefix command? ------------------> local handler --> output
-   |
-   +--> deterministic direct answer? ----> local policy --> output
-   |
-   +--> agent mode
-           |
-           v
-      lilbot/cli/agent.py
-           |
-           +--> prefetch local context
-           |      - profile memory
-           |      - notes
-           |      - session history
-           |
-           +--> build prompt
-           |      - lilbot/cli/_agent_prompting.py
-           |
-           +--> model response parser
-           |      - lilbot/cli/_agent_protocol.py
-           |
-           +--> TOOL request? ---------> lilbot/tools/__init__.py
-           |                                |
-           |                                +--> filesystem tools
-           |                                +--> notes tools
-           |                                +--> profile tools
-           |                                +--> history tools
-           |                                +--> system tools
-           |                                         |
-           |                                         v
-           |                                  lilbot/memory/memory.py
-           |
-           +--> observation appended
-           |
-           +--> FINAL answer or deterministic fallback
+FINAL: <answer>
+TOOL: <tool_name> <json object>
 ```
 
-The main responsibilities are split like this:
+## Installation Notes
 
-- `lilbot/cli/main.py`
-  CLI entrypoint, REPL, one-shot mode, prefix-command routing, provider loading
-- `lilbot/cli/agent.py`
-  agent loop orchestration
-- `lilbot/cli/_agent_policy.py`
-  deterministic routing, memory-prefetch heuristics, and fallback behavior
-- `lilbot/cli/_agent_prompting.py`
-  the prompt that tells the model how to use tools
-- `lilbot/cli/_agent_protocol.py`
-  parsing and stream normalization for `FINAL:` / `TOOL:`
-- `lilbot/tools/`
-  deterministic local tools
-- `lilbot/memory/memory.py`
-  SQLite-backed storage for notes, profile memory, and session history
+The base install is intentionally light:
 
-## Memory Model
+- `python-dotenv`
+- `psutil`
 
-Lilbot stores three kinds of memory:
+Model dependencies are optional:
 
-| Memory Type | Purpose | Typical Examples |
-| --- | --- | --- |
-| `Profile memory` | Stable facts about you | name, timezone, preferences, goals |
-| `Notes` | Durable general notes | reminders, project facts, shopping items |
-| `Session history` | Prior messages inside a named conversation | "what did we decide earlier?" |
+- `.[hf]` adds `torch`, `transformers`, and `accelerate`
+- `.[hf,quantization]` also adds `bitsandbytes`
 
-Default storage is SQLite at `lilbot/memory/memory_store.db`.
+This makes `pip install -e .` or `pipx install .` practical for people who want the CLI and deterministic workflows first.
 
-Profile memory is intended for "about me" facts. Notes are broader and better for reminders or reference material. Session history preserves recent conversational context within a session.
+## Storage Defaults
 
-## Tool Surface
+Lilbot no longer stores state inside the package directory by default.
 
-Lilbot currently exposes these tool families:
+- memory defaults to the OS app-data directory
+- on Linux that is typically `~/.local/share/lilbot/`
+- the default SQLite database lives under `memory/memory_store.db`
+- the default model directory is `models/default`
+- if the OS app-data directory is unavailable, Lilbot falls back to `.lilbot/` in the current working directory
 
-| Tool | Purpose |
-| --- | --- |
-| `list_files` | List directory contents under the workspace root |
-| `read_file` | Read a text file under the workspace root |
-| `system_info` | Show OS, Python version, cwd, and optional CPU/RAM usage |
-| `save_note` / `search_notes` | Store and retrieve general notes |
-| `save_profile_memory` / `search_profile` | Store and retrieve personal profile memory |
-| `search_history` | Retrieve prior conversation from the current session |
-
-The current toolset is intentionally read-oriented. Lilbot does not yet edit files, run arbitrary shell commands, or delete memory entries.
-
-## Safety and Boundaries
-
-Lilbot is designed to stay understandable:
-
-- file access is restricted to the workspace root
-- profile, note, and history retrieval are local only
-- repeated identical tool calls are blocked
-- malformed protocol responses are normalized where possible
-- deterministic fallbacks are used for directory listings, repo summaries, and similar fragile prompts
-- personal-fact answers are grounded in saved profile memory, notes, or history instead of guessing
-
-## Model and Backend
-
-Lilbot supports three backend modes:
-
-- `auto`
-  Use the local Hugging Face backend if a model path is available, otherwise fall back to the lightweight echo backend.
-- `hf`
-  Require a local Hugging Face model path.
-- `echo`
-  Use a placeholder provider for CLI and testing flows.
-
-If `lilbot/models/falcon3_10b_instruct` exists, Lilbot will use it automatically as the default local model path.
-
-The default response budget is `96` new tokens. This is a compromise between latency and avoiding clipped conversational replies. Increase it when you want fuller answers:
+You can override these with:
 
 ```bash
-python3 -m lilbot --max-new-tokens 160 "Explain how the CLI works"
+LILBOT_HOME=
+LILBOT_MEMORY_DB_PATH=
+LILBOT_MEMORY_JSON_PATH=
+LILBOT_MODEL_PATH=
 ```
 
-## Configuration
+## Current Boundaries
 
-Lilbot loads `.env` automatically when `python-dotenv` is available.
+Lilbot is intentionally read-heavy and local.
 
-Common environment variables:
-
-```bash
-LILBOT_BACKEND=auto
-LILBOT_MODEL_PATH=/path/to/model
-LILBOT_DEVICE=auto
-LILBOT_MAX_NEW_TOKENS=96
-LILBOT_QUANTIZE_4BIT=1
-LILBOT_DO_SAMPLE=0
-LILBOT_STREAM=1
-LILBOT_MAX_AGENT_STEPS=4
-LILBOT_HISTORY_MESSAGES=8
-LILBOT_SESSION_ID=default
-LILBOT_SYSTEM_PROMPT=
-LILBOT_LOG_LEVEL=WARNING
-LILBOT_WORKSPACE_ROOT=/path/to/workspace
-LILBOT_MEMORY_DB_PATH=/path/to/memory_store.db
-LILBOT_MEMORY_JSON_PATH=/path/to/legacy_memory_store.json
-```
-
-Useful defaults and behaviors:
-
-- greedy decoding is the default
-- streaming is enabled by default
-- `--device cpu` is supported for CPU-only machines
-- `--quantize-4bit` only matters when CUDA and `bitsandbytes` are available
-- session history is grouped by `session_id`
-- the legacy JSON notes file is imported automatically on first use if present
-
-## Repository Layout
-
-Important directories and files:
-
-- `lilbot/cli/`
-  CLI entrypoint, routing, prompting, protocol parsing, and agent loop
-- `lilbot/tools/`
-  Deterministic local tools
-- `lilbot/memory/`
-  SQLite-backed notes, profile memory, and session history
-- `lilbot/llm/provider.py`
-  Backend selection and local Hugging Face loading
-- `tests/`
-  Regression coverage for CLI, agent behavior, provider selection, and memory
-
-## Current Limitations
-
-Lilbot is intentionally narrow. It does not currently provide:
+It does not currently provide:
 
 - web browsing
 - arbitrary shell execution
 - file editing
-- note/profile deletion commands
 - long-horizon autonomous planning
+- note/profile deletion commands
 
-Its quality is also still heavily tied to the local model you run.
-
-## Verification
+## Development
 
 Run the regression suite:
 
@@ -326,9 +193,21 @@ Run the regression suite:
 python -m unittest discover -s tests -v
 ```
 
-## Related Docs
+Important files:
 
+- `lilbot/cli/main.py`
+- `lilbot/cli/agent.py`
+- `lilbot/cli/_agent_policy.py`
+- `lilbot/cli/_agent_protocol.py`
+- `lilbot/llm/provider.py`
+- `lilbot/memory/memory.py`
+- `lilbot/tools/`
+
+## Project Docs
+
+- [GETTING_STARTED.md](GETTING_STARTED.md)
 - [HOWTOUSE.md](HOWTOUSE.md)
+- [ROADMAP.md](ROADMAP.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [.env.example](.env.example)
 

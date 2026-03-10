@@ -86,23 +86,36 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-Install dependencies:
+Install the base CLI:
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
+```
+
+Run the setup helpers:
+
+```bash
+python -m lilbot init
+python -m lilbot doctor
+```
+
+That gives you the deterministic CLI experience without the heavyweight local-model stack.
+
+## Local Model Setup
+
+Lilbot uses a local Hugging Face model backend when it can find a model path.
+
+Install the optional local-model dependencies:
+
+```bash
+pip install -e ".[hf]"
 ```
 
 Optional CUDA quantization support:
 
 ```bash
-pip install bitsandbytes
+pip install -e ".[hf,quantization]"
 ```
-
-`python-dotenv` is included by the main requirements, so `.env` loading works after a normal install.
-
-## Local Model Setup
-
-Lilbot uses a local Hugging Face model backend when it can find a model path.
 
 Provide a model path explicitly:
 
@@ -116,9 +129,9 @@ Or:
 python3 -m lilbot --model-path /path/to/local/model
 ```
 
-If `lilbot/models/falcon3_10b_instruct` exists, Lilbot will use it automatically by default.
+Or place a complete model directory in Lilbot's default app-data model path and rerun `python -m lilbot doctor`.
 
-If no model path is available, Lilbot falls back to the lightweight echo backend. That is useful for CLI and test flows, but not for real answers.
+If no model path is available, Lilbot stays useful for deterministic commands and direct local answers, and it shows setup guidance instead of a placeholder response.
 
 ## Configuration
 
@@ -129,6 +142,7 @@ The project includes an [.env.example](.env.example) showing the supported envir
 Common configuration:
 
 ```bash
+LILBOT_HOME=
 LILBOT_BACKEND=auto
 LILBOT_MODEL_PATH=
 TEXT_MODEL_PATH=
@@ -151,7 +165,7 @@ LILBOT_MEMORY_JSON_PATH=
 
 `LILBOT_BACKEND`
 
-- `auto`: prefer the local Hugging Face backend, otherwise use echo
+- `auto`: prefer the local Hugging Face backend, otherwise use setup guidance plus deterministic features
 - `hf`: require a real local model
 - `echo`: never load a real model
 
@@ -171,7 +185,7 @@ LILBOT_MEMORY_JSON_PATH=
 `LILBOT_QUANTIZE_4BIT`
 
 - only matters for CUDA-backed Hugging Face inference
-- requires `bitsandbytes`
+- requires the `quantization` extra or a manual `bitsandbytes` install
 
 `LILBOT_DO_SAMPLE`
 
@@ -199,6 +213,12 @@ LILBOT_MEMORY_JSON_PATH=
 
 - restricts file tools to a chosen root
 - defaults to the directory where Lilbot starts
+
+`LILBOT_HOME`
+
+- overrides Lilbot's OS-level app data directory
+- on Linux, the default is typically `~/.local/share/lilbot`
+- memory and the default model directory both live under this root unless you override them directly
 
 ## Starting Lilbot
 
@@ -241,6 +261,13 @@ python3 -m lilbot profile
 ```
 
 Lilbot rewrites known inline commands such as `ls`, `read`, `notes`, and `profile` into the corresponding deterministic handlers.
+
+Useful first-run commands:
+
+```bash
+python3 -m lilbot init
+python3 -m lilbot doctor
+```
 
 ### Supplying a System Prompt
 
@@ -415,6 +442,28 @@ python3 -m lilbot --session-id work history decision
 ```
 
 This command is always scoped to the active session id.
+
+### `!doctor`
+
+Show setup checks, dependency status, and recommended next steps.
+
+Examples:
+
+```bash
+!doctor
+python3 -m lilbot doctor
+```
+
+### `!init`
+
+Prepare Lilbot's local data directories and copy `.env.example` to `.env` when a template exists in the current directory.
+
+Examples:
+
+```bash
+!init
+python3 -m lilbot init
+```
 
 ## Memory-First Workflows
 
@@ -642,16 +691,18 @@ That forces a clear failure when CUDA is unavailable instead of silently falling
 
 ## Troubleshooting
 
-### I only get `(echo provider) No model configured.`
+### Lilbot says no local model is configured
 
-Lilbot could not find or initialize a real model.
+Lilbot could not find or initialize a complete local model setup.
 
 Check:
 
+- `python3 -m lilbot doctor`
+- `python3 -m lilbot init`
 - `LILBOT_MODEL_PATH`
 - `TEXT_MODEL_PATH`
 - `--model-path`
-- whether `lilbot/models/falcon3_10b_instruct` exists
+- Lilbot's default model directory under its app-data root
 - whether `torch`, `transformers`, and `accelerate` are installed
 
 ### Replies are clipped
