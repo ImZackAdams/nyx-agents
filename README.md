@@ -1,8 +1,8 @@
 # Lilbot
 
-`lilbot` is a local-first CLI assistant built around a local Hugging Face model, a small agent loop, and a set of deterministic local tools.
+`lilbot` is a local-first CLI assistant that can inspect your workspace, remember stable facts about you, and use local tools before it answers.
 
-The project is aimed at a practical middle ground:
+It sits in a practical middle ground:
 
 - more useful than a plain local chatbot
 - simpler and safer than a fully autonomous agent
@@ -59,6 +59,32 @@ python3 -m lilbot ls
 python3 -m lilbot read README.md
 ```
 
+## Killer Demo
+
+One short session shows what Lilbot is for:
+
+```text
+$ python3 -m lilbot
+Request (or 'exit'): my name is Zack
+[lilbot] tool save_profile_memory {"category": "name", "text": "name: Zack"}
+
+Okay. I'll remember that your name is Zack.
+
+Request (or 'exit'): what is my name?
+[lilbot] tool search_profile {"limit": 8, "query": "name"}
+[lilbot] tool search_notes {"limit": 5, "query": "name"}
+[lilbot] tool search_history {"limit": 6, "query": "name", "session_id": "default"}
+
+Your name appears to be Zack.
+
+Request (or 'exit'): summarize this repo
+[lilbot] tool list_files {"max_entries": 50, "path": "."}
+
+This repository appears to be a Python CLI project. The main application code lives in `lilbot/`.
+```
+
+That is the core loop: remember something durable, retrieve it deterministically later, and inspect the local repo when a prompt depends on local files.
+
 ## First Examples
 
 ```bash
@@ -109,6 +135,69 @@ This keeps common workflows fast and reduces model sloppiness.
 Everything else goes through the agent loop. The model can choose a local tool, see the result, and continue until it returns a final answer.
 
 Lilbot prints tool activity to `stderr` as it happens so you can see what the agent is doing.
+
+## Agent Loop Architecture
+
+The runtime path is intentionally small and explicit:
+
+```text
+user request
+   |
+   v
+lilbot/cli/main.py
+   |
+   +--> prefix command? ------------------> local handler --> output
+   |
+   +--> deterministic direct answer? ----> local policy --> output
+   |
+   +--> agent mode
+           |
+           v
+      lilbot/cli/agent.py
+           |
+           +--> prefetch local context
+           |      - profile memory
+           |      - notes
+           |      - session history
+           |
+           +--> build prompt
+           |      - lilbot/cli/_agent_prompting.py
+           |
+           +--> model response parser
+           |      - lilbot/cli/_agent_protocol.py
+           |
+           +--> TOOL request? ---------> lilbot/tools/__init__.py
+           |                                |
+           |                                +--> filesystem tools
+           |                                +--> notes tools
+           |                                +--> profile tools
+           |                                +--> history tools
+           |                                +--> system tools
+           |                                         |
+           |                                         v
+           |                                  lilbot/memory/memory.py
+           |
+           +--> observation appended
+           |
+           +--> FINAL answer or deterministic fallback
+```
+
+The main responsibilities are split like this:
+
+- `lilbot/cli/main.py`
+  CLI entrypoint, REPL, one-shot mode, prefix-command routing, provider loading
+- `lilbot/cli/agent.py`
+  agent loop orchestration
+- `lilbot/cli/_agent_policy.py`
+  deterministic routing, memory-prefetch heuristics, and fallback behavior
+- `lilbot/cli/_agent_prompting.py`
+  the prompt that tells the model how to use tools
+- `lilbot/cli/_agent_protocol.py`
+  parsing and stream normalization for `FINAL:` / `TOOL:`
+- `lilbot/tools/`
+  deterministic local tools
+- `lilbot/memory/memory.py`
+  SQLite-backed storage for notes, profile memory, and session history
 
 ## Memory Model
 
