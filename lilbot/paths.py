@@ -50,6 +50,10 @@ def default_legacy_memory_json_path() -> Path:
     return app_data_dir() / "memory" / "memory_store.json"
 
 
+def default_session_dir() -> Path:
+    return app_data_dir() / "sessions"
+
+
 def default_model_dir() -> Path:
     return app_data_dir() / "models" / "default"
 
@@ -109,7 +113,7 @@ def _model_search_candidates() -> tuple[Path, ...]:
 def ensure_app_directories() -> list[Path]:
     directories = [
         app_data_dir(),
-        default_memory_db_path().parent,
+        default_session_dir(),
         default_model_dir(),
     ]
     for directory in directories:

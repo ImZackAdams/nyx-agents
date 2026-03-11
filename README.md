@@ -1,216 +1,119 @@
 # Lilbot
 
-`lilbot` is a local-first CLI assistant for two jobs:
+`lilbot` is a minimal local LLM and agent framework for the terminal.
 
-- inspect the workspace you are currently in
-- remember durable notes, profile facts, and session history locally
+It keeps only the core pieces:
 
-It is intentionally narrower than a coding agent. The point is to be useful fast, stay understandable, and still get better when you add a local model.
+- a CLI chat interface
+- a local model provider layer
+- a small agent loop with tool calling
+- lightweight session history
+- a few workspace-safe built-in tools
 
-## Why It Is Different
+## Core Components
 
-- `Useful before model setup`
-  Deterministic commands and direct-answer routes work without `torch`, `transformers`, or a configured model.
-- `Local by default`
-  Workspace inspection stays inside the workspace root, and memory stays on your machine.
-- `Transparent tool use`
-  When Lilbot uses a tool, it prints the tool call to `stderr`.
-- `Small enough to extend`
-  The runtime is a compact Python CLI with explicit tool definitions and regression tests.
+- `lilbot/cli/main.py`
+  The terminal interface. Handles `chat`, one-shot prompts, model inspection, doctor output, and direct `!` commands.
+- `lilbot/cli/agent.py`
+  The generic agent loop. The model must answer with `FINAL:` or `TOOL:`.
+- `lilbot/llm/provider.py`
+  Provider abstraction plus the local Hugging Face backend.
+- `lilbot/core/session_store.py`
+  JSONL-backed chat history.
+- `lilbot/tools/`
+  Built-in tools for listing files, reading files, writing files, and getting basic system info.
 
 ## Quick Start
-
-Install the base CLI:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
-python -m lilbot init
-```
-
-Try the no-model flow immediately:
-
-```bash
-python -m lilbot "what files are in this project?"
-python -m lilbot note "buy milk"
-python -m lilbot "what notes do I have?"
 python -m lilbot doctor
+python -m lilbot tools
+python -m lilbot
 ```
 
-Add local-model support only when you want it:
+For local model support:
 
 ```bash
 pip install -e ".[hf]"
+export LILBOT_MODEL_PATH=/path/to/local/model
+python -m lilbot models
 ```
 
-Add 4-bit GPU quantization support:
+Optional 4-bit GPU support:
 
 ```bash
 pip install -e ".[hf,quantization]"
 ```
 
-## First Run Experience
+## CLI Surface
 
-If no model is configured, Lilbot does not dump a useless placeholder anymore. It gives setup guidance and points you toward deterministic features that already work.
-
-Two commands matter on day one:
-
-- `python -m lilbot init`
-  Creates Lilbot's user data directories and copies `.env.example` to `.env` when a template exists in the current directory.
-- `python -m lilbot doctor`
-  Shows workspace root, memory paths, model path status, dependency checks, and next steps.
-
-## A Short Demo
-
-```text
-$ python -m lilbot
-Request (or 'exit'): my name is Zack
-[lilbot] tool save_profile_memory {"category": "name", "text": "name: Zack"}
-
-Okay. I'll remember that your name is Zack.
-
-Request (or 'exit'): what is my name?
-[lilbot] tool search_profile {"limit": 8, "query": "name"}
-
-Your name appears to be Zack.
-
-Request (or 'exit'): what files are in this project?
-[lilbot] tool list_files {"max_entries": 50, "path": "."}
-
-.env.example
-README.md
-lilbot/
-tests/
-```
-
-## Core Workflows
-
-### 1. Deterministic Commands
-
-Commands starting with `!` skip the model entirely.
-
-- `!help`
-- `!ls [path]`
-- `!read <file>`
-- `!sys`
-- `!note <text>`
-- `!notes [query]`
-- `!remember <text>`
-- `!profile [query]`
-- `!history [query]`
-- `!doctor`
-- `!init`
-
-These also work as inline commands:
+Interactive chat:
 
 ```bash
-python -m lilbot ls
-python -m lilbot read README.md
-python -m lilbot notes groceries
+python -m lilbot
 ```
 
-### 2. Deterministic Direct Answers
+One-shot prompt:
 
-Some natural-language requests bypass model generation because local logic is already enough.
+```bash
+python -m lilbot run "summarize this repository"
+```
 
-Examples:
+Inline prompt:
 
-- `what is my name?`
-- `what do you know about me?`
-- `what is my session id?`
-- `what is in this directory?`
-- `summarize this repo`
+```bash
+python -m lilbot "summarize the README"
+```
 
-### 3. Agent Mode
+Utility commands:
 
-If a request is not satisfied by the first two lanes, Lilbot can use a local model plus a small tool surface:
+```bash
+python -m lilbot tools
+python -m lilbot models
+python -m lilbot doctor
+```
 
-- file listing
-- file reading
-- notes save/search
-- profile save/search
-- session-history search
-- system info
+## Chat Commands
 
-The protocol is deliberately tiny:
+These run without a model:
+
+```text
+!help
+!tools
+!ls [path]
+!read <file>
+!write <file> <text>
+!append <file> <text>
+!sys
+```
+
+Filesystem tools are restricted to `LILBOT_WORKSPACE_ROOT` or the current working directory.
+
+## Agent Protocol
+
+The runtime expects the model to respond with exactly one of these forms:
 
 ```text
 FINAL: <answer>
 TOOL: <tool_name> <json object>
 ```
 
-## Installation Notes
+Built-in tools:
 
-The base install is intentionally light:
+- `list_files`
+- `read_file`
+- `write_file`
+- `system_info`
 
-- `python-dotenv`
-- `psutil`
+## Session History
 
-Model dependencies are optional:
+Lilbot stores chat history locally as JSONL under its app-data directory. Use `--session-id` to keep separate conversations.
 
-- `.[hf]` adds `torch`, `transformers`, and `accelerate`
-- `.[hf,quantization]` also adds `bitsandbytes`
-
-This makes `pip install -e .` or `pipx install .` practical for people who want the CLI and deterministic workflows first.
-
-## Storage Defaults
-
-Lilbot no longer stores state inside the package directory by default.
-
-- memory defaults to the OS app-data directory
-- on Linux that is typically `~/.local/share/lilbot/`
-- the default SQLite database lives under `memory/memory_store.db`
-- the default model directory is `models/default`
-- if the OS app-data directory is unavailable, Lilbot falls back to `.lilbot/` in the current working directory
-
-You can override these with:
-
-```bash
-LILBOT_HOME=
-LILBOT_MEMORY_DB_PATH=
-LILBOT_MEMORY_JSON_PATH=
-LILBOT_MODEL_PATH=
-```
-
-## Current Boundaries
-
-Lilbot is intentionally read-heavy and local.
-
-It does not currently provide:
-
-- web browsing
-- arbitrary shell execution
-- file editing
-- long-horizon autonomous planning
-- note/profile deletion commands
-
-## Development
-
-Run the regression suite:
+## Tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
-
-Important files:
-
-- `lilbot/cli/main.py`
-- `lilbot/cli/agent.py`
-- `lilbot/cli/_agent_policy.py`
-- `lilbot/cli/_agent_protocol.py`
-- `lilbot/llm/provider.py`
-- `lilbot/memory/memory.py`
-- `lilbot/tools/`
-
-## Project Docs
-
-- [GETTING_STARTED.md](GETTING_STARTED.md)
-- [HOWTOUSE.md](HOWTOUSE.md)
-- [ROADMAP.md](ROADMAP.md)
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [.env.example](.env.example)
-
-## License
-
-MIT. See [LICENSE](LICENSE).

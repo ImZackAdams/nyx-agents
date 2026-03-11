@@ -1,4 +1,4 @@
-"""Filesystem tools for lilbot."""
+"""Workspace filesystem tools for lilbot."""
 
 from __future__ import annotations
 
@@ -119,6 +119,31 @@ def read_file(params: Dict[str, Any]) -> str:
     return text
 
 
+def write_file(params: Dict[str, Any]) -> str:
+    path, error = _resolve_workspace_path(params.get("path"))
+    if error:
+        return error
+    assert path is not None
+
+    if path.exists() and not path.is_file():
+        return f"Not a file: {_display_path(path)}"
+
+    content = str(params.get("content", ""))
+    mode = str(params.get("mode", "overwrite")).strip().lower()
+    if mode not in {"overwrite", "append"}:
+        return "Invalid mode. Expected 'overwrite' or 'append'."
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with path.open("a" if mode == "append" else "w", encoding="utf-8") as handle:
+            handle.write(content)
+    except OSError as exc:
+        return f"Unable to write {_display_path(path)}: {exc}"
+
+    action = "Appended" if mode == "append" else "Wrote"
+    return f"{action} {len(content)} characters to {_display_path(path)}"
+
+
 TOOL_DEFS = [
     {
         "name": "list_files",
@@ -139,5 +164,20 @@ TOOL_DEFS = [
         },
         "example": {"path": "README.md", "max_chars": 2000},
         "execute": read_file,
+    },
+    {
+        "name": "write_file",
+        "description": "Write a UTF-8 text file under the workspace root.",
+        "parameters": {
+            "path": "Workspace-relative file path.",
+            "content": "Text content to write.",
+            "mode": "Use 'overwrite' or 'append'.",
+        },
+        "example": {
+            "path": "scratch/todo.txt",
+            "content": "Ship the CLI skeleton.\n",
+            "mode": "overwrite",
+        },
+        "execute": write_file,
     },
 ]

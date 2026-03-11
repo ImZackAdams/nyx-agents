@@ -1,25 +1,24 @@
 # Roadmap
 
-This project is intentionally small. The roadmap is about making Lilbot easier to trust, easier to try, and more useful without turning it into a fully autonomous coding agent.
+Lilbot is now scoped as a small local LLM/agent skeleton.
 
 ## Near Term
 
-- publish a lightweight package install story that does not force local-model dependencies
-- add import, export, and reset commands for notes and profile memory
-- improve `doctor` with model-path validation details and clearer remediation steps
-- document a recommended small-model setup for CPU-only and GPU-backed users
-- add GitHub issue templates, CI, and a short release checklist
+- add an Ollama or llama.cpp provider alongside the Hugging Face backend
+- support richer structured tool schemas
+- improve streaming and interruption handling for longer generations
+- add cleaner session inspection and reset commands
 
-## Product Direction
+## Direction
 
-- keep deterministic workspace inspection strong
-- keep memory local and understandable
-- add capabilities only when the safety boundary stays obvious
-- prefer transparent, testable tool use over broad hidden autonomy
+- keep the runtime local-first
+- keep the tool protocol narrow and testable
+- keep the CLI easy to understand from the source tree
+- add features only when they strengthen the framework core
 
-## Explicitly Out Of Scope For Now
+## Out Of Scope
 
-- web browsing
-- arbitrary shell execution
-- long-horizon autonomous planning
-- silent background actions
+- product-specific workflow layers
+- remote SaaS dependencies by default
+- background automation
+- broad shell execution by default

@@ -544,6 +544,7 @@ def save_profile_memory(text: str, category: str | None = None) -> dict[str, Any
 def search_notes(query: str | None = None, limit: int = DEFAULT_NOTE_LIMIT) -> list[dict[str, Any]]:
     max_results = _coerce_limit(limit)
     clean_query = (query or "").strip()
+    fetch_limit = max(200, max_results)
 
     with _connect() as connection:
         if clean_query and _FTS5_AVAILABLE:
@@ -556,8 +557,10 @@ def search_notes(query: str | None = None, limit: int = DEFAULT_NOTE_LIMIT) -> l
             SELECT id, text, created_at
             FROM notes
             ORDER BY created_at DESC, id DESC
-            LIMIT 200
+            LIMIT ?
             """
+            ,
+            (fetch_limit,),
         ).fetchall()
 
     notes = [dict(row) for row in rows]
@@ -570,6 +573,7 @@ def search_profile_memories(
 ) -> list[dict[str, Any]]:
     max_results = _coerce_limit(limit, default=DEFAULT_PROFILE_LIMIT)
     clean_query = (query or "").strip()
+    fetch_limit = max(200, max_results)
 
     with _connect() as connection:
         if clean_query and _FTS5_AVAILABLE:
@@ -582,8 +586,10 @@ def search_profile_memories(
             SELECT id, category, text, created_at
             FROM profile_memories
             ORDER BY created_at DESC, id DESC
-            LIMIT 200
+            LIMIT ?
             """
+            ,
+            (fetch_limit,),
         ).fetchall()
 
     memories = [dict(row) for row in rows]
@@ -683,3 +689,81 @@ def search_session_history(
         limit=max_results,
         text_key="content",
     )
+
+
+def vault_snapshot(
+    session_id: str | None = None,
+    *,
+    note_limit: int = 5,
+    profile_limit: int = 5,
+    history_limit: int = 6,
+) -> dict[str, Any]:
+    clean_session = str(session_id or "").strip()
+    note_max = _coerce_limit(note_limit)
+    profile_max = _coerce_limit(profile_limit, default=DEFAULT_PROFILE_LIMIT)
+    history_max = _coerce_limit(history_limit, default=DEFAULT_SESSION_LIMIT)
+
+    with _connect() as connection:
+        note_count = int(connection.execute("SELECT COUNT(*) FROM notes").fetchone()[0])
+        profile_count = int(connection.execute("SELECT COUNT(*) FROM profile_memories").fetchone()[0])
+
+        recent_notes = [
+            dict(row)
+            for row in connection.execute(
+                """
+                SELECT id, text, created_at
+                FROM notes
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (note_max,),
+            ).fetchall()
+        ]
+        recent_profile_memories = [
+            dict(row)
+            for row in connection.execute(
+                """
+                SELECT id, category, text, created_at
+                FROM profile_memories
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (profile_max,),
+            ).fetchall()
+        ]
+
+        session_message_count = 0
+        recent_session_history: list[dict[str, Any]] = []
+        if clean_session:
+            session_message_count = int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM session_messages WHERE session_id = ?",
+                    (clean_session,),
+                ).fetchone()[0]
+            )
+            recent_session_history = _filter_session_messages(
+                [
+                    dict(row)
+                    for row in connection.execute(
+                        """
+                        SELECT id, session_id, role, content, created_at
+                        FROM session_messages
+                        WHERE session_id = ?
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT ?
+                        """,
+                        (clean_session, history_max),
+                    ).fetchall()
+                ]
+            )
+            recent_session_history.reverse()
+
+    return {
+        "session_id": clean_session,
+        "note_count": note_count,
+        "profile_count": profile_count,
+        "session_message_count": session_message_count,
+        "recent_notes": recent_notes,
+        "recent_profile_memories": recent_profile_memories,
+        "recent_session_history": recent_session_history,
+    }

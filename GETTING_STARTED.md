@@ -1,8 +1,6 @@
 # Getting Started
 
-Need the full manual after this? Read [HOWTOUSE.md](HOWTOUSE.md).
-
-## 1. Install the base CLI
+## 1. Install
 
 ```bash
 python3 -m venv .venv
@@ -10,39 +8,49 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-This installs the deterministic CLI experience without heavy model dependencies.
-
-## 2. Prepare local state
+## 2. Inspect the local setup
 
 ```bash
-python -m lilbot init
 python -m lilbot doctor
+python -m lilbot tools
 ```
 
-`init` creates Lilbot's user data directories and copies `.env.example` to `.env` when a template exists in the current directory.
+## 3. Start the CLI
 
-`doctor` shows:
-
-- workspace root
-- memory paths
-- configured model path status
-- dependency checks
-- next steps
-
-## 3. Try the no-model workflows
+Interactive chat:
 
 ```bash
-python -m lilbot "what files are in this project?"
-python -m lilbot note "buy milk"
-python -m lilbot "what notes do I have?"
-python -m lilbot "my name is Zack"
-python -m lilbot "what is my name?"
+python -m lilbot
 ```
 
-## 4. Add local-model support when you want it
+One-shot prompt:
+
+```bash
+python -m lilbot run "summarize this repo"
+```
+
+Inline prompt:
+
+```bash
+python -m lilbot "read the README and summarize it"
+```
+
+## 4. Use direct chat commands
+
+```text
+!ls
+!read README.md
+!write notes.txt hello
+!append notes.txt " world"
+!sys
+```
+
+## 5. Add a local model
 
 ```bash
 pip install -e ".[hf]"
+export LILBOT_MODEL_PATH=/path/to/local/model
+python -m lilbot models
 ```
 
 Optional 4-bit GPU support:
@@ -51,21 +59,7 @@ Optional 4-bit GPU support:
 pip install -e ".[hf,quantization]"
 ```
 
-Then point Lilbot at a local model:
-
-```bash
-export LILBOT_MODEL_PATH=/path/to/local/model
-```
-
-Or place one in Lilbot's default app-data model directory and rerun `python -m lilbot doctor`.
-
-## 5. Start the CLI
-
-```bash
-python -m lilbot
-```
-
-## 6. Run the regression suite
+## 6. Run tests
 
 ```bash
 python -m unittest discover -s tests -v

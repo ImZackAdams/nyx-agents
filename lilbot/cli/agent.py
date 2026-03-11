@@ -5,41 +5,14 @@ import json
 import logging
 from typing import Any
 
-from lilbot.cli._agent_policy import (
-    _allow_live_streaming,
-    _append_exchange,
-    _can_use_observation_for_fallback,
-    _coerce_final_answer,
-    _direct_answer,
-    _direct_tool_answer,
-    _fallback_answer,
-    _looks_like_personal_fact_request,
-    _observation_message,
-    _profile_memory_candidate,
-    _prefetch_tool_requests,
-    _relevant_profile_context,
-    _relevant_history_context,
-    _relevant_note_context,
-    _resolve_personal_fact_answer,
-    _save_note_allowed,
-    _should_replace_fallback,
-    _tool_signature,
-    _trim_history,
-)
 from lilbot.cli._agent_prompting import build_agent_prompt
 from lilbot.cli._agent_protocol import StreamState, _final_text, parse_model_response
-from lilbot.cli._agent_types import (
-    ConversationMessage,
-    GeneratesText,
-    ParsedResponse,
-    PrefetchState,
-    TokenCallback,
-)
+from lilbot.cli._agent_types import ConversationMessage, GeneratesText, TokenCallback
 
 
 LOGGER = logging.getLogger("lilbot.agent")
 DEFAULT_AGENT_MAX_STEPS = 4
-DEFAULT_HISTORY_MESSAGES = 8
+DEFAULT_HISTORY_MESSAGES = 12
 
 
 def run_agent(
@@ -56,102 +29,53 @@ def run_agent(
     status_callback: Callable[[str], None] | None = None,
     token_callback: TokenCallback | None = None,
 ) -> str:
-    direct_answer, prefetch_state = _prepare_agent_request(
-        user_request=user_request,
-        session_id=session_id,
-        history=history,
-        history_limit=history_limit,
-        tool_executor=tool_executor,
-        status_callback=status_callback,
-        persist_direct_answer=True,
-    )
-    if direct_answer is not None:
-        return direct_answer
+    del session_id
 
-    working_messages = prefetch_state.working_messages
-    profile_context = prefetch_state.profile_context
-    note_context = prefetch_state.note_context
-    history_context = prefetch_state.history_context
-    last_tool_name = prefetch_state.last_tool_name
-    last_observation = prefetch_state.last_observation
-    fallback_tool_name = prefetch_state.fallback_tool_name
-    fallback_observation = prefetch_state.fallback_observation
-    seen_tool_calls = prefetch_state.seen_tool_calls
-
-    direct_tool_answer = _direct_tool_answer(
-        user_request=user_request,
-        last_tool_name=fallback_tool_name or last_tool_name,
-        last_observation=fallback_observation or last_observation,
-    )
-    if direct_tool_answer is not None:
-        _append_exchange(history, user_request, direct_tool_answer, history_limit)
-        return direct_tool_answer
+    working_messages = _trim_history(history, history_limit)
+    working_messages.append(ConversationMessage("user", user_request))
+    last_observation: str | None = None
+    seen_tool_calls: set[tuple[str, str]] = set()
 
     for _ in range(max(1, max_steps)):
         prompt = build_agent_prompt(
             system_prompt=system_prompt,
             messages=working_messages,
-            profile_context=profile_context,
-            note_context=note_context,
-            history_context=history_context,
             tool_schemas=tool_schemas,
         )
-        stream_state: StreamState | None = None
-        if _allow_live_streaming(user_request, token_callback, last_tool_name):
-            stream_state = StreamState(token_callback)
-
+        stream_state = StreamState(token_callback) if token_callback is not None else None
         raw_response = llm.generate(
             prompt,
             on_token=stream_state.on_token if stream_state is not None else None,
         ).strip()
         if stream_state is not None:
             stream_state.finalize(raw_response)
-        parsed = parse_model_response(raw_response)
 
+        parsed = parse_model_response(raw_response)
         if parsed.kind == "final":
-            final_text = _coerce_final_answer(
-                user_request=user_request,
-                final_text=_final_text(parsed.raw),
-                profile_context=profile_context,
-                note_context=note_context,
-                history_context=history_context,
-                last_tool_name=fallback_tool_name or last_tool_name,
-                last_observation=fallback_observation or last_observation,
-            )
+            final_text = _final_text(parsed.raw)
             _append_exchange(history, user_request, final_text, history_limit)
             return final_text
 
         if parsed.kind == "tool":
             assert parsed.tool_name is not None
             params = parsed.params or {}
-            tool_signature = _tool_signature(parsed.tool_name, params)
+            signature = _tool_signature(parsed.tool_name, params)
             if status_callback is not None:
                 status_callback(_tool_status_message(parsed.tool_name, params))
 
-            if tool_signature in seen_tool_calls:
+            if signature in seen_tool_calls:
                 observation = (
                     f"Refused: repeated tool call for {parsed.tool_name}. "
                     "Use the information already gathered and answer with FINAL."
                 )
-            elif parsed.tool_name == "save_note" and not _save_note_allowed(user_request):
-                observation = (
-                    "Refused: save_note requires an explicit request to remember or save something."
-                )
             else:
-                seen_tool_calls.add(tool_signature)
+                seen_tool_calls.add(signature)
                 observation = _execute_tool(tool_executor, parsed.tool_name, params)
-
-            last_tool_name = parsed.tool_name
-            last_observation = observation
-            if _can_use_observation_for_fallback(observation) and _should_replace_fallback(
-                fallback_observation,
-                observation,
-            ):
-                fallback_tool_name = parsed.tool_name
-                fallback_observation = observation
-
+                last_observation = observation
             working_messages.append(ConversationMessage("assistant", parsed.raw))
-            working_messages.append(_observation_message(parsed.tool_name, observation))
+            working_messages.append(
+                ConversationMessage("tool", f"{parsed.tool_name}: {observation}")
+            )
             continue
 
         LOGGER.debug(
@@ -159,8 +83,6 @@ def run_agent(
             user_request,
             parsed.error or parsed.raw,
         )
-        if fallback_observation and not parsed.raw.strip():
-            break
         working_messages.append(ConversationMessage("assistant", parsed.raw))
         working_messages.append(
             ConversationMessage(
@@ -169,15 +91,7 @@ def run_agent(
             )
         )
 
-    fallback = _fallback_answer(
-        user_request=user_request,
-        profile_context=profile_context,
-        note_context=note_context,
-        history_context=history_context,
-        last_tool_name=fallback_tool_name or last_tool_name,
-        last_observation=fallback_observation or last_observation,
-        default="I reached the tool-use limit before finishing the request.",
-    )
+    fallback = _fallback_answer(last_observation)
     _append_exchange(history, user_request, fallback, history_limit)
     return fallback
 
@@ -191,142 +105,67 @@ def maybe_answer_without_llm(
     tool_executor: Callable[[str, Mapping[str, Any] | None], str],
     status_callback: Callable[[str], None] | None = None,
 ) -> str | None:
-    direct_answer, _ = _prepare_agent_request(
-        user_request=user_request,
-        session_id=session_id,
-        history=history,
-        history_limit=history_limit,
-        tool_executor=tool_executor,
-        status_callback=status_callback,
-        persist_direct_answer=True,
-    )
-    return direct_answer
+    del user_request, session_id, history, history_limit, tool_executor, status_callback
+    return None
 
 
-def _prepare_agent_request(
-    *,
+def _append_exchange(
+    history: list[ConversationMessage],
     user_request: str,
-    session_id: str,
+    assistant_response: str,
+    history_limit: int,
+) -> None:
+    history.append(ConversationMessage("user", user_request))
+    history.append(ConversationMessage("assistant", assistant_response))
+    history[:] = _trim_history(history, history_limit)
+
+
+def _trim_history(
     history: list[ConversationMessage],
     history_limit: int,
-    tool_executor: Callable[[str, Mapping[str, Any] | None], str],
-    status_callback: Callable[[str], None] | None,
-    persist_direct_answer: bool,
-) -> tuple[str | None, PrefetchState]:
-    trimmed_history = _trim_history(history, history_limit)
-    profile_candidate = _profile_memory_candidate(user_request)
-    if profile_candidate is not None:
-        profile_text, profile_category, direct_answer = profile_candidate
-        params = {"text": profile_text, "category": profile_category}
-        if status_callback is not None:
-            status_callback(_tool_status_message("save_profile_memory", params))
-        observation = _execute_tool(tool_executor, "save_profile_memory", params)
-        answer = direct_answer if observation.startswith("Saved profile memory") else observation
-        if persist_direct_answer:
-            _append_exchange(history, user_request, answer, history_limit)
-        return answer, PrefetchState(
-            working_messages=list(trimmed_history),
-            profile_context="",
-            note_context="",
-            history_context="",
-            last_tool_name="save_profile_memory",
-            last_observation=observation,
-            fallback_tool_name=None,
-            fallback_observation=None,
-            seen_tool_calls={_tool_signature("save_profile_memory", params)},
+) -> list[ConversationMessage]:
+    if history_limit <= 0:
+        return []
+    return list(history[-history_limit:])
+
+
+def _fallback_answer(last_observation: str | None) -> str:
+    if last_observation:
+        return (
+            "I did not get a clean FINAL response from the model. "
+            f"The last tool result was:\n{last_observation}"
         )
-
-    direct_answer = _direct_answer(
-        user_request=user_request,
-        session_id=session_id,
-        history=trimmed_history,
-    )
-    if direct_answer is not None:
-        if persist_direct_answer:
-            _append_exchange(history, user_request, direct_answer, history_limit)
-        return direct_answer, PrefetchState(
-            working_messages=list(trimmed_history),
-            profile_context="",
-            note_context="",
-            history_context="",
-            last_tool_name=None,
-            last_observation=None,
-            fallback_tool_name=None,
-            fallback_observation=None,
-            seen_tool_calls=set(),
-        )
-
-    working_messages = list(trimmed_history)
-    working_messages.append(ConversationMessage("user", user_request))
-    profile_context = _relevant_profile_context(user_request)
-    note_context = _relevant_note_context(user_request)
-    history_context = _relevant_history_context(session_id, user_request)
-    last_tool_name: str | None = None
-    last_observation: str | None = None
-    fallback_tool_name: str | None = None
-    fallback_observation: str | None = None
-    seen_tool_calls: set[tuple[str, str]] = set()
-
-    for tool_name, params in _prefetch_tool_requests(user_request, session_id):
-        tool_signature = _tool_signature(tool_name, params)
-        if tool_signature in seen_tool_calls:
-            continue
-        if status_callback is not None:
-            status_callback(_tool_status_message(tool_name, params))
-
-        observation = _execute_tool(tool_executor, tool_name, params)
-        seen_tool_calls.add(tool_signature)
-        last_tool_name = tool_name
-        last_observation = observation
-        if _can_use_observation_for_fallback(observation) and _should_replace_fallback(
-            fallback_observation,
-            observation,
-        ):
-            fallback_tool_name = tool_name
-            fallback_observation = observation
-        working_messages.append(_observation_message(tool_name, observation))
-
-    if _looks_like_personal_fact_request(user_request):
-        direct_answer = _resolve_personal_fact_answer(
-            user_request=user_request,
-            profile_context=profile_context,
-            note_context=note_context,
-            history_context=history_context,
-            last_observation=fallback_observation or last_observation,
-        )
-    else:
-        direct_answer = _direct_tool_answer(
-            user_request=user_request,
-            last_tool_name=fallback_tool_name or last_tool_name,
-            last_observation=fallback_observation or last_observation,
-        )
-
-    if direct_answer is not None and persist_direct_answer:
-        _append_exchange(history, user_request, direct_answer, history_limit)
-
-    return direct_answer, PrefetchState(
-        working_messages=working_messages,
-        profile_context=profile_context,
-        note_context=note_context,
-        history_context=history_context,
-        last_tool_name=last_tool_name,
-        last_observation=last_observation,
-        fallback_tool_name=fallback_tool_name,
-        fallback_observation=fallback_observation,
-        seen_tool_calls=seen_tool_calls,
-    )
-
-
-def _tool_status_message(tool_name: str, params: Mapping[str, Any]) -> str:
-    return f"tool {tool_name} {json.dumps(dict(params), ensure_ascii=True, sort_keys=True)}"
+    return "I reached the tool-use limit before producing a final answer."
 
 
 def _execute_tool(
     tool_executor: Callable[[str, Mapping[str, Any] | None], str],
     tool_name: str,
-    params: Mapping[str, Any] | None,
+    params: Mapping[str, Any],
 ) -> str:
     try:
         return tool_executor(tool_name, params)
     except Exception as exc:
-        return f"Tool execution error: {exc}"
+        return f"Tool {tool_name} failed: {exc}"
+
+
+def _tool_status_message(tool_name: str, params: Mapping[str, Any]) -> str:
+    if not params:
+        return tool_name
+    return f"{tool_name} {json.dumps(dict(params), ensure_ascii=True, sort_keys=True)}"
+
+
+def _tool_signature(tool_name: str, params: Mapping[str, Any]) -> tuple[str, str]:
+    return (
+        tool_name,
+        json.dumps(dict(params), ensure_ascii=True, sort_keys=True),
+    )
+
+
+__all__ = [
+    "ConversationMessage",
+    "DEFAULT_AGENT_MAX_STEPS",
+    "DEFAULT_HISTORY_MESSAGES",
+    "maybe_answer_without_llm",
+    "run_agent",
+]

@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "lilbot"
 version = "0.2.0"
-description = "Local-first CLI assistant for workspace inspection and durable memory"
+description = "Minimal local LLM and agent framework with a terminal chat interface"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
   { name = "Lilbot Contributors" }
 ]
-keywords = ["llm", "cli", "local-first", "agent", "memory", "developer-tools"]
+keywords = ["llm", "agent", "cli", "local-first", "huggingface", "workspace-tools"]
 classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
@@ -41,4 +41,10 @@ quantization = [
 lilbot = "lilbot.cli.main:main"
 
 [tool.setuptools]
-packages = ["lilbot", "lilbot.cli", "lilbot.llm", "lilbot.memory", "lilbot.tools"]
+packages = [
+  "lilbot",
+  "lilbot.cli",
+  "lilbot.core",
+  "lilbot.llm",
+  "lilbot.tools",
+]
