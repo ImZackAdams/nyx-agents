@@ -198,7 +198,7 @@ class LocalHFProvider:
     def _unsupported_model_message(self, exc: Exception) -> str:
         return (
             f"Installed transformers {self.transformers_version} is too old for this model "
-            f"({exc}). Upgrade dependencies from requirements.txt and retry."
+            f"({exc}). Upgrade the `.[hf]` dependencies and retry."
         )
 
     def _build_runtime_summary(self) -> str:

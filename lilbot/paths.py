@@ -41,15 +41,6 @@ def _can_prepare_directory(path: Path) -> bool:
         return False
     return path.is_dir()
 
-
-def default_memory_db_path() -> Path:
-    return app_data_dir() / "memory" / "memory_store.db"
-
-
-def default_legacy_memory_json_path() -> Path:
-    return app_data_dir() / "memory" / "memory_store.json"
-
-
 def default_session_dir() -> Path:
     return app_data_dir() / "sessions"
 
