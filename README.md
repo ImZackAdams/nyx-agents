@@ -1,118 +1,123 @@
 # Lilbot
 
-`lilbot` is a minimal local LLM and agent framework for the terminal.
+Lilbot is a local-first AI-powered CLI assistant for developers and system administrators.
 
-It keeps only the core pieces:
+It runs a local language model directly inside Python and treats the model as a reasoning engine that chooses from deterministic tools. There are no cloud APIs, hosted model servers, or remote inference dependencies in the runtime design.
 
-- a CLI chat interface
-- a local model provider layer
-- a small agent loop with tool calling
-- lightweight session history
-- a few workspace-safe built-in tools
+## Features
 
-## Core Components
+- local Hugging Face model loading
+- a small agent loop with explicit tool use
+- deterministic filesystem, shell, repository, and log inspection tools
+- a deterministic system inspection snapshot for performance diagnosis
+- visible reasoning telemetry with `[THOUGHT]`, `[ACTION]`, and `[OBSERVATION]`
+- guardrails around shell execution and filesystem access
+- a CLI that supports free-form questions plus repo and log subcommands
 
-- `lilbot/cli/main.py`
-  The terminal interface. Handles `chat`, one-shot prompts, model inspection, doctor output, and direct `!` commands.
-- `lilbot/cli/agent.py`
-  The generic agent loop. The model must answer with `FINAL:` or `TOOL:`.
-- `lilbot/llm/provider.py`
-  Provider abstraction plus the local Hugging Face backend.
-- `lilbot/core/session_store.py`
-  JSONL-backed chat history.
-- `lilbot/tools/`
-  Built-in tools for listing files, reading files, writing files, and getting basic system info.
+## Directory Layout
 
-## Quick Start
+```text
+.
+├── cli.py
+├── lilbot
+│   ├── __init__.py
+│   ├── __main__.py
+│   ├── agent.py
+│   ├── cli.py
+│   ├── model.py
+│   ├── tools
+│   │   ├── __init__.py
+│   │   ├── filesystem.py
+│   │   ├── logs.py
+│   │   ├── repo.py
+│   │   └── shell.py
+│   └── utils
+│       ├── __init__.py
+│       ├── config.py
+│       └── logging.py
+└── tests
+```
+
+## Install
+
+Create a virtual environment and install the package:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
-python -m lilbot doctor
-python -m lilbot tools
-python -m lilbot
-```
-
-For local model support:
-
-```bash
-pip install -e ".[hf]"
-export LILBOT_MODEL_PATH=/path/to/local/model
-python -m lilbot models
-```
-
-Optional 4-bit GPU support:
-
-```bash
 pip install -e ".[hf,quantization]"
 ```
 
-## CLI Surface
+Lilbot uses Hugging Face `BitsAndBytesConfig` with `bitsandbytes` for 4-bit GPU loading.
+That is the recommended setup for the bundled Falcon 10B checkpoint.
 
-Interactive chat:
-
-```bash
-python -m lilbot
-```
-
-One-shot prompt:
+If you need a non-quantized install instead:
 
 ```bash
-python -m lilbot run "summarize this repository"
+pip install -e ".[hf]"
 ```
 
-Inline prompt:
+## Configure A Local Model
+
+Point Lilbot at a local Hugging Face model directory:
 
 ```bash
-python -m lilbot "summarize the README"
+export LILBOT_MODEL_PATH=/path/to/local/model
 ```
 
-Utility commands:
+If you keep the model under `lilbot/models/<model-name>`, Lilbot will auto-discover it and use that path by default.
+
+Compatible instruct models include local Falcon, Qwen, and Mistral checkpoints as long as the directory contains the tokenizer and model weights.
+
+For the bundled Falcon model, a practical local setup is:
 
 ```bash
-python -m lilbot tools
-python -m lilbot models
-python -m lilbot doctor
+export LILBOT_DEVICE=cuda
+export LILBOT_QUANTIZE_4BIT=1
+python cli.py "why is my system slow?"
 ```
 
-## Chat Commands
+At startup Lilbot now prints the model runtime summary and any quantization warnings to stderr, so you can confirm whether `bitsandbytes` 4-bit loading actually activated.
 
-These run without a model:
+## Usage
 
-```text
-!help
-!tools
-!ls [path]
-!read <file>
-!write <file> <text>
-!append <file> <text>
-!sys
+Free-form reasoning with tools:
+
+```bash
+python cli.py "why is my system slow?"
+python -m lilbot "explain the largest files in this repository"
 ```
 
-Filesystem tools are restricted to `LILBOT_WORKSPACE_ROOT` or the current working directory.
+Repository helpers:
 
-## Agent Protocol
-
-The runtime expects the model to respond with exactly one of these forms:
-
-```text
-FINAL: <answer>
-TOOL: <tool_name> <json object>
+```bash
+python cli.py repo summarize .
+python cli.py repo trace-function authenticate_user .
 ```
 
-Built-in tools:
+Log analysis:
 
-- `list_files`
-- `read_file`
-- `write_file`
-- `system_info`
+```bash
+python cli.py logs analyze /var/log/syslog
+```
 
-## Session History
+Command explanation:
 
-Lilbot stores chat history locally as JSONL under its app-data directory. Use `--session-id` to keep separate conversations.
+```bash
+python cli.py explain-command "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
+```
 
-## Tests
+## Safety Model
+
+- filesystem reads stay inside `LILBOT_WORKSPACE_ROOT` or the current working directory
+- log analysis is limited to the workspace or common system log directories
+- shell execution is read-only, allowlisted, and rejects dangerous metacharacters
+- system performance diagnosis can use `inspect_system`, which avoids shell pipelines entirely
+- the agent stops after `LILBOT_MAX_STEPS`
+
+## Development
+
+Run the tests with:
 
 ```bash
 python -m unittest discover -s tests -v

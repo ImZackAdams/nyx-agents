@@ -1,131 +1,117 @@
 from __future__ import annotations
 
-import os
+import io
 from pathlib import Path
 import tempfile
 import unittest
 
-from lilbot.cli.agent import ConversationMessage, maybe_answer_without_llm, run_agent
-from lilbot.tools import ALL_TOOL_DEFS, execute_tool
+from lilbot.agent import LilbotAgent
+from lilbot.tools import build_tool_registry
+from lilbot.utils.config import LilbotConfig
+from lilbot.utils.logging import AgentTraceLogger
 
 
-class FakeLLM:
+class FakeModel:
     def __init__(self, outputs: list[str]) -> None:
         self.outputs = list(outputs)
 
-    def generate(self, prompt: str, *, on_token=None) -> str:
+    def generate(self, prompt: str) -> str:
         del prompt
-        output = self.outputs.pop(0)
-        if on_token is not None:
-            for chunk in _chunks(output):
-                on_token(chunk)
-        return output
+        return self.outputs.pop(0)
 
 
-def _chunks(text: str, size: int = 4) -> list[str]:
-    return [text[index:index + size] for index in range(0, len(text), size)]
+class FakeToolRegistry:
+    def __init__(self, observations: dict[str, str]) -> None:
+        self.observations = observations
+
+    def describe(self, allowed_tools=None) -> str:
+        del allowed_tools
+        return "\n".join(sorted(self.observations))
+
+    def execute(self, name: str, arguments=None) -> str:
+        del arguments
+        return self.observations[name]
 
 
 class AgentLoopTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
-        self.original_workspace_root = os.environ.get("LILBOT_WORKSPACE_ROOT")
-        os.environ["LILBOT_WORKSPACE_ROOT"] = self.tempdir.name
-        Path(self.tempdir.name, "README.md").write_text("hello from lilbot\n", encoding="utf-8")
+        self.workspace = Path(self.tempdir.name)
+        (self.workspace / "README.md").write_text("Lilbot prototype\n", encoding="utf-8")
+        self.config = LilbotConfig.from_sources(
+            workspace_root=self.tempdir.name,
+            verbose_agent=False,
+        )
 
     def tearDown(self) -> None:
-        if self.original_workspace_root is None:
-            os.environ.pop("LILBOT_WORKSPACE_ROOT", None)
-        else:
-            os.environ["LILBOT_WORKSPACE_ROOT"] = self.original_workspace_root
         self.tempdir.cleanup()
 
-    def test_agent_can_call_tool_then_finalize(self) -> None:
-        llm = FakeLLM(
+    def test_agent_calls_tool_then_returns_final_answer(self) -> None:
+        model = FakeModel(
             [
-                'TOOL: read_file {"path": "README.md"}',
-                "FINAL: The README says hello from lilbot.",
+                'THOUGHT: inspect the README\nACTION: {"tool": "read_file", "arguments": {"path": "README.md"}}',
+                "THOUGHT: summarize the file\nFINAL: The README identifies this as a Lilbot prototype.",
             ]
         )
-        history: list[ConversationMessage] = []
-
-        result = run_agent(
-            llm,
-            user_request="summarize the readme",
-            system_prompt="",
-            session_id="agent-test",
-            history=history,
-            history_limit=8,
+        trace = io.StringIO()
+        agent = LilbotAgent(
+            model,
+            build_tool_registry(self.config),
             max_steps=2,
-            tool_schemas=ALL_TOOL_DEFS,
-            tool_executor=execute_tool,
+            trace_logger=AgentTraceLogger(enabled=True, stream=trace),
         )
 
-        self.assertEqual(result, "The README says hello from lilbot.")
-        self.assertEqual(history[-2].role, "user")
-        self.assertEqual(history[-1].role, "assistant")
+        result = agent.answer("What is this project?")
 
-    def test_repeated_tool_call_falls_back_to_last_real_observation(self) -> None:
-        llm = FakeLLM(
+        self.assertEqual(result.answer, "The README identifies this as a Lilbot prototype.")
+        self.assertIn("[THOUGHT] inspect the README", trace.getvalue())
+        self.assertIn("[ACTION] read_file", trace.getvalue())
+        self.assertIn("[OBSERVATION] File preview for ./README.md:", trace.getvalue())
+
+    def test_agent_blocks_repeated_tool_calls(self) -> None:
+        model = FakeModel(
             [
-                'TOOL: read_file {"path": "README.md"}',
-                'TOOL: read_file {"path": "README.md"}',
+                'THOUGHT: read the file\nACTION: {"tool": "read_file", "arguments": {"path": "README.md"}}',
+                'THOUGHT: do it again\nACTION: {"tool": "read_file", "arguments": {"path": "README.md"}}',
             ]
         )
+        agent = LilbotAgent(model, build_tool_registry(self.config), max_steps=2)
 
-        result = run_agent(
-            llm,
-            user_request="read the readme twice",
-            system_prompt="",
-            session_id="agent-test",
-            history=[],
-            history_limit=8,
-            max_steps=2,
-            tool_schemas=ALL_TOOL_DEFS,
-            tool_executor=execute_tool,
+        result = agent.answer("Read the README twice")
+
+        self.assertIn("maximum reasoning step limit", result.answer)
+        self.assertIn("Repeated tool call blocked", result.answer)
+
+    def test_slow_system_request_auto_summarizes_after_inspect_system(self) -> None:
+        model = FakeModel(
+            [
+                'THOUGHT: inspect the system\nACTION: {"tool": "inspect_system", "arguments": {}}',
+                'THOUGHT: this should not be used\nFINAL: unreachable',
+            ]
         )
-
-        self.assertIn("last tool result was", result)
-        self.assertIn("hello from lilbot", result)
-
-    def test_direct_workspace_summary_request_bypasses_model(self) -> None:
-        result = maybe_answer_without_llm(
-            user_request="Summarize the README.md",
-            session_id="agent-test",
-            history=[],
-            history_limit=8,
-            tool_executor=execute_tool,
+        tool_registry = FakeToolRegistry(
+            {
+                "inspect_system": "\n".join(
+                    [
+                        "System inspection snapshot:",
+                        "- load_average: 1m=2.64, 5m=2.88, 15m=2.74",
+                        "- logical_cpus: 24",
+                        "- memory: used=8.3GiB / total=31.1GiB (26.8% used)",
+                        "- swap: used=5.9GiB / total=8.0GiB (74.0% used)",
+                        "- workspace_disk: used=746.9GiB / total=914.8GiB (81.6% used)",
+                        "- top_cpu_processes:",
+                        "  pid=169225 command=Wrath.exe cpu=212% mem=8.0%",
+                        "  pid=173155 command=python cpu=109% mem=3.5%",
+                        "  pid=172417 command=python cpu=102% mem=12.5%",
+                    ]
+                )
+            }
         )
+        agent = LilbotAgent(model, tool_registry, max_steps=4)
 
-        assert result is not None
-        self.assertIn("README.md summary:", result)
-        self.assertIn("hello from lilbot", result)
+        result = agent.answer("why is my system slow?")
 
-    def test_listing_request_accepts_here_wording(self) -> None:
-        result = maybe_answer_without_llm(
-            user_request="what files are in here?",
-            session_id="agent-test",
-            history=[],
-            history_limit=8,
-            tool_executor=execute_tool,
-        )
-
-        assert result is not None
-        self.assertIn("Workspace contents:", result)
-        self.assertIn("README.md", result)
-
-    def test_directory_reference_phrase_lists_named_directory(self) -> None:
-        Path(self.tempdir.name, "docs").mkdir()
-        Path(self.tempdir.name, "docs", "guide.md").write_text("guide\n", encoding="utf-8")
-
-        result = maybe_answer_without_llm(
-            user_request="docs directory",
-            session_id="agent-test",
-            history=[],
-            history_limit=8,
-            tool_executor=execute_tool,
-        )
-
-        assert result is not None
-        self.assertIn("Directory contents (docs):", result)
-        self.assertIn("guide.md", result)
+        self.assertEqual(result.steps, 1)
+        self.assertIn("CPU pressure", result.answer)
+        self.assertIn("Wrath.exe", result.answer)
+        self.assertIn("Swap usage is elevated", result.answer)
