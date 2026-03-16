@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from lilbot.cli.agent import ConversationMessage, run_agent
+from lilbot.cli.agent import ConversationMessage, maybe_answer_without_llm, run_agent
 from lilbot.tools import ALL_TOOL_DEFS, execute_tool
 
 
@@ -87,3 +87,45 @@ class AgentLoopTests(unittest.TestCase):
 
         self.assertIn("last tool result was", result)
         self.assertIn("hello from lilbot", result)
+
+    def test_direct_workspace_summary_request_bypasses_model(self) -> None:
+        result = maybe_answer_without_llm(
+            user_request="Summarize the README.md",
+            session_id="agent-test",
+            history=[],
+            history_limit=8,
+            tool_executor=execute_tool,
+        )
+
+        assert result is not None
+        self.assertIn("README.md summary:", result)
+        self.assertIn("hello from lilbot", result)
+
+    def test_listing_request_accepts_here_wording(self) -> None:
+        result = maybe_answer_without_llm(
+            user_request="what files are in here?",
+            session_id="agent-test",
+            history=[],
+            history_limit=8,
+            tool_executor=execute_tool,
+        )
+
+        assert result is not None
+        self.assertIn("Workspace contents:", result)
+        self.assertIn("README.md", result)
+
+    def test_directory_reference_phrase_lists_named_directory(self) -> None:
+        Path(self.tempdir.name, "docs").mkdir()
+        Path(self.tempdir.name, "docs", "guide.md").write_text("guide\n", encoding="utf-8")
+
+        result = maybe_answer_without_llm(
+            user_request="docs directory",
+            session_id="agent-test",
+            history=[],
+            history_limit=8,
+            tool_executor=execute_tool,
+        )
+
+        assert result is not None
+        self.assertIn("Directory contents (docs):", result)
+        self.assertIn("guide.md", result)

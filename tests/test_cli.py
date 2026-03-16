@@ -67,6 +67,83 @@ class CliTests(unittest.TestCase):
 
         self.assertIn("README.md", stdout.getvalue())
 
+    def test_workspace_listing_question_bypasses_provider(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with (
+            patch("lilbot.cli.main.build_provider", side_effect=AssertionError("provider should not load")),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            main(["--session-id", "cli-listing", "run", "what files are in this workspace?"])
+
+        self.assertIn("Workspace contents:", stdout.getvalue())
+        self.assertIn("README.md", stdout.getvalue())
+        self.assertIn("[tool] list_files", stderr.getvalue())
+
+    def test_short_list_files_prompt_bypasses_provider(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with (
+            patch("lilbot.cli.main.build_provider", side_effect=AssertionError("provider should not load")),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            main(["run", "list files"])
+
+        self.assertIn("Workspace contents:", stdout.getvalue())
+        self.assertIn("README.md", stdout.getvalue())
+        self.assertIn("[tool] list_files", stderr.getvalue())
+
+    def test_directory_phrase_bypasses_provider(self) -> None:
+        Path(self.tempdir.name, "lilbot").mkdir(exist_ok=True)
+        Path(self.tempdir.name, "lilbot", "agent.py").write_text("pass\n", encoding="utf-8")
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with (
+            patch("lilbot.cli.main.build_provider", side_effect=AssertionError("provider should not load")),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            main(["run", "lilbot directory"])
+
+        self.assertIn("Directory contents (lilbot):", stdout.getvalue())
+        self.assertIn("agent.py", stdout.getvalue())
+        self.assertIn("[tool] list_files", stderr.getvalue())
+
+    def test_file_summary_question_bypasses_provider(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with (
+            patch("lilbot.cli.main.build_provider", side_effect=AssertionError("provider should not load")),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            main(["run", "Summarize the README.md"])
+
+        self.assertIn("README.md summary:", stdout.getvalue())
+        self.assertIn("workspace file", stdout.getvalue())
+        self.assertIn("[tool] read_file", stderr.getvalue())
+
+    def test_system_question_bypasses_provider(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with (
+            patch("lilbot.cli.main.build_provider", side_effect=AssertionError("provider should not load")),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            main(["run", "What is my system?"])
+
+        self.assertIn("OS:", stdout.getvalue())
+        self.assertIn("Python:", stdout.getvalue())
+        self.assertIn("[tool] system_info", stderr.getvalue())
+
     def test_run_command_uses_provider_and_persists_session(self) -> None:
         stdout = io.StringIO()
         stderr = io.StringIO()

@@ -13,6 +13,7 @@ os.environ.setdefault("USE_TF", "0")
 
 VALID_BACKENDS = {"auto", "hf", "echo"}
 TokenCallback = Callable[[str], None]
+DISABLED_TRANSFORMERS_OPTIONAL_PACKAGES = frozenset({"sklearn", "pandas", "pyarrow"})
 
 
 @dataclass(frozen=True)
@@ -81,10 +82,13 @@ class LocalHFProvider:
         try:
             import torch
             import transformers
+            _disable_optional_transformers_packages(transformers)
             from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
         except ImportError as exc:
             raise RuntimeError(
-                "Missing model dependencies. Install torch, transformers, and accelerate."
+                "Unable to import the local model backend dependencies. "
+                "Install a compatible torch/transformers/accelerate stack. "
+                f"Original import error: {exc}"
             ) from exc
 
         self.torch = torch
@@ -385,3 +389,27 @@ def _normalize_generated_text(generated: str) -> str:
     if not text.startswith(("FINAL:", "TOOL:")):
         text = f"FINAL: {text}"
     return text
+
+
+def _disable_optional_transformers_packages(transformers_module: object) -> None:
+    try:
+        import_utils = transformers_module.utils.import_utils
+        utils_module = transformers_module.utils
+    except AttributeError:
+        return
+
+    original = getattr(import_utils, "_is_package_available", None)
+    if not callable(original):
+        return
+
+    def _patched_is_package_available(
+        pkg_name: str,
+        return_version: bool = False,
+    ) -> tuple[bool, str | None]:
+        if pkg_name in DISABLED_TRANSFORMERS_OPTIONAL_PACKAGES:
+            return (False, "N/A") if return_version else (False, None)
+        return original(pkg_name, return_version=return_version)
+
+    import_utils._is_package_available = _patched_is_package_available
+    utils_module.is_sklearn_available = lambda: False
+    utils_module.is_pandas_available = lambda: False

@@ -14,6 +14,7 @@ from lilbot.cli.agent import (
     ConversationMessage,
     DEFAULT_AGENT_MAX_STEPS,
     DEFAULT_HISTORY_MESSAGES,
+    maybe_answer_without_llm,
     run_agent,
 )
 from lilbot.core.session_store import load_session_history, save_session_exchange
@@ -222,6 +223,19 @@ def _run_once(args: argparse.Namespace, prompt: str) -> None:
         print(f"\n{prefix_result}\n")
         return
 
+    history = _load_messages(args.session_id, args.history_messages)
+    direct_response = _run_direct_agent_request(
+        user_request=prompt,
+        session_id=args.session_id,
+        history=history,
+        history_limit=args.history_messages,
+    )
+    if direct_response is not None:
+        if _should_persist_assistant_response(direct_response.text):
+            _persist_session_exchange(args.session_id, prompt, direct_response.text)
+        _render_llm_result(direct_response)
+        return
+
     provider = _get_llm(args)
     if provider is None:
         return
@@ -229,7 +243,6 @@ def _run_once(args: argparse.Namespace, prompt: str) -> None:
         print(f"\n{_no_model_configured_response()}\n")
         return
 
-    history = _load_messages(args.session_id, args.history_messages)
     response = _run_llm_request(
         provider,
         user_request=prompt,
@@ -244,7 +257,7 @@ def _run_once(args: argparse.Namespace, prompt: str) -> None:
         return
 
     if _should_persist_assistant_response(response.text):
-        save_session_exchange(args.session_id, prompt, response.text)
+        _persist_session_exchange(args.session_id, prompt, response.text)
     _render_llm_result(response)
 
 
@@ -275,6 +288,18 @@ def _run_chat(args: argparse.Namespace) -> None:
             print(f"\n{prefix_result}\n")
             continue
 
+        direct_response = _run_direct_agent_request(
+            user_request=user_request,
+            session_id=args.session_id,
+            history=history,
+            history_limit=args.history_messages,
+        )
+        if direct_response is not None:
+            if _should_persist_assistant_response(direct_response.text):
+                _persist_session_exchange(args.session_id, user_request, direct_response.text)
+            _render_llm_result(direct_response)
+            continue
+
         if provider is None:
             provider = _get_llm(args)
         if provider is None:
@@ -297,7 +322,7 @@ def _run_chat(args: argparse.Namespace) -> None:
             continue
 
         if _should_persist_assistant_response(response.text):
-            save_session_exchange(args.session_id, user_request, response.text)
+            _persist_session_exchange(args.session_id, user_request, response.text)
         _render_llm_result(response)
 
 
@@ -376,6 +401,36 @@ def _run_llm_request(
         LOGGER.error("Generation failed: %s", exc)
         _print_error(f"Generation failed: {exc}")
         return None
+
+
+def _run_direct_agent_request(
+    *,
+    user_request: str,
+    session_id: str,
+    history: list[ConversationMessage],
+    history_limit: int,
+) -> LLMRunResult | None:
+    result, elapsed = _generate_with_timing(
+        lambda: maybe_answer_without_llm(
+            user_request=user_request,
+            session_id=session_id,
+            history=history,
+            history_limit=history_limit,
+            tool_executor=execute_tool,
+            status_callback=_emit_tool_status,
+        )
+    )
+    if result is None:
+        return None
+    return LLMRunResult(result, elapsed, streamed=False)
+
+
+def _persist_session_exchange(session_id: str, user_text: str, assistant_text: str) -> None:
+    try:
+        save_session_exchange(session_id, user_text, assistant_text)
+    except OSError as exc:
+        LOGGER.warning("Unable to persist session history: %s", exc)
+        _print_error(f"Warning: unable to persist session history: {exc}")
 
 
 def _generate_with_timing(operation: Callable[[], str]) -> tuple[str, float]:

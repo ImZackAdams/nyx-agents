@@ -4,8 +4,12 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 import json
 import logging
+import os
+from pathlib import Path
 import re
 from typing import Any, Protocol
+
+from lilbot.tools.filesystem import get_workspace_root
 
 
 LOGGER = logging.getLogger("lilbot.agent")
@@ -18,6 +22,40 @@ ROLE_LABEL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 SPECIAL_TOKEN_PATTERN = re.compile(r"<\|(?:assistant|user|system)\|>")
+EXPLICIT_FILE_PATTERN = re.compile(
+    r"(?<![\w/.-])("
+    r"(?:[./]?[\w.-]+(?:/[\w.-]+)*/[\w.-]+)"
+    r"|README(?:\.md)?"
+    r"|LICENSE(?:\.[\w.-]+)?"
+    r"|pyproject\.toml"
+    r"|\.env(?:\.example)?"
+    r"|[\w.-]+\.[A-Za-z0-9_-]+"
+    r")(?![\w/.-])",
+    re.IGNORECASE,
+)
+DIRECTORY_REFERENCE_PATTERN = re.compile(
+    r"^\s*(?:the\s+)?(?P<path>`?[\w./-]+`?)\s+(?:directory|dir|folder)\s*$|"
+    r"\b(?:in|inside|under|from)\s+(?:the\s+)?(?P<scoped>`?[\w./-]+`?)\s+(?:directory|dir|folder)\b",
+    re.IGNORECASE,
+)
+LISTING_REQUEST_PATTERN = re.compile(
+    r"\b(?:what(?:\s+files?)?\s+(?:are|is|'s)?\s*in|what's\s+in|list(?:\s+the)?\s+files?|show(?:\s+me)?(?:\s+the)?\s+files?|contents?\s+of|files?\s+in)\b|"
+    r"^\s*(?:list\s+files?|show\s+files?|files?)\s*$",
+    re.IGNORECASE,
+)
+SYSTEM_REQUEST_PATTERN = re.compile(
+    r"\b(?:what is|what's|describe|show|tell me about)\b.*\b(?:my|this)\s+system\b|"
+    r"\b(?:system info|system information|machine info|machine information|host info)\b",
+    re.IGNORECASE,
+)
+SUMMARY_REQUEST_PATTERN = re.compile(
+    r"\b(?:summari[sz]e|describe|explain|read|show|open|inspect|what is in)\b",
+    re.IGNORECASE,
+)
+NAME_REQUEST_PATTERN = re.compile(
+    r"^\s*what(?:'s| is)\s+my\s+name\??\s*$",
+    re.IGNORECASE,
+)
 
 
 TokenCallback = Callable[[str], None]
@@ -68,7 +106,7 @@ class StreamState:
                 self.mode = "tool"
             elif normalized.startswith("FINAL:"):
                 self.mode = "final"
-            elif allow_plain_text and normalized:
+            elif allow_plain_text and normalized and not _looks_like_json_payload(normalized):
                 self.mode = "final"
             else:
                 return
@@ -176,7 +214,42 @@ def maybe_answer_without_llm(
     tool_executor: Callable[[str, Mapping[str, Any] | None], str],
     status_callback: Callable[[str], None] | None = None,
 ) -> str | None:
-    del user_request, session_id, history, history_limit, tool_executor, status_callback
+    del session_id, history, history_limit
+
+    if NAME_REQUEST_PATTERN.match(user_request.strip()):
+        return "I don't know your name. This minimal Lilbot build does not keep personal profile memory."
+
+    if SYSTEM_REQUEST_PATTERN.search(user_request):
+        return _run_direct_tool(
+            tool_executor,
+            "system_info",
+            {},
+            status_callback=status_callback,
+        )
+
+    if _is_directory_listing_request(user_request):
+        directory_path = _extract_directory_reference(user_request) or "."
+        observation = _run_direct_tool(
+            tool_executor,
+            "list_files",
+            {"path": directory_path, "max_entries": 50},
+            status_callback=status_callback,
+        )
+        title = "Workspace contents:" if directory_path == "." else f"Directory contents ({directory_path}):"
+        return title + "\n" + observation
+
+    file_path = _extract_file_reference(user_request)
+    if file_path is not None and SUMMARY_REQUEST_PATTERN.search(user_request):
+        observation = _run_direct_tool(
+            tool_executor,
+            "read_file",
+            {"path": file_path, "max_chars": 6000},
+            status_callback=status_callback,
+        )
+        if _looks_like_tool_error(observation):
+            return observation
+        return _summarize_file_content(file_path, observation)
+
     return None
 
 
@@ -248,6 +321,12 @@ def _parse_model_response(raw_response: str) -> ParsedResponse:
 
     match = PROTOCOL_LINE_PATTERN.match(normalized)
     if match is None and normalized:
+        if _looks_like_json_payload(normalized):
+            return ParsedResponse(
+                kind="error",
+                raw=normalized,
+                error="Bare JSON is not a valid reply. Use FINAL: <answer> or TOOL: <tool_name> <json>.",
+            )
         return ParsedResponse(kind="final", raw=f"FINAL: {normalized}")
     if match is None:
         return ParsedResponse(
@@ -384,6 +463,18 @@ def _trim_history(
     return list(history[-history_limit:])
 
 
+def _run_direct_tool(
+    tool_executor: Callable[[str, Mapping[str, Any] | None], str],
+    tool_name: str,
+    params: Mapping[str, Any],
+    *,
+    status_callback: Callable[[str], None] | None,
+) -> str:
+    if status_callback is not None:
+        status_callback(_tool_status_message(tool_name, params))
+    return _execute_tool(tool_executor, tool_name, params)
+
+
 def _fallback_answer(last_observation: str | None) -> str:
     if last_observation:
         return (
@@ -415,6 +506,244 @@ def _tool_signature(tool_name: str, params: Mapping[str, Any]) -> tuple[str, str
         tool_name,
         json.dumps(dict(params), ensure_ascii=True, sort_keys=True),
     )
+
+
+def _looks_like_json_payload(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped.startswith(("{", "[")):
+        return False
+    try:
+        json.loads(stripped)
+    except json.JSONDecodeError:
+        return False
+    return True
+
+
+def _extract_file_reference(user_request: str) -> str | None:
+    candidates: list[str] = []
+    for match in EXPLICIT_FILE_PATTERN.finditer(user_request):
+        value = match.group(1).strip().strip("`'\"")
+        if value:
+            candidates.append(value)
+
+    lowered = user_request.lower()
+    if "readme" in lowered and "README.md" not in candidates:
+        candidates.append("README.md")
+    if "license" in lowered and "LICENSE" not in candidates:
+        candidates.append("LICENSE")
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = candidate.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        resolved = _resolve_workspace_file_reference(candidate)
+        if resolved is not None:
+            return resolved
+    return None
+
+
+def _is_directory_listing_request(user_request: str) -> bool:
+    lowered = user_request.strip().lower()
+    if not lowered:
+        return False
+    if LISTING_REQUEST_PATTERN.search(user_request):
+        return True
+    if _extract_directory_reference(user_request) is not None:
+        return True
+    return lowered in {
+        "here",
+        "this directory",
+        "this folder",
+        "current directory",
+        "current folder",
+        "workspace",
+        "repo",
+        "repository",
+        "project",
+    }
+
+
+def _extract_directory_reference(user_request: str) -> str | None:
+    lowered = user_request.lower()
+    implicit_root_markers = (
+        " here",
+        " in here",
+        "this workspace",
+        "this directory",
+        "this folder",
+        "current directory",
+        "current folder",
+        "workspace",
+        "repo",
+        "repository",
+        "project",
+    )
+    if any(marker in lowered for marker in implicit_root_markers) or lowered.strip() in {
+        "here",
+        "workspace",
+        "repo",
+        "repository",
+        "project",
+    }:
+        return "."
+
+    match = DIRECTORY_REFERENCE_PATTERN.search(user_request)
+    if match is None:
+        return None
+
+    candidate = (match.group("path") or match.group("scoped") or "").strip().strip("`'\"")
+    if not candidate:
+        return None
+    return _resolve_workspace_directory_reference(candidate)
+
+
+def _resolve_workspace_directory_reference(reference: str) -> str | None:
+    root = get_workspace_root()
+    candidate = Path(reference).expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        resolved = candidate.resolve(strict=False)
+    except OSError:
+        resolved = candidate
+
+    if resolved.exists() and resolved.is_dir():
+        try:
+            relative = resolved.relative_to(root)
+        except ValueError:
+            return None
+        return "." if not relative.parts else relative.as_posix()
+    return None
+
+
+def _resolve_workspace_file_reference(reference: str) -> str | None:
+    root = get_workspace_root()
+    candidate = Path(reference).expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        resolved = candidate.resolve(strict=False)
+    except OSError:
+        resolved = candidate
+    if resolved.exists() and resolved.is_file():
+        try:
+            return resolved.relative_to(root).as_posix()
+        except ValueError:
+            return None
+
+    basename = Path(reference).name.lower()
+    visited = 0
+    for current_root, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if name not in {".git", ".venv", "__pycache__"}]
+        for filename in filenames:
+            visited += 1
+            if visited > 5000:
+                return None
+            if filename.lower() != basename:
+                continue
+            path = Path(current_root) / filename
+            return path.relative_to(root).as_posix()
+    return None
+
+
+def _looks_like_tool_error(text: str) -> bool:
+    lowered = text.lower()
+    return lowered.startswith(
+        (
+            "path not found",
+            "not a file",
+            "not a directory",
+            "binary file not shown",
+            "unable to ",
+            "missing required parameter",
+            "invalid path",
+            "path is outside",
+            "tool ",
+        )
+    )
+
+
+def _summarize_file_content(path: str, text: str) -> str:
+    basename = Path(path).name
+    lowered_path = basename.lower()
+    lowered_text = text.lower()
+
+    if lowered_path.startswith("license") or "mit license" in lowered_text:
+        return _summarize_license(basename, text)
+    if lowered_path in {"readme", "readme.md"}:
+        return _summarize_markdown_file(basename, text)
+    return _summarize_generic_file(basename, text)
+
+
+def _summarize_license(name: str, text: str) -> str:
+    lowered = text.lower()
+    if "mit license" in lowered:
+        points = [
+            "MIT License.",
+            "Allows use, modification, distribution, private use, and commercial use.",
+            "Requires preserving the copyright and license notice.",
+            "Provided without warranty or liability.",
+        ]
+    elif "apache license" in lowered:
+        points = [
+            "Apache License.",
+            "Allows use, modification, and distribution, including commercial use.",
+            "Includes an express patent license.",
+            "Requires preserving notices and documenting significant changes.",
+        ]
+    else:
+        points = _key_lines(text, limit=4)
+
+    return "\n".join([f"{name} summary:"] + [f"- {point}" for point in points])
+
+
+def _summarize_markdown_file(name: str, text: str) -> str:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    heading = next((line.lstrip("# ").strip() for line in lines if line.startswith("#")), "")
+    bullets = [line.lstrip("-* ").strip() for line in lines if line.startswith(("-", "*"))][:4]
+    paragraph = _first_paragraph(text)
+
+    points: list[str] = []
+    if heading:
+        points.append(heading)
+    if paragraph:
+        points.append(paragraph)
+    points.extend(item for item in bullets if item and item not in points)
+    if not points:
+        points = _key_lines(text, limit=4)
+
+    return "\n".join([f"{name} summary:"] + [f"- {point}" for point in points[:5]])
+
+
+def _summarize_generic_file(name: str, text: str) -> str:
+    points = _key_lines(text, limit=5)
+    return "\n".join([f"{name} summary:"] + [f"- {point}" for point in points])
+
+
+def _first_paragraph(text: str) -> str:
+    chunks = [chunk.strip() for chunk in re.split(r"\n\s*\n", text) if chunk.strip()]
+    if not chunks:
+        return ""
+    paragraph = " ".join(chunks[0].split())
+    return paragraph[:220] + ("..." if len(paragraph) > 220 else "")
+
+
+def _key_lines(text: str, *, limit: int) -> list[str]:
+    lines = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith(("#", "//", "/*", "*", "```")):
+            line = line.lstrip("#/* ").strip()
+        if not line:
+            continue
+        lines.append(line[:220] + ("..." if len(line) > 220 else ""))
+        if len(lines) >= limit:
+            break
+    return lines or ["File is empty."]
 
 
 __all__ = [
