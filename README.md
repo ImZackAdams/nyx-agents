@@ -175,6 +175,13 @@ python -m lilbot --device cuda --quantize-4bit
 
 If `--device auto` picks CUDA and the model still does not fit, Lilbot falls back to CPU automatically during model load.
 
+If responses feel slow, the biggest levers are:
+
+- make sure `bitsandbytes` is installed so `--quantize-4bit` can actually activate
+- prefer `--device cuda --quantize-4bit` for the bundled Falcon model
+- reduce generation with `--max-new-tokens 128`
+- in interactive mode, use `clear` occasionally to reset conversation context
+
 ## Safety Model
 
 - filesystem tools are restricted to the configured workspace root

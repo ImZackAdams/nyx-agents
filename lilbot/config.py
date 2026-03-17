@@ -137,7 +137,7 @@ class LilbotConfig:
             device=(device or os.getenv("LILBOT_DEVICE") or "auto").strip().lower(),
             max_new_tokens=_coerce_positive_int(
                 max_new_tokens if max_new_tokens is not None else os.getenv("LILBOT_MAX_NEW_TOKENS"),
-                256,
+                192,
             ),
             temperature=_coerce_non_negative_float(
                 temperature if temperature is not None else os.getenv("LILBOT_TEMPERATURE"),

@@ -70,3 +70,20 @@ class AgentLoopTests(unittest.TestCase):
 
         self.assertIn("Lilbot prototype", result.answer)
         self.assertEqual(result.session.actions_taken, ["read_file"])
+
+    def test_slow_system_request_auto_finalizes_after_system_inspection(self) -> None:
+        agent = LilbotAgent(
+            FakeModel(
+                [
+                    "THOUGHT: inspect the system\nACTION: inspect_system\nARGS: {}",
+                ]
+            ),
+            self.registry,
+            max_steps=3,
+        )
+
+        result = agent.answer("why is my system slow?")
+
+        self.assertTrue(result.answer.startswith("Based on the current snapshot:"))
+        self.assertEqual(result.steps, 1)
+        self.assertEqual(result.session.actions_taken, ["inspect_system"])

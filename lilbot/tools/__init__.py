@@ -8,7 +8,7 @@ from lilbot.tools.logs import SummarizeLogTool
 from lilbot.tools.registry import ToolRegistry
 from lilbot.tools.repo import FindFunctionTool, SummarizeRepoTool
 from lilbot.tools.shell import RunShellTool
-from lilbot.tools.system import CpuSnapshotTool, DiskUsageTool, MemoryUsageTool
+from lilbot.tools.system import CpuSnapshotTool, DiskUsageTool, InspectSystemTool, MemoryUsageTool
 
 
 def build_default_tool_registry(config: LilbotConfig) -> ToolRegistry:
@@ -20,6 +20,7 @@ def build_default_tool_registry(config: LilbotConfig) -> ToolRegistry:
             SummarizeRepoTool(config),
             FindFunctionTool(config),
             SummarizeLogTool(config),
+            InspectSystemTool(config),
             DiskUsageTool(config),
             MemoryUsageTool(config),
             CpuSnapshotTool(config),

@@ -31,6 +31,7 @@ class ToolRegistryTests(unittest.TestCase):
 
     def test_registry_exposes_expected_tools(self) -> None:
         self.assertIn("read_file", self.registry.names())
+        self.assertIn("inspect_system", self.registry.names())
         self.assertIn("disk_usage", self.registry.names())
         self.assertIn("cpu_snapshot", self.registry.names())
 

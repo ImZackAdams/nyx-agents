@@ -17,7 +17,8 @@ VALID_BACKENDS = ("hf",)
 VALID_DEVICES = ("auto", "cpu", "cuda")
 CHAT_EXIT_WORDS = {"exit", "quit", ":q"}
 CHAT_CLEAR_WORDS = {"clear", ":clear"}
-MAX_CHAT_HISTORY_TURNS = 6
+MAX_CHAT_HISTORY_TURNS = 3
+MAX_CHAT_CONTEXT_CHARS = 280
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -289,8 +290,15 @@ def _build_chat_request(
         "Previous turns are provided for continuity. Focus on the latest user message.",
     ]
     for index, (prior_user, prior_answer) in enumerate(conversation[-MAX_CHAT_HISTORY_TURNS:], start=1):
-        lines.append(f"Turn {index} user: {prior_user}")
-        lines.append(f"Turn {index} lilbot: {prior_answer}")
+        lines.append(f"Turn {index} user: {_truncate_chat_context(prior_user)}")
+        lines.append(f"Turn {index} lilbot: {_truncate_chat_context(prior_answer)}")
     lines.append("Latest user message:")
     lines.append(user_message)
     return "\n".join(lines)
+
+
+def _truncate_chat_context(text: str) -> str:
+    rendered = " ".join(str(text).split())
+    if len(rendered) <= MAX_CHAT_CONTEXT_CHARS:
+        return rendered
+    return rendered[:MAX_CHAT_CONTEXT_CHARS].rstrip() + " ..."

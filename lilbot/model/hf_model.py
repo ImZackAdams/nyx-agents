@@ -130,6 +130,8 @@ class HuggingFaceLocalModel(BaseModel):
         generation_kwargs: dict[str, object] = {
             "max_new_tokens": self.max_new_tokens,
             "do_sample": self.temperature > 0.0,
+            "use_cache": True,
+            "repetition_penalty": 1.05,
             "pad_token_id": self.tokenizer.pad_token_id,
             "eos_token_id": self.tokenizer.eos_token_id,
         }
