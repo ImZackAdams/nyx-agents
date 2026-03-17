@@ -1,233 +1,303 @@
 # Lilbot
 
-Most "AI tools" are just web wrappers around someone else's GPU bill.
+Lilbot is a local-first AI command line assistant for developers and system administrators.
 
-Lilbot is not that.
+It runs a local language model directly inside Python, keeps tool execution under explicit program control, and is built for practical terminal work like inspecting repositories, checking system state, summarizing logs, and explaining shell commands.
 
-Lilbot is a local-first AI command line assistant for developers and system administrators. It runs the model on your machine, inside Python, under your control. No OpenAI API. No cloud dependency. No hosted agent stack pretending to be infrastructure.
+Lilbot is not a cloud assistant, not a web app, and not a thin wrapper around a hosted API.
 
-This is what an AI-native terminal utility is supposed to look like:
+## Quick Start
 
-- local model
-- explicit controller loop
-- deterministic tools
-- visible reasoning traces
-- safe-by-default shell access
-- no mystery backend doing cute things behind your back
+From the repository root:
 
-If you want a chatbot tab in a browser, this is the wrong project. If you want a machine-local operator that can inspect repos, logs, and system state without shipping your environment to a vendor, this is the right one.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[hf,quantization]"
+```
 
-## What Lilbot Actually Does
+Then run the guided setup:
 
-Lilbot is built for real terminal work:
+```bash
+lilbot init
+lilbot doctor
+```
+
+If `doctor` looks good, start Lilbot:
+
+```bash
+lilbot
+```
+
+Or ask a one-shot question:
+
+```bash
+lilbot "why is my system slow?"
+```
+
+## What Lilbot Can Do
 
 - understand repositories
 - trace functions through source trees
 - inspect system state
 - summarize logs
 - explain shell commands
-- help reason about broken local dev environments
+- help reason about broken local developer environments
 
 Examples:
 
 ```bash
-python -m lilbot
-python -m lilbot "why is my system slow?"
-python -m lilbot repo summarize .
-python -m lilbot repo trace-function authenticate_user .
-python -m lilbot logs analyze /var/log/syslog
-python -m lilbot explain-command "tar -czf backup.tar.gz project/"
+lilbot
+lilbot "why is my system slow?"
+lilbot repo summarize .
+lilbot repo trace-function authenticate_user .
+lilbot logs analyze /var/log/syslog
+lilbot explain-command "tar -czf backup.tar.gz project/"
 ```
 
-## Why This Exists
+## First Run Experience
 
-Because the default pattern for AI dev tooling is bad.
+### `lilbot init`
 
-People keep building systems where the language model is allowed to pretend it knows the machine. It doesn't. The model should reason. The program should inspect reality. Python should stay in charge of tools, safety, validation, and formatting.
+The init wizard saves your defaults to a persistent config file so you do not need to keep passing the same flags:
 
-Lilbot keeps that boundary clean:
+- model path
+- preferred device
+- 4-bit quantization preference
+- workspace root
+- reasoning limits
 
-- the model does not execute commands directly
-- tools are deterministic and explicit
-- the controller loop is visible and debuggable
-- safety policy is code, not vibes
-
-That is the whole game.
-
-## Architecture
-
-Lilbot is split into parts that are boring in the good way:
-
-- CLI in `lilbot/cli.py`
-- agent wrapper in `lilbot/agent.py`
-- explicit controller loop in `lilbot/controller.py`
-- prompt construction in `lilbot/prompts.py`
-- model backend abstraction in `lilbot/model/`
-- plugin-style tools in `lilbot/tools/`
-- shell safety policy in `lilbot/safety/`
-- observability helpers in `lilbot/utils/`
-- session memory in `lilbot/memory/`
-- retrieval stubs in `lilbot/retrieval/`
-
-The current backend is Hugging Face Transformers. The design keeps the backend boundary clean so you can swap that later without turning the rest of the codebase into soup.
-
-## Directory Tree
+By default, the config file lives at:
 
 ```text
-.
-├── cli.py
-├── README.md
-├── requirements.txt
-├── pyproject.toml
-├── lilbot
-│   ├── __init__.py
-│   ├── __main__.py
-│   ├── agent.py
-│   ├── cli.py
-│   ├── config.py
-│   ├── controller.py
-│   ├── prompts.py
-│   ├── model
-│   │   ├── __init__.py
-│   │   ├── base.py
-│   │   └── hf_model.py
-│   ├── tools
-│   │   ├── __init__.py
-│   │   ├── base.py
-│   │   ├── filesystem.py
-│   │   ├── logs.py
-│   │   ├── registry.py
-│   │   ├── repo.py
-│   │   ├── shell.py
-│   │   └── system.py
-│   ├── safety
-│   │   ├── __init__.py
-│   │   └── shell_policy.py
-│   ├── utils
-│   │   ├── __init__.py
-│   │   ├── config.py
-│   │   ├── formatting.py
-│   │   └── logging.py
-│   ├── retrieval
-│   │   ├── __init__.py
-│   │   ├── chunking.py
-│   │   ├── embeddings.py
-│   │   └── index.py
-│   └── memory
-│       ├── __init__.py
-│       └── session.py
-└── tests
-    ├── test_agent_loop.py
-    ├── test_shell_policy.py
-    └── test_tools.py
+~/.config/lilbot/config.json
 ```
 
-## Setup
+You can override that path with `LILBOT_CONFIG_PATH`.
 
-Make an environment. Install the package. Point it at a local checkpoint.
+### `lilbot doctor`
+
+The doctor command checks the most common setup problems:
+
+- Python executable
+- installed packages
+- CUDA visibility
+- `bitsandbytes` availability
+- model discovery
+- current workspace and config file state
+
+Use it whenever Lilbot is not behaving the way you expect:
+
+```bash
+lilbot doctor
+```
+
+## Installation Options
+
+### Option 1: Virtual Environment
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+pip install -e ".[hf,quantization]"
 ```
 
-Lilbot expects a local Hugging Face checkpoint. You can provide one explicitly:
+### Option 2: CPU-Only Setup
+
+If you do not want GPU dependencies:
+
+```bash
+pip install -e ".[hf]"
+```
+
+Then prefer CPU mode:
+
+```bash
+lilbot --device cpu
+```
+
+### Local Model Discovery
+
+Lilbot expects a local Hugging Face checkpoint.
+
+You can provide one explicitly:
+
+```bash
+lilbot --model /path/to/local/model
+```
+
+Or set it once:
 
 ```bash
 export LILBOT_MODEL=/path/to/local/model
-export LILBOT_DEVICE=cpu
 ```
 
 If you keep a checkpoint under `lilbot/models/<model-name>`, Lilbot will auto-discover it.
 
-If you want GPU-first inference with 4-bit loading:
+## Interactive Mode
+
+Start the chat loop:
+
+```bash
+lilbot
+```
+
+Useful interactive commands:
+
+- `/help`
+- `/status`
+- `/model`
+- `/tools`
+- `/clear`
+- `/exit`
+
+The startup banner shows:
+
+- active model path
+- runtime mode
+- workspace root
+- config file path
+
+## One-Shot Commands
+
+Use the query mode when you want an answer and then want your shell prompt back:
+
+```bash
+lilbot "why is my system slow?"
+lilbot --device cuda --quantize-4bit "explain the largest files in this repository"
+```
+
+## Deterministic Subcommands
+
+Some workflows are deterministic and do not need the full agent loop:
+
+```bash
+lilbot repo summarize .
+lilbot repo trace-function authenticate_user .
+lilbot logs analyze /var/log/syslog
+lilbot explain-command "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
+```
+
+## Configuration
+
+Lilbot reads configuration in this order:
+
+1. command-line flags
+2. environment variables
+3. user config file
+4. built-in defaults
+
+Common settings:
+
+- `LILBOT_MODEL`
+- `LILBOT_DEVICE`
+- `LILBOT_QUANTIZE_4BIT`
+- `LILBOT_WORKSPACE_ROOT`
+- `LILBOT_MAX_NEW_TOKENS`
+- `LILBOT_MAX_STEPS`
+- `LILBOT_CONFIG_PATH`
+
+The sample environment file is in [.env.example](/home/athena/Desktop/lilbot/.env.example).
+
+## Performance Tips
+
+For larger local checkpoints, the fastest practical path is usually:
+
+```bash
+lilbot --device cuda --quantize-4bit
+```
+
+If responses feel slow:
+
+- run `lilbot doctor`
+- make sure `bitsandbytes` is actually installed
+- prefer `--device cuda --quantize-4bit` over `--device auto`
+- reduce generation with `--max-new-tokens 128`
+- use `/clear` in interactive mode when the session context gets stale
+
+If `--device auto` chooses CUDA and the model still does not fit, Lilbot falls back to CPU during model load.
+
+## Troubleshooting
+
+### No model found
+
+Run:
+
+```bash
+lilbot doctor
+```
+
+Then either:
+
+- put a local checkpoint under `lilbot/models/`
+- run `lilbot init` and save a model path
+- pass `--model /path/to/model`
+
+### CUDA was requested but is not available
+
+Check that the Python environment you launched Lilbot from can see the GPU:
+
+```bash
+python3 -c "import torch; print(torch.cuda.is_available())"
+```
+
+If it prints `False`, either fix the environment or use:
+
+```bash
+lilbot --device cpu
+```
+
+### 4-bit quantization is not activating
+
+Install the optional package:
 
 ```bash
 pip install -e ".[hf,quantization]"
 ```
 
-## Usage
-
-### Interactive Mode
-
-Run this:
+Then verify with:
 
 ```bash
-python -m lilbot --device cuda --quantize-4bit
+lilbot doctor
 ```
 
-That starts the local chat loop. Type `clear` to wipe the current conversation context. Type `exit` to leave.
+### The first reply is much slower than later replies
 
-### One-Shot Queries
-
-Use this when you want an answer and then you want your shell prompt back:
-
-```bash
-python -m lilbot --model /path/to/local/model --device cuda --quantize-4bit --verbose "why is my system slow?"
-python -m lilbot --backend hf --device cpu "explain the largest files in this repository"
-```
-
-### Deterministic Subcommands
-
-These do not need the full agent loop:
-
-```bash
-python -m lilbot repo summarize .
-python -m lilbot repo trace-function authenticate_user .
-python -m lilbot logs analyze /var/log/syslog
-python -m lilbot explain-command "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
-```
-
-### Useful Flags
-
-- `--model` local model path or cached offline model identifier
-- `--backend` backend selector, currently `hf`
-- `--device` `auto`, `cpu`, or `cuda`
-- `--quantize-4bit` enable 4-bit GPU loading when `bitsandbytes` is available
-- `--max-steps` controller step limit
-- `--max-new-tokens` generation cap per model step
-- `--temperature` sampling temperature
-- `--verbose` print `[STEP]`, `[RAW]`, `[THOUGHT]`, `[ACTION]`, `[ARGS]`, and `[OBSERVATION]`
-
-## Performance Notes
-
-Big local checkpoints are not magic. If you want good latency, stop pretending a giant model on weak settings is going to feel snappy.
-
-The practical path is:
-
-```bash
-python -m lilbot --device cuda --quantize-4bit
-```
-
-If responses still feel heavy:
-
-- make sure `bitsandbytes` is actually installed
-- use `--device cuda --quantize-4bit` instead of hoping `auto` guesses right
-- reduce generation with `--max-new-tokens 128`
-- use `clear` in interactive mode when the conversation gets stale
-
-If `--device auto` picks CUDA and the checkpoint still does not fit, Lilbot falls back to CPU during model load.
+That is expected for large local checkpoints. The first request includes model load time. The interactive REPL keeps the model resident after startup, which makes follow-up turns faster.
 
 ## Safety Model
 
-This project is local-first, not reckless.
+Lilbot is local-first, but it is still defensive by default:
 
 - filesystem tools stay inside the configured workspace root
-- log analysis is limited to the workspace or common system log locations
-- shell execution is restricted to read-oriented commands
-- dangerous patterns like `rm -rf`, `shutdown`, `mkfs`, `dd`, and install-script pipelines are blocked
+- log analysis is restricted to the workspace or common system log directories
+- shell execution runs in restricted, read-oriented mode
+- dangerous commands and install-script pipelines are blocked
 - the controller enforces a strict `max_steps` limit
 
-The model is not trusted with direct execution authority. Good. It shouldn't be.
+The model is used as a reasoning engine. It does not get to act as the operating system.
+
+## Architecture
+
+Lilbot is split into clear layers:
+
+- CLI in `lilbot/cli.py`
+- agent wrapper in `lilbot/agent.py`
+- controller loop in `lilbot/controller.py`
+- prompt construction in `lilbot/prompts.py`
+- model backend abstraction in `lilbot/model/`
+- tool registry and tool implementations in `lilbot/tools/`
+- shell safety policy in `lilbot/safety/`
+- observability helpers in `lilbot/utils/`
+- session memory in `lilbot/memory/`
+- retrieval stubs in `lilbot/retrieval/`
 
 ## Development
 
-Run the tests:
+Run the test suite with:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Lilbot is experimental, but it is trying to be experimental in the useful way: small, modular, inspectable, and grounded in local reality.
+The current roadmap is in [ROADMAP.md](/home/athena/Desktop/lilbot/ROADMAP.md).
