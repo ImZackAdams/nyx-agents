@@ -16,6 +16,7 @@ def build_model(config: LilbotConfig) -> BaseModel:
             device=config.device,
             max_new_tokens=config.max_new_tokens,
             temperature=config.temperature,
+            quantize_4bit=config.quantize_4bit,
         )
     raise RuntimeError(f"Unsupported backend: {config.backend}")
 

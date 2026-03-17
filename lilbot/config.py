@@ -41,6 +41,14 @@ def _coerce_non_negative_float(value: float | str | None, default: float) -> flo
     return parsed if parsed >= 0.0 else default
 
 
+def _coerce_bool(value: bool | str | None, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def is_complete_model_path(path: str | Path | None) -> bool:
     """Return True when a directory looks like a usable local HF checkpoint."""
 
@@ -88,6 +96,7 @@ class LilbotConfig:
     device: str
     max_new_tokens: int
     temperature: float
+    quantize_4bit: bool
     max_steps: int
     workspace_root: Path
     verbose: bool
@@ -111,6 +120,7 @@ class LilbotConfig:
         device: str | None = None,
         max_new_tokens: int | None = None,
         temperature: float | None = None,
+        quantize_4bit: bool | None = None,
         max_steps: int | None = None,
         workspace_root: str | None = None,
         shell_timeout_seconds: int | None = None,
@@ -132,6 +142,10 @@ class LilbotConfig:
             temperature=_coerce_non_negative_float(
                 temperature if temperature is not None else os.getenv("LILBOT_TEMPERATURE"),
                 0.0,
+            ),
+            quantize_4bit=_coerce_bool(
+                quantize_4bit if quantize_4bit is not None else os.getenv("LILBOT_QUANTIZE_4BIT"),
+                True,
             ),
             max_steps=_coerce_positive_int(
                 max_steps if max_steps is not None else os.getenv("LILBOT_MAX_STEPS"),

@@ -26,6 +26,7 @@ class HuggingFaceLocalModel(BaseModel):
         device: str = "auto",
         max_new_tokens: int = 256,
         temperature: float = 0.0,
+        quantize_4bit: bool = True,
     ) -> None:
         if not model_name:
             raise RuntimeError(
@@ -48,7 +49,11 @@ class HuggingFaceLocalModel(BaseModel):
         self.model_name = model_name
         self.max_new_tokens = max(1, int(max_new_tokens))
         self.temperature = max(0.0, float(temperature))
+        self.quantize_4bit = bool(quantize_4bit)
+        self.quantization_active = False
+        self.device_pref = (device or "auto").strip().lower()
         self.device = self._resolve_device(device)
+        self.load_warnings: list[str] = []
 
         tokenizer_kwargs = {
             "local_files_only": True,
@@ -58,14 +63,20 @@ class HuggingFaceLocalModel(BaseModel):
         model_kwargs: dict[str, object] = {
             "local_files_only": True,
             "trust_remote_code": True,
+            "low_cpu_mem_usage": True,
         }
 
         if self.device.type == "cuda":
             model_kwargs["torch_dtype"] = torch.float16
+            model_kwargs["device_map"] = "auto"
+
+        quantization_config = self._build_quantization_config()
+        if quantization_config is not None:
+            model_kwargs["quantization_config"] = quantization_config
 
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(model_name, **tokenizer_kwargs)
-            self.model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
+            self.model = self._load_model(AutoModelForCausalLM, dict(model_kwargs))
         except Exception as exc:
             raise RuntimeError(
                 f"Unable to load local model '{model_name}'. "
@@ -77,7 +88,25 @@ class HuggingFaceLocalModel(BaseModel):
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
         self.uses_chat_template = bool(getattr(self.tokenizer, "chat_template", None))
-        self.model.to(self.device)
+        try:
+            if not hasattr(self.model, "hf_device_map"):
+                self.model.to(self.device)
+        except RuntimeError as exc:
+            if self._should_fallback_to_cpu(exc):
+                self.torch.cuda.empty_cache()
+                self.load_warnings.append(
+                    "CUDA ran out of memory during model load; falling back to CPU because --device auto was used."
+                )
+                self.device = self.torch.device("cpu")
+                self.quantization_active = False
+                self.model.to(device=self.device, dtype=self.torch.float32)
+            elif "out of memory" in str(exc).lower() and self.device.type == "cuda":
+                self.torch.cuda.empty_cache()
+                raise RuntimeError(
+                    "The model ran out of GPU memory while loading. Retry with --device cpu or use a smaller local checkpoint."
+                ) from exc
+            else:
+                raise
         self.model.eval()
 
         if (
@@ -125,6 +154,70 @@ class HuggingFaceLocalModel(BaseModel):
         ).strip()
         return generated or "FINAL: (empty response)"
 
+    def _build_quantization_config(self) -> object | None:
+        if not self.quantize_4bit:
+            return None
+        if self.device.type != "cuda":
+            self._warn_once(
+                "4-bit quantization requires CUDA; continuing without quantization."
+            )
+            return None
+
+        try:
+            import bitsandbytes  # noqa: F401
+            from transformers import BitsAndBytesConfig
+        except ImportError:
+            self._warn_once(
+                "bitsandbytes is not installed; continuing without 4-bit quantization. "
+                "Install it with `pip install bitsandbytes` or `pip install -e .[quantization]`."
+            )
+            return None
+
+        return BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=self.torch.float16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+        )
+
+    def _load_model(self, auto_model: object, model_kwargs: dict[str, object]) -> object:
+        quantization_config = model_kwargs.get("quantization_config")
+        try:
+            model = auto_model.from_pretrained(self.model_name, **model_kwargs)
+        except Exception as exc:
+            if quantization_config is not None:
+                self._warn_once(f"4-bit quantization failed ({exc}); retrying without quantization.")
+                retry_kwargs = dict(model_kwargs)
+                retry_kwargs.pop("quantization_config", None)
+                try:
+                    model = auto_model.from_pretrained(self.model_name, **retry_kwargs)
+                except Exception as retry_exc:
+                    if self._should_fallback_to_cpu(retry_exc):
+                        return self._load_model_on_cpu(auto_model)
+                    raise retry_exc
+                self.quantization_active = False
+                return model
+            if self._should_fallback_to_cpu(exc):
+                return self._load_model_on_cpu(auto_model)
+            raise
+
+        self.quantization_active = quantization_config is not None
+        return model
+
+    def _load_model_on_cpu(self, auto_model: object) -> object:
+        self.torch.cuda.empty_cache()
+        self._warn_once(
+            "CUDA ran out of memory during model load; falling back to CPU because --device auto was used."
+        )
+        self.device = self.torch.device("cpu")
+        self.quantization_active = False
+        return auto_model.from_pretrained(
+            self.model_name,
+            local_files_only=True,
+            trust_remote_code=True,
+            low_cpu_mem_usage=True,
+        )
+
     def _resolve_device(self, device: str):
         normalized = (device or "auto").strip().lower()
         if normalized not in {"auto", "cpu", "cuda"}:
@@ -140,6 +233,13 @@ class HuggingFaceLocalModel(BaseModel):
         if normalized == "cuda" and not cuda_available:
             raise RuntimeError("CUDA was requested but is not available.")
         return self.torch.device("cuda" if cuda_available else "cpu")
+
+    def _should_fallback_to_cpu(self, exc: Exception) -> bool:
+        return (
+            self.device_pref == "auto"
+            and self.device.type == "cuda"
+            and "out of memory" in str(exc).lower()
+        )
 
     def _resolve_max_input_tokens(self) -> int:
         limits = [self.DEFAULT_MAX_INPUT_TOKENS]
@@ -158,9 +258,15 @@ class HuggingFaceLocalModel(BaseModel):
             f"max_new_tokens={self.max_new_tokens}",
             f"temperature={self.temperature:.2f}",
         ]
+        if self.quantization_active:
+            summary.append("4-bit")
         if self.uses_chat_template:
             summary.append("chat-template")
         return " | ".join(summary)
+
+    def _warn_once(self, message: str) -> None:
+        if message not in self.load_warnings:
+            self.load_warnings.append(message)
 
 
 def _render_prompt_with_chat_template(tokenizer: object, prompt: str) -> str:

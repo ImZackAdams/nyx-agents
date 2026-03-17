@@ -124,12 +124,18 @@ export LILBOT_DEVICE=cpu
 
 If you keep a checkpoint under `lilbot/models/<model-name>`, Lilbot will auto-discover it.
 
+For GPU-first usage with the bundled Falcon model, install the optional extras:
+
+```bash
+pip install -e ".[hf,quantization]"
+```
+
 ## CLI Usage
 
 Interactive chat:
 
 ```bash
-python -m lilbot
+python -m lilbot --device cuda --quantize-4bit
 ```
 
 That starts a local chat loop. Type `clear` to reset the current conversation context or `exit` to leave.
@@ -137,7 +143,7 @@ That starts a local chat loop. Type `clear` to reset the current conversation co
 One-shot reasoning:
 
 ```bash
-python -m lilbot --model /path/to/local/model --verbose "why is my system slow?"
+python -m lilbot --model /path/to/local/model --device cuda --quantize-4bit --verbose "why is my system slow?"
 python -m lilbot --backend hf --device cpu "explain the largest files in this repository"
 ```
 
@@ -155,10 +161,19 @@ Useful flags:
 - `--model` local model path or cached offline model identifier
 - `--backend` backend selector, currently `hf`
 - `--device` `auto`, `cpu`, or `cuda`
+- `--quantize-4bit` enable 4-bit GPU loading when `bitsandbytes` is available
 - `--max-steps` controller step limit
 - `--max-new-tokens` generation limit per model step
 - `--temperature` sampling temperature
 - `--verbose` emit `[STEP]`, `[RAW]`, `[THOUGHT]`, `[ACTION]`, `[ARGS]`, and `[OBSERVATION]` logs
+
+For large local checkpoints on smaller GPUs, the recommended path is:
+
+```bash
+python -m lilbot --device cuda --quantize-4bit
+```
+
+If `--device auto` picks CUDA and the model still does not fit, Lilbot falls back to CPU automatically during model load.
 
 ## Safety Model
 

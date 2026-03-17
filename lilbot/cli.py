@@ -62,6 +62,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Sampling temperature. Use 0 for deterministic output.",
     )
     parser.add_argument(
+        "--quantize-4bit",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable optional 4-bit GPU loading when supported.",
+    )
+    parser.add_argument(
         "--max-steps",
         type=int,
         default=None,
@@ -97,6 +103,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         device=args.device,
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
+        quantize_4bit=args.quantize_4bit,
         max_steps=args.max_steps,
         workspace_root=args.workspace_root,
         shell_timeout_seconds=args.shell_timeout,
@@ -266,6 +273,8 @@ def _emit_model_diagnostics(model: object) -> None:
     runtime_summary = getattr(model, "runtime_summary", "")
     if runtime_summary:
         print(runtime_summary, file=sys.stderr)
+    for warning in getattr(model, "load_warnings", []):
+        print(f"Warning: {warning}", file=sys.stderr)
 
 
 def _build_chat_request(
