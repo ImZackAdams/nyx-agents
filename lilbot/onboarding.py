@@ -374,8 +374,12 @@ def _self_test_optional_quantization(config: LilbotConfig) -> SelfTestCheck:
     if module is not None and version is not None:
         return SelfTestCheck(
             name="quantization",
-            status="PASS",
-            detail=f"bitsandbytes is available ({version}).",
+            status="WARN" if config.quantize_4bit else "PASS",
+            detail=(
+                f"bitsandbytes is available ({version}), but self-test does not prove that the current checkpoint fits in GPU memory."
+                if config.quantize_4bit
+                else f"bitsandbytes is available ({version})."
+            ),
         )
     if config.quantize_4bit:
         return SelfTestCheck(
@@ -477,9 +481,14 @@ def _self_test_next_steps(result: SelfTestResult) -> list[str]:
                 "Install the model runtime in this environment with `python -m pip install torch transformers accelerate`."
             )
         elif check.name == "quantization" and check.status == "WARN":
-            steps.append(
-                "Install 4-bit support with `python -m pip install bitsandbytes` if you want GPU quantization."
-            )
+            if "not installed" in check.detail:
+                steps.append(
+                    "Install 4-bit support with `python -m pip install bitsandbytes` if you want GPU quantization."
+                )
+            else:
+                steps.append(
+                    "Validate GPU loading with `lilbot --device cuda --quantize-4bit \"hello\"`; `--device auto` may fall back to CPU when the model does not fit."
+                )
         elif check.name == "cuda" and check.status == "FAIL":
             steps.append("Use `--device cpu` or fix CUDA visibility in the active Python environment.")
         elif check.name == "cuda" and check.status == "WARN":
@@ -590,6 +599,13 @@ def _doctor_next_steps(
     if config.quantize_4bit and not package_state.get("bitsandbytes"):
         steps.append(
             "Install 4-bit support in this environment with `python -m pip install bitsandbytes`."
+        )
+    elif config.quantize_4bit and package_state.get("bitsandbytes") and cuda_state.get("available") and config.model:
+        steps.append(
+            "CUDA and bitsandbytes are available, but that does not guarantee this checkpoint fits in VRAM. Validate with `lilbot --device cuda --quantize-4bit \"hello\"`."
+        )
+        steps.append(
+            "If `--device auto` falls back to CPU, try a smaller checkpoint or increase GPU headroom with `LILBOT_GPU_HEADROOM_MB` tuning only after confirming the model is close to fitting."
         )
     if config.device == "cuda" and not cuda_state.get("available"):
         steps.append("CUDA is not available to this Python environment. Use `--device cpu` or fix the GPU environment.")

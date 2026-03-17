@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
-from lilbot.model.hf_model import HuggingFaceLocalModel, _render_prompt_with_chat_template
+from lilbot.model.hf_model import (
+    HuggingFaceLocalModel,
+    _render_prompt_with_chat_template,
+    _select_dtype_kwarg,
+)
 
 
 class FakeTokenizerWithTemplate:
@@ -106,3 +110,48 @@ class ModelHelpersTests(unittest.TestCase):
             model._load_model(FakeAutoModel, {"quantization_config": object()})
 
         self.assertIn("4-bit GPU loading ran out of memory", str(exc_info.exception))
+
+    def test_build_max_memory_map_leaves_gpu_headroom(self) -> None:
+        class FakeCuda:
+            @staticmethod
+            def current_device() -> int:
+                return 0
+
+            @staticmethod
+            def mem_get_info(device_index: int) -> tuple[int, int]:
+                del device_index
+                gib = 1024 * 1024 * 1024
+                return (12 * gib, 12 * gib)
+
+        model = object.__new__(HuggingFaceLocalModel)
+        model.device = SimpleNamespace(type="cuda", index=0)
+        model.torch = SimpleNamespace(cuda=FakeCuda())
+
+        with patch.dict("os.environ", {"LILBOT_GPU_HEADROOM_MB": "2048", "LILBOT_CPU_OFFLOAD_GB": "64"}):
+            memory_map = model._build_max_memory_map()
+
+        gib = 1024 * 1024 * 1024
+        self.assertEqual(memory_map, {0: 10 * gib, "cpu": 64 * gib})
+
+    def test_runtime_summary_mentions_cpu_offload(self) -> None:
+        model = object.__new__(HuggingFaceLocalModel)
+        model.model_name = "fake-model"
+        model.device = SimpleNamespace(type="cuda")
+        model.max_new_tokens = 128
+        model.temperature = 0.0
+        model.quantization_active = True
+        model.uses_chat_template = True
+        model.model = SimpleNamespace(hf_device_map={"model.layers.0": "cuda:0", "lm_head": "cpu"})
+
+        summary = model._runtime_summary()
+
+        self.assertIn("device=cuda", summary)
+        self.assertIn("4-bit", summary)
+        self.assertIn("cpu-offload", summary)
+        self.assertIn("chat-template", summary)
+
+    def test_select_dtype_kwarg_uses_torch_dtype_for_transformers_4(self) -> None:
+        self.assertEqual(_select_dtype_kwarg("4.47.1"), "torch_dtype")
+
+    def test_select_dtype_kwarg_uses_dtype_for_transformers_5(self) -> None:
+        self.assertEqual(_select_dtype_kwarg("5.3.0"), "dtype")

@@ -7,6 +7,7 @@ import warnings
 
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("USE_TF", "0")
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 from lilbot.model.base import BaseModel
 
@@ -48,6 +49,7 @@ class HuggingFaceLocalModel(BaseModel):
             ) from exc
 
         self.torch = torch
+        self.transformers_version = getattr(transformers, "__version__", "unknown")
         self.model_name = model_name
         self.max_new_tokens = max(1, int(max_new_tokens))
         self.temperature = max(0.0, float(temperature))
@@ -69,8 +71,11 @@ class HuggingFaceLocalModel(BaseModel):
         }
 
         if self.device.type == "cuda":
-            model_kwargs["dtype"] = torch.float16
+            model_kwargs[_select_dtype_kwarg(self.transformers_version)] = torch.float16
             model_kwargs["device_map"] = "auto"
+            max_memory = self._build_max_memory_map()
+            if max_memory is not None:
+                model_kwargs["max_memory"] = max_memory
 
         quantization_config = self._build_quantization_config()
         if quantization_config is not None:
@@ -277,6 +282,27 @@ class HuggingFaceLocalModel(BaseModel):
                 limits.append(value)
         return min(limits)
 
+    def _build_max_memory_map(self) -> dict[object, int] | None:
+        try:
+            gpu_index = (
+                int(self.device.index)
+                if getattr(self.device, "index", None) is not None
+                else int(self.torch.cuda.current_device())
+            )
+            free_bytes, total_bytes = self.torch.cuda.mem_get_info(gpu_index)
+        except Exception:
+            return None
+
+        headroom_mb = _read_positive_int_env("LILBOT_GPU_HEADROOM_MB", default=1024)
+        headroom_bytes = headroom_mb * 1024 * 1024
+        usable_bytes = max(0, min(int(free_bytes), int(total_bytes)) - headroom_bytes)
+        if usable_bytes <= 0:
+            return None
+
+        cpu_offload_gb = _read_positive_int_env("LILBOT_CPU_OFFLOAD_GB", default=48)
+        cpu_offload_bytes = cpu_offload_gb * 1024 * 1024 * 1024
+        return {gpu_index: usable_bytes, "cpu": cpu_offload_bytes}
+
     def _runtime_summary(self) -> str:
         summary = [
             f"Loaded local Hugging Face model: {self.model_name}",
@@ -286,6 +312,8 @@ class HuggingFaceLocalModel(BaseModel):
         ]
         if self.quantization_active:
             summary.append("4-bit")
+        if _model_uses_cpu_offload(self.model):
+            summary.append("cpu-offload")
         if self.uses_chat_template:
             summary.append("chat-template")
         return " | ".join(summary)
@@ -341,3 +369,30 @@ def _disable_optional_transformers_packages(transformers_module: object) -> None
     import_utils._is_package_available = _patched_is_package_available
     utils_module.is_pandas_available = lambda: False
     utils_module.is_sklearn_available = lambda: False
+
+
+def _model_uses_cpu_offload(model: object) -> bool:
+    device_map = getattr(model, "hf_device_map", None)
+    if not isinstance(device_map, dict):
+        return False
+    return any(str(target).startswith("cpu") or str(target).startswith("disk") for target in device_map.values())
+
+
+def _read_positive_int_env(name: str, *, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+def _select_dtype_kwarg(transformers_version: str) -> str:
+    raw = str(transformers_version).strip()
+    try:
+        major = int(raw.split(".", 1)[0])
+    except (TypeError, ValueError):
+        return "torch_dtype"
+    return "dtype" if major >= 5 else "torch_dtype"
