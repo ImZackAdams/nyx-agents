@@ -25,7 +25,7 @@ lilbot self-test
 lilbot --version
 ```
 
-When `lilbot init` asks for `Local model path`, enter a real local checkpoint path if you want chat and free-form AI queries to work. If you leave it blank, deterministic commands still work, but `lilbot` and free-form prompts will not.
+`lilbot init` is the expected first-run step before chat or free-form AI queries. When it asks for `Local model path`, enter a real local checkpoint path if you want `lilbot` and one-shot prompts to work. If you leave it blank, deterministic commands still work, but chat and free-form prompts will not.
 
 If `doctor` looks good, start Lilbot:
 
@@ -132,6 +132,14 @@ For users who do not want to clone the repository first:
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install "lilbot[hf,quantization] @ git+https://github.com/ImZackAdams/lilbot.git"
+```
+
+Then finish setup before you try `lilbot` chat mode:
+
+```bash
+lilbot init
+lilbot doctor
+lilbot self-test
 ```
 
 If your pip version or shell does not like that direct-reference form, use this fallback:
