@@ -21,8 +21,11 @@ Then run the guided setup:
 ```bash
 lilbot init
 lilbot doctor
+lilbot self-test
 lilbot --version
 ```
+
+When `lilbot init` asks for `Local model path`, enter a real local checkpoint path if you want chat and free-form AI queries to work. If you leave it blank, deterministic commands still work, but `lilbot` and free-form prompts will not.
 
 If `doctor` looks good, start Lilbot:
 
@@ -93,6 +96,24 @@ Use it whenever Lilbot is not behaving the way you expect:
 lilbot doctor
 ```
 
+### `lilbot self-test`
+
+The self-test command is a quick pass/warn/fail check for the full local setup without loading the full model for inference.
+
+It verifies:
+
+- config loading
+- local model discovery
+- required Python runtime imports
+- CUDA visibility
+- one safe deterministic tool execution
+
+Run it like this:
+
+```bash
+lilbot self-test
+```
+
 ## Installation Options
 
 ### Option 1: Virtual Environment
@@ -110,10 +131,36 @@ For users who do not want to clone the repository first:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install "git+https://github.com/ImZackAdams/lilbot.git"
+python -m pip install "lilbot[hf,quantization] @ git+https://github.com/ImZackAdams/lilbot.git"
 ```
 
-### Option 3: CPU-Only Setup
+If your pip version or shell does not like that direct-reference form, use this fallback:
+
+```bash
+python -m pip install "git+https://github.com/ImZackAdams/lilbot.git"
+python -m pip install torch transformers accelerate
+python -m pip install bitsandbytes
+```
+
+### Option 3: Conda Environment
+
+If you prefer conda, make sure you create the environment with Python included:
+
+```bash
+conda create -n lilbot python=3.12 -y
+conda activate lilbot
+python -m pip install "lilbot[hf,quantization] @ git+https://github.com/ImZackAdams/lilbot.git"
+```
+
+Then continue with:
+
+```bash
+lilbot init
+lilbot doctor
+lilbot self-test
+```
+
+### Option 4: CPU-Only Setup
 
 If you do not want GPU dependencies:
 
@@ -154,9 +201,12 @@ Lilbot is a normal Python CLI package. On another local machine, the workflow is
 3. point it at a local model
 4. run `lilbot init`
 5. run `lilbot doctor`
-6. start using `lilbot`
+6. run `lilbot self-test`
+7. start using `lilbot`
 
 The `lilbot` command only exists inside the environment where the package was installed. If a user switches environments, they need Lilbot installed there too.
+
+If a user installed Lilbot from GitHub or a package index, commands like `python -m pip install -e ".[hf,quantization]"` only work after cloning the Lilbot repository and `cd`-ing into it. They do not work from an unrelated project directory.
 
 ## Choosing a Model for Your Hardware
 
@@ -241,6 +291,7 @@ For support and bug reports, it is helpful to include:
 ```bash
 lilbot --version
 lilbot doctor
+lilbot self-test
 ```
 
 ## Performance Tips
@@ -276,6 +327,7 @@ Then either:
 - put a local checkpoint under `lilbot/models/`
 - run `lilbot init` and save a model path
 - pass `--model /path/to/model`
+- keep using deterministic commands until a model is configured
 
 ### CUDA was requested but is not available
 
@@ -296,7 +348,7 @@ lilbot --device cpu
 Install the optional package:
 
 ```bash
-pip install -e ".[hf,quantization]"
+python -m pip install bitsandbytes
 ```
 
 Then verify with:

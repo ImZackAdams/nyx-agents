@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from lilbot.cli import main
 from lilbot.model.base import BaseModel
+from lilbot.onboarding import SelfTestCheck, SelfTestResult
 
 
 class FakeModel(BaseModel):
@@ -92,6 +93,48 @@ class CliTests(unittest.TestCase):
         self.assertIn("Configuration", text)
         self.assertIn("Next steps", text)
 
+    def test_self_test_command_prints_report(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        result = SelfTestResult(
+            checks=(
+                SelfTestCheck("config", "PASS", "config ok"),
+                SelfTestCheck("tooling", "WARN", "tool warning"),
+            )
+        )
+
+        with (
+            patch("lilbot.cli.run_self_test", return_value=result),
+            redirect_stdout(stdout),
+            redirect_stderr(stderr),
+        ):
+            main(["self-test"])
+
+        text = stdout.getvalue()
+        self.assertIn("Lilbot self-test", text)
+        self.assertIn("[PASS] config", text)
+        self.assertIn("[WARN] tooling", text)
+
+    def test_self_test_exits_nonzero_on_failures(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        result = SelfTestResult(
+            checks=(
+                SelfTestCheck("imports", "FAIL", "missing runtime"),
+            )
+        )
+
+        with self.assertRaises(SystemExit) as exit_info:
+            with (
+                patch("lilbot.cli.run_self_test", return_value=result),
+                redirect_stdout(stdout),
+                redirect_stderr(stderr),
+            ):
+                main(["self-test"])
+
+        self.assertEqual(exit_info.exception.code, 1)
+        self.assertIn("[FAIL] imports", stdout.getvalue())
+
     def test_version_flag_prints_package_version(self) -> None:
         stdout = io.StringIO()
         stderr = io.StringIO()
@@ -121,3 +164,22 @@ class CliTests(unittest.TestCase):
             self.assertFalse(saved["quantize_4bit"])
             self.assertIn("workspace_root", saved)
             self.assertIn("Saved Lilbot config", stdout.getvalue())
+
+    def test_init_without_model_explains_partial_setup(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with tempfile.TemporaryDirectory() as tempdir:
+            config_path = Path(tempdir) / "config.json"
+            with (
+                patch.dict(os.environ, {"LILBOT_CONFIG_PATH": str(config_path)}, clear=True),
+                patch("lilbot.config.discover_default_model", return_value=None),
+                patch("lilbot.onboarding.discover_default_model", return_value=None),
+                patch("builtins.input", side_effect=["", "", "cpu", "", "", ""]),
+                redirect_stdout(stdout),
+                redirect_stderr(stderr),
+            ):
+                main(["init"])
+
+            text = stdout.getvalue()
+            self.assertIn("Lilbot is not ready for AI chat yet", text)
+            self.assertIn("Deterministic commands", text)

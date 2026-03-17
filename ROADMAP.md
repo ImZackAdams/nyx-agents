@@ -6,6 +6,7 @@ Lilbot is already usable as a local AI CLI, but the next phase is about making i
 
 - guided setup with `lilbot init`
 - environment diagnostics with `lilbot doctor`
+- one-command validation with `lilbot self-test`
 - persistent per-user config
 - interactive slash commands
 - clearer onboarding docs
@@ -13,7 +14,6 @@ Lilbot is already usable as a local AI CLI, but the next phase is about making i
 ## Near Term
 
 - package and publish clean install paths for `pipx`, `venv`, and `conda`
-- add `lilbot self-test` for one-command runtime validation
 - improve model-load error messages with more actionable fix suggestions
 - add clearer progress output during long model loads and tool runs
 - expand REPL quality-of-life features like command history and better interrupt handling

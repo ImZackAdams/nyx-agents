@@ -10,7 +10,12 @@ import sys
 from lilbot.agent import LilbotAgent
 from lilbot.config import LilbotConfig
 from lilbot.model import build_model
-from lilbot.onboarding import render_doctor_report, run_init_wizard
+from lilbot.onboarding import (
+    render_doctor_report,
+    render_self_test_report,
+    run_init_wizard,
+    run_self_test,
+)
 from lilbot.tools import build_default_tool_registry
 from lilbot.utils.logging import StepLogger
 
@@ -37,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             "  lilbot init\n"
             "  lilbot doctor\n"
+            "  lilbot self-test\n"
             "  lilbot\n"
             "  lilbot \"why is my system slow?\"\n"
             "  lilbot repo summarize .\n"
@@ -52,7 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "command",
         nargs="?",
-        help="A free-form query or a Lilbot subcommand such as init, doctor, repo, logs, or explain-command. Omit it to start interactive chat mode.",
+        help="A free-form query or a Lilbot subcommand such as init, doctor, self-test, repo, logs, or explain-command. Omit it to start interactive chat mode.",
     )
     parser.add_argument(
         "--model",
@@ -159,6 +165,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         if mode == "init":
             print(_run_init_command(payload, config))
             return
+        if mode == "self-test":
+            report, exit_code = _run_self_test_command(payload, config)
+            print(report)
+            if exit_code:
+                raise SystemExit(exit_code)
+            return
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
@@ -171,9 +183,9 @@ def _resolve_mode(
     command: str | None,
     extras: list[str],
 ) -> tuple[str, list[str]]:
-    if command in {"repo", "logs", "explain-command", "doctor", "init"}:
+    if command in {"repo", "logs", "explain-command", "doctor", "init", "self-test"}:
         if not extras:
-            if command in {"doctor", "init"}:
+            if command in {"doctor", "init", "self-test"}:
                 return command, []
             parser.error(f"{command} requires additional arguments")
         return command, extras
@@ -323,6 +335,13 @@ def _run_init_command(parts: list[str], config: LilbotConfig) -> str:
     if parts:
         raise SystemExit("init does not accept additional arguments")
     return run_init_wizard(config, input_func=input)
+
+
+def _run_self_test_command(parts: list[str], config: LilbotConfig) -> tuple[str, int]:
+    if parts:
+        raise SystemExit("self-test does not accept additional arguments")
+    result = run_self_test(config)
+    return render_self_test_report(result), result.exit_code
 
 
 def _emit_config_diagnostics(config: LilbotConfig) -> None:

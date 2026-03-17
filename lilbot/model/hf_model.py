@@ -30,7 +30,9 @@ class HuggingFaceLocalModel(BaseModel):
     ) -> None:
         if not model_name:
             raise RuntimeError(
-                "No local model is configured. Pass --model or set LILBOT_MODEL."
+                "No local model is configured. Run `lilbot init` to save one, "
+                "pass `--model /path/to/model`, or set `LILBOT_MODEL`. "
+                "Deterministic commands like `lilbot doctor` still work without a model."
             )
 
         try:
@@ -42,7 +44,7 @@ class HuggingFaceLocalModel(BaseModel):
         except ImportError as exc:
             raise RuntimeError(
                 "Local model dependencies are missing. Install them with "
-                "`pip install -r requirements.txt` or `pip install -e .[hf]`."
+                "`python -m pip install torch transformers accelerate`."
             ) from exc
 
         self.torch = torch
@@ -67,7 +69,7 @@ class HuggingFaceLocalModel(BaseModel):
         }
 
         if self.device.type == "cuda":
-            model_kwargs["torch_dtype"] = torch.float16
+            model_kwargs["dtype"] = torch.float16
             model_kwargs["device_map"] = "auto"
 
         quantization_config = self._build_quantization_config()
@@ -171,7 +173,7 @@ class HuggingFaceLocalModel(BaseModel):
         except ImportError:
             self._warn_once(
                 "bitsandbytes is not installed; continuing without 4-bit quantization. "
-                "Install it with `pip install bitsandbytes` or `pip install -e .[quantization]`."
+                "Install it with `python -m pip install bitsandbytes`."
             )
             return None
 
@@ -188,7 +190,22 @@ class HuggingFaceLocalModel(BaseModel):
             model = auto_model.from_pretrained(self.model_name, **model_kwargs)
         except Exception as exc:
             if quantization_config is not None:
-                self._warn_once(f"4-bit quantization failed ({exc}); retrying without quantization.")
+                lowered = str(exc).lower()
+                if "out of memory" in lowered and self.device_pref == "auto":
+                    self._warn_once(
+                        "4-bit quantization failed due to GPU memory pressure; "
+                        "falling back to CPU because --device auto was used."
+                    )
+                    return self._load_model_on_cpu(auto_model, warning_message=None)
+                if "out of memory" in lowered and self.device_pref == "cuda":
+                    raise RuntimeError(
+                        "4-bit GPU loading ran out of memory. Free GPU memory, use a smaller checkpoint, "
+                        "or retry with --device cpu."
+                    ) from exc
+                self._warn_once(
+                    f"4-bit quantization failed ({exc}); retrying without quantization. "
+                    "This may use much more GPU memory."
+                )
                 retry_kwargs = dict(model_kwargs)
                 retry_kwargs.pop("quantization_config", None)
                 try:
@@ -206,11 +223,18 @@ class HuggingFaceLocalModel(BaseModel):
         self.quantization_active = quantization_config is not None
         return model
 
-    def _load_model_on_cpu(self, auto_model: object) -> object:
-        self.torch.cuda.empty_cache()
-        self._warn_once(
+    def _load_model_on_cpu(
+        self,
+        auto_model: object,
+        *,
+        warning_message: str | None = (
             "CUDA ran out of memory during model load; falling back to CPU because --device auto was used."
-        )
+        ),
+    ) -> object:
+        if self.torch.cuda.is_available():
+            self.torch.cuda.empty_cache()
+        if warning_message:
+            self._warn_once(warning_message)
         self.device = self.torch.device("cpu")
         self.quantization_active = False
         return auto_model.from_pretrained(
