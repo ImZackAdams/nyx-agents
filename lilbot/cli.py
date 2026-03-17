@@ -15,6 +15,9 @@ from lilbot.utils.logging import StepLogger
 
 VALID_BACKENDS = ("hf",)
 VALID_DEVICES = ("auto", "cpu", "cuda")
+CHAT_EXIT_WORDS = {"exit", "quit", ":q"}
+CHAT_CLEAR_WORDS = {"clear", ":clear"}
+MAX_CHAT_HISTORY_TURNS = 6
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,7 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "command",
         nargs="?",
-        help="A free-form query or a Lilbot subcommand such as repo, logs, or explain-command.",
+        help="A free-form query or a Lilbot subcommand such as repo, logs, or explain-command. Omit it to start interactive chat mode.",
     )
     parser.add_argument(
         "--model",
@@ -106,6 +109,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         if mode == "query":
             print(_run_query(" ".join(payload), config))
             return
+        if mode == "interactive":
+            _run_chat_loop(config)
+            return
         if mode == "repo":
             print(_run_repo_command(payload, config))
             return
@@ -134,7 +140,7 @@ def _resolve_mode(
 
     parts = [part for part in [command, *extras] if part]
     if not parts:
-        parser.error("a query or subcommand is required")
+        return "interactive", []
     return "query", parts
 
 
@@ -148,6 +154,59 @@ def _run_query(query: str, config: LilbotConfig) -> str:
         logger=StepLogger(enabled=config.verbose),
     )
     return agent.answer(query).answer
+
+
+def _run_chat_loop(config: LilbotConfig) -> None:
+    model = build_model(config)
+    _emit_model_diagnostics(model)
+    agent = LilbotAgent(
+        model,
+        build_default_tool_registry(config),
+        max_steps=config.max_steps,
+        logger=StepLogger(enabled=config.verbose),
+    )
+    conversation: list[tuple[str, str]] = []
+
+    print("Lilbot interactive mode")
+    print("Type a request and press Enter.")
+    print("Use `clear` to reset context or `exit` to leave.")
+
+    while True:
+        try:
+            raw_input_text = input("lilbot> ")
+        except EOFError:
+            print()
+            print("Leaving Lilbot.")
+            return
+        except KeyboardInterrupt:
+            print()
+            print("Leaving Lilbot.")
+            return
+
+        user_message = raw_input_text.strip()
+        if not user_message:
+            continue
+
+        normalized = user_message.lower()
+        if normalized in CHAT_EXIT_WORDS:
+            print("Leaving Lilbot.")
+            return
+        if normalized in CHAT_CLEAR_WORDS:
+            conversation.clear()
+            print("Conversation cleared.")
+            continue
+
+        request = _build_chat_request(user_message, conversation)
+        try:
+            answer = agent.answer(request).answer
+        except RuntimeError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            continue
+
+        print(answer)
+        conversation.append((user_message, answer))
+        if len(conversation) > MAX_CHAT_HISTORY_TURNS:
+            conversation[:] = conversation[-MAX_CHAT_HISTORY_TURNS:]
 
 
 def _run_repo_command(parts: list[str], config: LilbotConfig) -> str:
@@ -207,3 +266,22 @@ def _emit_model_diagnostics(model: object) -> None:
     runtime_summary = getattr(model, "runtime_summary", "")
     if runtime_summary:
         print(runtime_summary, file=sys.stderr)
+
+
+def _build_chat_request(
+    user_message: str,
+    conversation: Sequence[tuple[str, str]],
+) -> str:
+    if not conversation:
+        return user_message
+
+    lines = [
+        "Interactive session context:",
+        "Previous turns are provided for continuity. Focus on the latest user message.",
+    ]
+    for index, (prior_user, prior_answer) in enumerate(conversation[-MAX_CHAT_HISTORY_TURNS:], start=1):
+        lines.append(f"Turn {index} user: {prior_user}")
+        lines.append(f"Turn {index} lilbot: {prior_answer}")
+    lines.append("Latest user message:")
+    lines.append(user_message)
+    return "\n".join(lines)

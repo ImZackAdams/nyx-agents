@@ -28,11 +28,12 @@ Lilbot is built for practical terminal tasks such as:
 Example commands:
 
 ```bash
-python cli.py "why is my system slow?"
-python cli.py repo summarize .
-python cli.py repo trace-function authenticate_user .
-python cli.py logs analyze /var/log/syslog
-python cli.py explain-command "tar -czf backup.tar.gz project/"
+python -m lilbot
+python -m lilbot "why is my system slow?"
+python -m lilbot repo summarize .
+python -m lilbot repo trace-function authenticate_user .
+python -m lilbot logs analyze /var/log/syslog
+python -m lilbot explain-command "tar -czf backup.tar.gz project/"
 ```
 
 ## Architecture
@@ -125,20 +126,28 @@ If you keep a checkpoint under `lilbot/models/<model-name>`, Lilbot will auto-di
 
 ## CLI Usage
 
-Free-form reasoning:
+Interactive chat:
 
 ```bash
-python cli.py --model /path/to/local/model --verbose "why is my system slow?"
+python -m lilbot
+```
+
+That starts a local chat loop. Type `clear` to reset the current conversation context or `exit` to leave.
+
+One-shot reasoning:
+
+```bash
+python -m lilbot --model /path/to/local/model --verbose "why is my system slow?"
 python -m lilbot --backend hf --device cpu "explain the largest files in this repository"
 ```
 
 Deterministic subcommands:
 
 ```bash
-python cli.py repo summarize .
-python cli.py repo trace-function authenticate_user .
-python cli.py logs analyze /var/log/syslog
-python cli.py explain-command "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
+python -m lilbot repo summarize .
+python -m lilbot repo trace-function authenticate_user .
+python -m lilbot logs analyze /var/log/syslog
+python -m lilbot explain-command "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
 ```
 
 Useful flags:

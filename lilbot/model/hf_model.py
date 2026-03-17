@@ -11,6 +11,9 @@ os.environ.setdefault("USE_TF", "0")
 from lilbot.model.base import BaseModel
 
 
+DISABLED_TRANSFORMERS_OPTIONAL_PACKAGES = frozenset({"pandas", "pyarrow", "sklearn"})
+
+
 class HuggingFaceLocalModel(BaseModel):
     """Load a local Hugging Face causal LM directly in Python."""
 
@@ -31,6 +34,9 @@ class HuggingFaceLocalModel(BaseModel):
 
         try:
             import torch
+            import transformers
+
+            _disable_optional_transformers_packages(transformers)
             from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError as exc:
             raise RuntimeError(
@@ -179,3 +185,27 @@ def _render_prompt_with_chat_template(tokenizer: object, prompt: str) -> str:
     except Exception:
         return text
     return str(rendered) if rendered else text
+
+
+def _disable_optional_transformers_packages(transformers_module: object) -> None:
+    try:
+        import_utils = transformers_module.utils.import_utils
+        utils_module = transformers_module.utils
+    except AttributeError:
+        return
+
+    original = getattr(import_utils, "_is_package_available", None)
+    if not callable(original):
+        return
+
+    def _patched_is_package_available(
+        package_name: str,
+        return_version: bool = False,
+    ):
+        if package_name in DISABLED_TRANSFORMERS_OPTIONAL_PACKAGES:
+            return (False, "N/A") if return_version else (False, None)
+        return original(package_name, return_version=return_version)
+
+    import_utils._is_package_available = _patched_is_package_available
+    utils_module.is_pandas_available = lambda: False
+    utils_module.is_sklearn_available = lambda: False
