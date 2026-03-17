@@ -92,6 +92,17 @@ class CliTests(unittest.TestCase):
         self.assertIn("Configuration", text)
         self.assertIn("Next steps", text)
 
+    def test_version_flag_prints_package_version(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with self.assertRaises(SystemExit) as exit_info:
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                main(["--version"])
+
+        self.assertEqual(exit_info.exception.code, 0)
+        self.assertIn("lilbot", stdout.getvalue())
+
     def test_init_command_writes_user_config(self) -> None:
         stdout = io.StringIO()
         stderr = io.StringIO()

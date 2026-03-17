@@ -21,6 +21,7 @@ Then run the guided setup:
 ```bash
 lilbot init
 lilbot doctor
+lilbot --version
 ```
 
 If `doctor` looks good, start Lilbot:
@@ -102,7 +103,17 @@ source .venv/bin/activate
 pip install -e ".[hf,quantization]"
 ```
 
-### Option 2: CPU-Only Setup
+### Option 2: Install Directly From GitHub
+
+For users who do not want to clone the repository first:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install "git+https://github.com/ImZackAdams/lilbot.git"
+```
+
+### Option 3: CPU-Only Setup
 
 If you do not want GPU dependencies:
 
@@ -133,6 +144,32 @@ export LILBOT_MODEL=/path/to/local/model
 ```
 
 If you keep a checkpoint under `lilbot/models/<model-name>`, Lilbot will auto-discover it.
+
+## Using Lilbot on Another Machine
+
+Lilbot is a normal Python CLI package. On another local machine, the workflow is:
+
+1. create or activate a Python environment
+2. install Lilbot into that environment
+3. point it at a local model
+4. run `lilbot init`
+5. run `lilbot doctor`
+6. start using `lilbot`
+
+The `lilbot` command only exists inside the environment where the package was installed. If a user switches environments, they need Lilbot installed there too.
+
+## Choosing a Model for Your Hardware
+
+Lilbot does not rely on a hosted model service, so users need a local checkpoint that fits their machine.
+
+Start here:
+
+- CPU-only machines: use a smaller instruction-tuned model and prefer `--device cpu`
+- 8-12 GB NVIDIA GPUs: use `--device cuda --quantize-4bit` and choose a smaller or more aggressively quantized checkpoint
+- 16-24 GB NVIDIA GPUs: `--device cuda --quantize-4bit` is usually the best default
+- larger GPUs: use whichever local checkpoint gives you the quality/latency tradeoff you want
+
+The detailed setup guide is in [MODEL_GUIDE.md](/home/athena/Desktop/lilbot/MODEL_GUIDE.md).
 
 ## Interactive Mode
 
@@ -198,6 +235,13 @@ Common settings:
 - `LILBOT_CONFIG_PATH`
 
 The sample environment file is in [.env.example](/home/athena/Desktop/lilbot/.env.example).
+
+For support and bug reports, it is helpful to include:
+
+```bash
+lilbot --version
+lilbot doctor
+```
 
 ## Performance Tips
 

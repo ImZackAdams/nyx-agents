@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from importlib import metadata
 import sys
 
 from lilbot.agent import LilbotAgent
@@ -42,6 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
             "  lilbot logs analyze /var/log/syslog"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {_package_version()}",
     )
     parser.add_argument(
         "command",
@@ -407,6 +413,13 @@ def _runtime_mode_text(model: object, config: LilbotConfig) -> str:
     if quantized:
         return f"{device_name} with 4-bit quantization"
     return device_name
+
+
+def _package_version() -> str:
+    try:
+        return metadata.version("lilbot")
+    except metadata.PackageNotFoundError:
+        return "0+unknown"
 
 
 def _build_chat_request(

@@ -24,6 +24,12 @@ classifiers = [
 ]
 dependencies = []
 
+[project.urls]
+Homepage = "https://github.com/ImZackAdams/lilbot"
+Repository = "https://github.com/ImZackAdams/lilbot"
+Issues = "https://github.com/ImZackAdams/lilbot/issues"
+Documentation = "https://github.com/ImZackAdams/lilbot#readme"
+
 [project.optional-dependencies]
 hf = [
   "torch>=2.1",
