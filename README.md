@@ -1,337 +1,233 @@
 # Lilbot
 
-`lilbot` is a local-first CLI assistant that can inspect your workspace, remember stable facts about you, and use local tools before it answers.
+Most "AI tools" are just web wrappers around someone else's GPU bill.
 
-It sits in a practical middle ground:
+Lilbot is not that.
 
-- more useful than a plain local chatbot
-- simpler and safer than a fully autonomous agent
-- especially good at workspace inspection, personal memory, and session continuity
+Lilbot is a local-first AI command line assistant for developers and system administrators. It runs the model on your machine, inside Python, under your control. No OpenAI API. No cloud dependency. No hosted agent stack pretending to be infrastructure.
 
-For the full operating guide, examples, troubleshooting, and extension notes, see [HOWTOUSE.md](HOWTOUSE.md).
+This is what an AI-native terminal utility is supposed to look like:
 
-## What Lilbot Is Good At
+- local model
+- explicit controller loop
+- deterministic tools
+- visible reasoning traces
+- safe-by-default shell access
+- no mystery backend doing cute things behind your back
 
-Lilbot currently shines in four areas:
+If you want a chatbot tab in a browser, this is the wrong project. If you want a machine-local operator that can inspect repos, logs, and system state without shipping your environment to a vendor, this is the right one.
 
-- `Local workspace help`
-  Read files, list directories, summarize a repository, and answer questions grounded in the current workspace.
-- `Memory-first assistance`
-  Keep durable profile memories, general notes, and session history in SQLite.
-- `Deterministic command handling`
-  Built-in `!` commands bypass the model and run local tools directly.
-- `Model-assisted tool use`
-  For normal prompts, the LLM can inspect files, search notes, search profile memory, search session history, and then answer.
+## What Lilbot Actually Does
 
-## Quick Start
+Lilbot is built for real terminal work:
 
-Create a virtual environment and install dependencies:
+- understand repositories
+- trace functions through source trees
+- inspect system state
+- summarize logs
+- explain shell commands
+- help reason about broken local dev environments
+
+Examples:
+
+```bash
+python -m lilbot
+python -m lilbot "why is my system slow?"
+python -m lilbot repo summarize .
+python -m lilbot repo trace-function authenticate_user .
+python -m lilbot logs analyze /var/log/syslog
+python -m lilbot explain-command "tar -czf backup.tar.gz project/"
+```
+
+## Why This Exists
+
+Because the default pattern for AI dev tooling is bad.
+
+People keep building systems where the language model is allowed to pretend it knows the machine. It doesn't. The model should reason. The program should inspect reality. Python should stay in charge of tools, safety, validation, and formatting.
+
+Lilbot keeps that boundary clean:
+
+- the model does not execute commands directly
+- tools are deterministic and explicit
+- the controller loop is visible and debuggable
+- safety policy is code, not vibes
+
+That is the whole game.
+
+## Architecture
+
+Lilbot is split into parts that are boring in the good way:
+
+- CLI in `lilbot/cli.py`
+- agent wrapper in `lilbot/agent.py`
+- explicit controller loop in `lilbot/controller.py`
+- prompt construction in `lilbot/prompts.py`
+- model backend abstraction in `lilbot/model/`
+- plugin-style tools in `lilbot/tools/`
+- shell safety policy in `lilbot/safety/`
+- observability helpers in `lilbot/utils/`
+- session memory in `lilbot/memory/`
+- retrieval stubs in `lilbot/retrieval/`
+
+The current backend is Hugging Face Transformers. The design keeps the backend boundary clean so you can swap that later without turning the rest of the codebase into soup.
+
+## Directory Tree
+
+```text
+.
+├── cli.py
+├── README.md
+├── requirements.txt
+├── pyproject.toml
+├── lilbot
+│   ├── __init__.py
+│   ├── __main__.py
+│   ├── agent.py
+│   ├── cli.py
+│   ├── config.py
+│   ├── controller.py
+│   ├── prompts.py
+│   ├── model
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   └── hf_model.py
+│   ├── tools
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── filesystem.py
+│   │   ├── logs.py
+│   │   ├── registry.py
+│   │   ├── repo.py
+│   │   ├── shell.py
+│   │   └── system.py
+│   ├── safety
+│   │   ├── __init__.py
+│   │   └── shell_policy.py
+│   ├── utils
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── formatting.py
+│   │   └── logging.py
+│   ├── retrieval
+│   │   ├── __init__.py
+│   │   ├── chunking.py
+│   │   ├── embeddings.py
+│   │   └── index.py
+│   └── memory
+│       ├── __init__.py
+│       └── session.py
+└── tests
+    ├── test_agent_loop.py
+    ├── test_shell_policy.py
+    └── test_tools.py
+```
+
+## Setup
+
+Make an environment. Install the package. Point it at a local checkpoint.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -e .
 ```
 
-Optional CUDA quantization support:
+Lilbot expects a local Hugging Face checkpoint. You can provide one explicitly:
 
 ```bash
-pip install bitsandbytes
+export LILBOT_MODEL=/path/to/local/model
+export LILBOT_DEVICE=cpu
 ```
 
-Start the interactive CLI:
+If you keep a checkpoint under `lilbot/models/<model-name>`, Lilbot will auto-discover it.
+
+If you want GPU-first inference with 4-bit loading:
 
 ```bash
-python3 -m lilbot
+pip install -e ".[hf,quantization]"
 ```
 
-Run a one-shot prompt:
+## Usage
+
+### Interactive Mode
+
+Run this:
 
 ```bash
-python3 -m lilbot --prompt "Summarize this repository"
+python -m lilbot --device cuda --quantize-4bit
 ```
 
-Use an inline request without `--prompt`:
+That starts the local chat loop. Type `clear` to wipe the current conversation context. Type `exit` to leave.
+
+### One-Shot Queries
+
+Use this when you want an answer and then you want your shell prompt back:
 
 ```bash
-python3 -m lilbot "What do you know about me?"
-python3 -m lilbot ls
-python3 -m lilbot read README.md
+python -m lilbot --model /path/to/local/model --device cuda --quantize-4bit --verbose "why is my system slow?"
+python -m lilbot --backend hf --device cpu "explain the largest files in this repository"
 ```
 
-## Killer Demo
+### Deterministic Subcommands
 
-One short session shows what Lilbot is for:
-
-```text
-$ python3 -m lilbot
-Request (or 'exit'): my name is Zack
-[lilbot] tool save_profile_memory {"category": "name", "text": "name: Zack"}
-
-Okay. I'll remember that your name is Zack.
-
-Request (or 'exit'): what is my name?
-[lilbot] tool search_profile {"limit": 8, "query": "name"}
-[lilbot] tool search_notes {"limit": 5, "query": "name"}
-[lilbot] tool search_history {"limit": 6, "query": "name", "session_id": "default"}
-
-Your name appears to be Zack.
-
-Request (or 'exit'): summarize this repo
-[lilbot] tool list_files {"max_entries": 50, "path": "."}
-
-This repository appears to be a Python CLI project. The main application code lives in `lilbot/`.
-```
-
-That is the core loop: remember something durable, retrieve it deterministically later, and inspect the local repo when a prompt depends on local files.
-
-## First Examples
+These do not need the full agent loop:
 
 ```bash
-python3 -m lilbot "what is in this directory?"
-python3 -m lilbot "summarize this repo"
-python3 -m lilbot "my name is Zack"
-python3 -m lilbot "what is my name?"
-python3 -m lilbot "what do you know about me?"
-python3 -m lilbot --session-id work "what did we decide earlier?"
+python -m lilbot repo summarize .
+python -m lilbot repo trace-function authenticate_user .
+python -m lilbot logs analyze /var/log/syslog
+python -m lilbot explain-command "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
 ```
 
-## Interaction Model
+### Useful Flags
 
-Lilbot has three practical lanes:
+- `--model` local model path or cached offline model identifier
+- `--backend` backend selector, currently `hf`
+- `--device` `auto`, `cpu`, or `cuda`
+- `--quantize-4bit` enable 4-bit GPU loading when `bitsandbytes` is available
+- `--max-steps` controller step limit
+- `--max-new-tokens` generation cap per model step
+- `--temperature` sampling temperature
+- `--verbose` print `[STEP]`, `[RAW]`, `[THOUGHT]`, `[ACTION]`, `[ARGS]`, and `[OBSERVATION]`
 
-### 1. Prefix Commands
+## Performance Notes
 
-Commands that begin with `!` run local handlers directly.
+Big local checkpoints are not magic. If you want good latency, stop pretending a giant model on weak settings is going to feel snappy.
 
-Available commands:
-
-- `!help`
-- `!ls [path]`
-- `!read <file>`
-- `!sys`
-- `!note <text>`
-- `!notes [query]`
-- `!remember <text>`
-- `!profile [query]`
-- `!history [query]`
-
-These do not require the model.
-
-### 2. Deterministic Direct Answers
-
-Some requests are answered without model generation when local logic is enough. Examples include:
-
-- profile lookups such as `what is my name?`
-- profile summaries such as `what do you know about me?`
-- repository and directory listing summaries
-- session-id questions
-- assistant identity questions such as `what is your name?`
-
-This keeps common workflows fast and reduces model sloppiness.
-
-### 3. Agent Mode
-
-Everything else goes through the agent loop. The model can choose a local tool, see the result, and continue until it returns a final answer.
-
-Lilbot prints tool activity to `stderr` as it happens so you can see what the agent is doing.
-
-## Agent Loop Architecture
-
-The runtime path is intentionally small and explicit:
-
-```text
-user request
-   |
-   v
-lilbot/cli/main.py
-   |
-   +--> prefix command? ------------------> local handler --> output
-   |
-   +--> deterministic direct answer? ----> local policy --> output
-   |
-   +--> agent mode
-           |
-           v
-      lilbot/cli/agent.py
-           |
-           +--> prefetch local context
-           |      - profile memory
-           |      - notes
-           |      - session history
-           |
-           +--> build prompt
-           |      - lilbot/cli/_agent_prompting.py
-           |
-           +--> model response parser
-           |      - lilbot/cli/_agent_protocol.py
-           |
-           +--> TOOL request? ---------> lilbot/tools/__init__.py
-           |                                |
-           |                                +--> filesystem tools
-           |                                +--> notes tools
-           |                                +--> profile tools
-           |                                +--> history tools
-           |                                +--> system tools
-           |                                         |
-           |                                         v
-           |                                  lilbot/memory/memory.py
-           |
-           +--> observation appended
-           |
-           +--> FINAL answer or deterministic fallback
-```
-
-The main responsibilities are split like this:
-
-- `lilbot/cli/main.py`
-  CLI entrypoint, REPL, one-shot mode, prefix-command routing, provider loading
-- `lilbot/cli/agent.py`
-  agent loop orchestration
-- `lilbot/cli/_agent_policy.py`
-  deterministic routing, memory-prefetch heuristics, and fallback behavior
-- `lilbot/cli/_agent_prompting.py`
-  the prompt that tells the model how to use tools
-- `lilbot/cli/_agent_protocol.py`
-  parsing and stream normalization for `FINAL:` / `TOOL:`
-- `lilbot/tools/`
-  deterministic local tools
-- `lilbot/memory/memory.py`
-  SQLite-backed storage for notes, profile memory, and session history
-
-## Memory Model
-
-Lilbot stores three kinds of memory:
-
-| Memory Type | Purpose | Typical Examples |
-| --- | --- | --- |
-| `Profile memory` | Stable facts about you | name, timezone, preferences, goals |
-| `Notes` | Durable general notes | reminders, project facts, shopping items |
-| `Session history` | Prior messages inside a named conversation | "what did we decide earlier?" |
-
-Default storage is SQLite at `lilbot/memory/memory_store.db`.
-
-Profile memory is intended for "about me" facts. Notes are broader and better for reminders or reference material. Session history preserves recent conversational context within a session.
-
-## Tool Surface
-
-Lilbot currently exposes these tool families:
-
-| Tool | Purpose |
-| --- | --- |
-| `list_files` | List directory contents under the workspace root |
-| `read_file` | Read a text file under the workspace root |
-| `system_info` | Show OS, Python version, cwd, and optional CPU/RAM usage |
-| `save_note` / `search_notes` | Store and retrieve general notes |
-| `save_profile_memory` / `search_profile` | Store and retrieve personal profile memory |
-| `search_history` | Retrieve prior conversation from the current session |
-
-The current toolset is intentionally read-oriented. Lilbot does not yet edit files, run arbitrary shell commands, or delete memory entries.
-
-## Safety and Boundaries
-
-Lilbot is designed to stay understandable:
-
-- file access is restricted to the workspace root
-- profile, note, and history retrieval are local only
-- repeated identical tool calls are blocked
-- malformed protocol responses are normalized where possible
-- deterministic fallbacks are used for directory listings, repo summaries, and similar fragile prompts
-- personal-fact answers are grounded in saved profile memory, notes, or history instead of guessing
-
-## Model and Backend
-
-Lilbot supports three backend modes:
-
-- `auto`
-  Use the local Hugging Face backend if a model path is available, otherwise fall back to the lightweight echo backend.
-- `hf`
-  Require a local Hugging Face model path.
-- `echo`
-  Use a placeholder provider for CLI and testing flows.
-
-If `lilbot/models/falcon3_10b_instruct` exists, Lilbot will use it automatically as the default local model path.
-
-The default response budget is `96` new tokens. This is a compromise between latency and avoiding clipped conversational replies. Increase it when you want fuller answers:
+The practical path is:
 
 ```bash
-python3 -m lilbot --max-new-tokens 160 "Explain how the CLI works"
+python -m lilbot --device cuda --quantize-4bit
 ```
 
-## Configuration
+If responses still feel heavy:
 
-Lilbot loads `.env` automatically when `python-dotenv` is available.
+- make sure `bitsandbytes` is actually installed
+- use `--device cuda --quantize-4bit` instead of hoping `auto` guesses right
+- reduce generation with `--max-new-tokens 128`
+- use `clear` in interactive mode when the conversation gets stale
 
-Common environment variables:
+If `--device auto` picks CUDA and the checkpoint still does not fit, Lilbot falls back to CPU during model load.
 
-```bash
-LILBOT_BACKEND=auto
-LILBOT_MODEL_PATH=/path/to/model
-LILBOT_DEVICE=auto
-LILBOT_MAX_NEW_TOKENS=96
-LILBOT_QUANTIZE_4BIT=1
-LILBOT_DO_SAMPLE=0
-LILBOT_STREAM=1
-LILBOT_MAX_AGENT_STEPS=4
-LILBOT_HISTORY_MESSAGES=8
-LILBOT_SESSION_ID=default
-LILBOT_SYSTEM_PROMPT=
-LILBOT_LOG_LEVEL=WARNING
-LILBOT_WORKSPACE_ROOT=/path/to/workspace
-LILBOT_MEMORY_DB_PATH=/path/to/memory_store.db
-LILBOT_MEMORY_JSON_PATH=/path/to/legacy_memory_store.json
-```
+## Safety Model
 
-Useful defaults and behaviors:
+This project is local-first, not reckless.
 
-- greedy decoding is the default
-- streaming is enabled by default
-- `--device cpu` is supported for CPU-only machines
-- `--quantize-4bit` only matters when CUDA and `bitsandbytes` are available
-- session history is grouped by `session_id`
-- the legacy JSON notes file is imported automatically on first use if present
+- filesystem tools stay inside the configured workspace root
+- log analysis is limited to the workspace or common system log locations
+- shell execution is restricted to read-oriented commands
+- dangerous patterns like `rm -rf`, `shutdown`, `mkfs`, `dd`, and install-script pipelines are blocked
+- the controller enforces a strict `max_steps` limit
 
-## Repository Layout
+The model is not trusted with direct execution authority. Good. It shouldn't be.
 
-Important directories and files:
+## Development
 
-- `lilbot/cli/`
-  CLI entrypoint, routing, prompting, protocol parsing, and agent loop
-- `lilbot/tools/`
-  Deterministic local tools
-- `lilbot/memory/`
-  SQLite-backed notes, profile memory, and session history
-- `lilbot/llm/provider.py`
-  Backend selection and local Hugging Face loading
-- `tests/`
-  Regression coverage for CLI, agent behavior, provider selection, and memory
-
-## Current Limitations
-
-Lilbot is intentionally narrow. It does not currently provide:
-
-- web browsing
-- arbitrary shell execution
-- file editing
-- note/profile deletion commands
-- long-horizon autonomous planning
-
-Its quality is also still heavily tied to the local model you run.
-
-## Verification
-
-Run the regression suite:
+Run the tests:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## Related Docs
-
-- [HOWTOUSE.md](HOWTOUSE.md)
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [.env.example](.env.example)
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+Lilbot is experimental, but it is trying to be experimental in the useful way: small, modular, inspectable, and grounded in local reality.

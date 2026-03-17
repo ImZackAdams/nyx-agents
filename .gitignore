@@ -1,15 +1,23 @@
 __pycache__/
 *.pyc
 .env
+.venv/
+.lilbot/
 *.sqlite
 *.db
 *.log
 .DS_Store
 .cache/
+.pytest_cache/
+.coverage
 dist/
 build/
 *.egg-info/
 .ipynb_checkpoints/
+logs/
+lilbot/memory/memory_store.json
+lilbot/memory/memory_store.db
+lilbot/models/
 
 # --- ML artifacts (do not commit) ---
 /ml/
@@ -32,14 +40,3 @@ build/
 *.npy
 *.pickle
 *.joblib
-
-# models & local artifacts
-/ml/
-/src/ml/
-/models/
-/checkpoints/
-/data/
-/runs/
-/outputs/
-/artifacts/
-*.pt *.pth *.ckpt *.bin *.safetensors *.onnx *.h5 *.npz *.npy *.pickle *.joblib

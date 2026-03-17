@@ -4,37 +4,38 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lilbot"
-version = "0.1.0"
-description = "Minimal local LLM CLI"
+version = "0.4.0"
+description = "Local-first AI CLI assistant for developers and system administrators"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
   { name = "Lilbot Contributors" }
 ]
-keywords = ["llm", "cli", "local"]
+keywords = ["llm", "agent", "cli", "local-first", "huggingface", "developer-tools"]
 classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
 ]
-dependencies = [
+dependencies = []
+
+[project.optional-dependencies]
+hf = [
   "torch>=2.1",
   "transformers>=4.36",
   "accelerate>=0.26",
-  "python-dotenv",
-  "psutil",
 ]
-
-[project.optional-dependencies]
 quantization = [
   "bitsandbytes",
 ]
 
 [project.scripts]
-lilbot = "lilbot.cli.main:main"
+lilbot = "lilbot.cli:main"
 
-[tool.setuptools]
-packages = ["lilbot", "lilbot.cli", "lilbot.llm", "lilbot.memory", "lilbot.tools"]
+[tool.setuptools.packages.find]
+include = ["lilbot*"]
