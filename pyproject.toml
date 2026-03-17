@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lilbot"
-version = "0.3.0"
+version = "0.4.0"
 description = "Local-first AI CLI assistant for developers and system administrators"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,18 +28,10 @@ dependencies = []
 hf = [
   "torch>=2.1",
   "transformers>=4.36",
-  "accelerate>=0.26",
-]
-quantization = [
-  "bitsandbytes",
 ]
 
 [project.scripts]
 lilbot = "lilbot.cli:main"
 
-[tool.setuptools]
-packages = [
-  "lilbot",
-  "lilbot.tools",
-  "lilbot.utils",
-]
+[tool.setuptools.packages.find]
+include = ["lilbot*"]

@@ -1,3 +1,5 @@
+"""Convenience entry point for `python cli.py`."""
+
 from lilbot.cli import main
 
 

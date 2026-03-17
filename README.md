@@ -1,124 +1,170 @@
 # Lilbot
 
-Lilbot is a local-first AI-powered CLI assistant for developers and system administrators.
+Lilbot is a local-first AI command line assistant for developers and system administrators.
 
-It runs a local language model directly inside Python and treats the model as a reasoning engine that chooses from deterministic tools. There are no cloud APIs, hosted model servers, or remote inference dependencies in the runtime design.
+It runs a local language model directly inside Python, treats that model as a reasoning engine, and keeps tool execution, safety checks, and formatting under explicit system control. Lilbot is not a cloud assistant, not a web app, and not a thin chatbot wrapper.
 
-## Features
+## Philosophy
 
-- local Hugging Face model loading
-- a small agent loop with explicit tool use
-- deterministic filesystem, shell, repository, and log inspection tools
-- a deterministic system inspection snapshot for performance diagnosis
-- visible reasoning telemetry with `[THOUGHT]`, `[ACTION]`, and `[OBSERVATION]`
-- guardrails around shell execution and filesystem access
-- a CLI that supports free-form questions plus repo and log subcommands
+- fully local runtime
+- no OpenAI APIs
+- no cloud APIs
+- no hosted model servers
+- modular tool architecture
+- safe-by-default shell access
+- debuggable controller loop with visible step traces
 
-## Directory Layout
+## What Lilbot Does
+
+Lilbot is built for practical terminal tasks such as:
+
+- understanding repositories
+- inspecting system state
+- summarizing logs
+- explaining shell commands
+- tracing functions in code
+- helping reason about local developer environments
+
+Example commands:
+
+```bash
+python cli.py "why is my system slow?"
+python cli.py repo summarize .
+python cli.py repo trace-function authenticate_user .
+python cli.py logs analyze /var/log/syslog
+python cli.py explain-command "tar -czf backup.tar.gz project/"
+```
+
+## Architecture
+
+Lilbot separates the runtime into clear layers:
+
+- CLI layer in `lilbot/cli.py`
+- agent wrapper in `lilbot/agent.py`
+- explicit controller loop in `lilbot/controller.py`
+- prompt construction in `lilbot/prompts.py`
+- model backend abstraction in `lilbot/model/`
+- plugin-style tools in `lilbot/tools/`
+- safety policy in `lilbot/safety/`
+- observability helpers in `lilbot/utils/`
+- session memory in `lilbot/memory/`
+- retrieval stubs in `lilbot/retrieval/`
+
+The model never executes commands directly. It can only reason, choose a tool, and react to deterministic observations returned by Python.
+
+## Directory Tree
 
 ```text
 .
 ├── cli.py
+├── README.md
+├── requirements.txt
+├── pyproject.toml
 ├── lilbot
 │   ├── __init__.py
 │   ├── __main__.py
 │   ├── agent.py
 │   ├── cli.py
-│   ├── model.py
+│   ├── config.py
+│   ├── controller.py
+│   ├── prompts.py
+│   ├── model
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   └── hf_model.py
 │   ├── tools
 │   │   ├── __init__.py
+│   │   ├── base.py
 │   │   ├── filesystem.py
 │   │   ├── logs.py
+│   │   ├── registry.py
 │   │   ├── repo.py
-│   │   └── shell.py
-│   └── utils
+│   │   ├── shell.py
+│   │   └── system.py
+│   ├── safety
+│   │   ├── __init__.py
+│   │   └── shell_policy.py
+│   ├── utils
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── formatting.py
+│   │   └── logging.py
+│   ├── retrieval
+│   │   ├── __init__.py
+│   │   ├── chunking.py
+│   │   ├── embeddings.py
+│   │   └── index.py
+│   └── memory
 │       ├── __init__.py
-│       ├── config.py
-│       └── logging.py
+│       └── session.py
 └── tests
+    ├── test_agent_loop.py
+    ├── test_shell_policy.py
+    └── test_tools.py
 ```
 
-## Install
+## Setup
 
-Create a virtual environment and install the package:
+Create a virtual environment and install the local inference dependencies:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[hf,quantization]"
+pip install -r requirements.txt
+pip install -e .
 ```
 
-Lilbot uses Hugging Face `BitsAndBytesConfig` with `bitsandbytes` for 4-bit GPU loading.
-That is the recommended setup for the bundled Falcon 10B checkpoint.
-
-If you need a non-quantized install instead:
+Lilbot expects a local Hugging Face checkpoint. You can point it at a model directory or a model already cached offline:
 
 ```bash
-pip install -e ".[hf]"
+export LILBOT_MODEL=/path/to/local/model
+export LILBOT_DEVICE=cpu
 ```
 
-## Configure A Local Model
+If you keep a checkpoint under `lilbot/models/<model-name>`, Lilbot will auto-discover it.
 
-Point Lilbot at a local Hugging Face model directory:
+## CLI Usage
+
+Free-form reasoning:
 
 ```bash
-export LILBOT_MODEL_PATH=/path/to/local/model
+python cli.py --model /path/to/local/model --verbose "why is my system slow?"
+python -m lilbot --backend hf --device cpu "explain the largest files in this repository"
 ```
 
-If you keep the model under `lilbot/models/<model-name>`, Lilbot will auto-discover it and use that path by default.
-
-Compatible instruct models include local Falcon, Qwen, and Mistral checkpoints as long as the directory contains the tokenizer and model weights.
-
-For the bundled Falcon model, a practical local setup is:
-
-```bash
-export LILBOT_DEVICE=cuda
-export LILBOT_QUANTIZE_4BIT=1
-python cli.py "why is my system slow?"
-```
-
-At startup Lilbot now prints the model runtime summary and any quantization warnings to stderr, so you can confirm whether `bitsandbytes` 4-bit loading actually activated.
-
-## Usage
-
-Free-form reasoning with tools:
-
-```bash
-python cli.py "why is my system slow?"
-python -m lilbot "explain the largest files in this repository"
-```
-
-Repository helpers:
+Deterministic subcommands:
 
 ```bash
 python cli.py repo summarize .
 python cli.py repo trace-function authenticate_user .
-```
-
-Log analysis:
-
-```bash
 python cli.py logs analyze /var/log/syslog
-```
-
-Command explanation:
-
-```bash
 python cli.py explain-command "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
 ```
 
+Useful flags:
+
+- `--model` local model path or cached offline model identifier
+- `--backend` backend selector, currently `hf`
+- `--device` `auto`, `cpu`, or `cuda`
+- `--max-steps` controller step limit
+- `--max-new-tokens` generation limit per model step
+- `--temperature` sampling temperature
+- `--verbose` emit `[STEP]`, `[RAW]`, `[THOUGHT]`, `[ACTION]`, `[ARGS]`, and `[OBSERVATION]` logs
+
 ## Safety Model
 
-- filesystem reads stay inside `LILBOT_WORKSPACE_ROOT` or the current working directory
-- log analysis is limited to the workspace or common system log directories
-- shell execution is read-only, allowlisted, and rejects dangerous metacharacters
-- system performance diagnosis can use `inspect_system`, which avoids shell pipelines entirely
-- the agent stops after `LILBOT_MAX_STEPS`
+- filesystem tools are restricted to the configured workspace root
+- log analysis is restricted to the workspace or common system log directories
+- shell execution runs in restricted mode with allowlisted read-oriented commands
+- dangerous patterns such as `rm -rf`, `shutdown`, `mkfs`, `dd`, and install-script pipelines are blocked
+- the controller enforces a strict `max_steps` limit
 
 ## Development
 
-Run the tests with:
+Run the regression suite with:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+Lilbot is still experimental, but the structure is intended to be the start of a serious AI-native terminal utility rather than a toy demo.

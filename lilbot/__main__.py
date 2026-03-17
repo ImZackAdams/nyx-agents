@@ -1,3 +1,5 @@
+"""Module entry point for `python -m lilbot`."""
+
 from __future__ import annotations
 
 from lilbot.cli import main

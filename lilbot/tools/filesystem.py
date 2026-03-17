@@ -1,4 +1,4 @@
-"""Deterministic workspace filesystem tools."""
+"""Workspace filesystem tools."""
 
 from __future__ import annotations
 
@@ -7,7 +7,8 @@ import os
 from pathlib import Path
 from typing import Iterator
 
-from lilbot.utils.config import LilbotConfig
+from lilbot.config import LilbotConfig
+from lilbot.tools.base import Tool
 
 
 TEXT_FILE_EXTENSIONS = {
@@ -42,7 +43,7 @@ TEXT_FILE_EXTENSIONS = {
 }
 
 
-def _read_text_preview(path: Path, max_chars: int) -> str:
+def read_text_preview(path: Path, max_chars: int) -> str:
     with path.open("rb") as handle:
         data = handle.read(max_chars + 1)
 
@@ -57,11 +58,18 @@ def _read_text_preview(path: Path, max_chars: int) -> str:
     return text
 
 
-def iter_workspace_files(config: LilbotConfig, root: Path, *, limit: int | None = None) -> Iterator[Path]:
+def iter_workspace_files(
+    config: LilbotConfig,
+    root: Path,
+    *,
+    limit: int | None = None,
+) -> Iterator[Path]:
     visited = 0
     for current_root, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(
-            [name for name in dirnames if name not in config.ignored_directories]
+            name
+            for name in dirnames
+            if name not in config.ignored_directories and not name.endswith(".egg-info")
         )
         for filename in sorted(filenames):
             visited += 1
@@ -78,54 +86,6 @@ def tail_file(path: Path, *, max_lines: int) -> list[str]:
     return list(lines)
 
 
-def read_file(config: LilbotConfig, path: str) -> str:
-    """Read a text file under the configured workspace root."""
-
-    try:
-        target = config.resolve_workspace_path(path, must_exist=True)
-    except ValueError as exc:
-        return f"Path error: {exc}"
-
-    if not target.is_file():
-        return f"Not a file: {config.display_path(target)}"
-
-    try:
-        preview = _read_text_preview(target, config.file_max_chars)
-    except OSError as exc:
-        return f"Unable to read {config.display_path(target)}: {exc}"
-
-    return f"File preview for {config.display_path(target)}:\n{preview}"
-
-
-def list_directory(config: LilbotConfig, path: str = ".") -> str:
-    """List directory contents inside the configured workspace root."""
-
-    try:
-        target = config.resolve_workspace_path(path, must_exist=True)
-    except ValueError as exc:
-        return f"Path error: {exc}"
-
-    if not target.is_dir():
-        return f"Not a directory: {config.display_path(target)}"
-
-    try:
-        entries = sorted(target.iterdir(), key=lambda item: item.name.lower())
-    except OSError as exc:
-        return f"Unable to list {config.display_path(target)}: {exc}"
-
-    if not entries:
-        return f"Directory listing for {config.display_path(target)}:\n(empty directory)"
-
-    rendered = [
-        f"{entry.name}/" if entry.is_dir() else entry.name
-        for entry in entries[: config.directory_entry_limit]
-    ]
-    if len(entries) > config.directory_entry_limit:
-        rendered.append(f"... ({len(entries) - config.directory_entry_limit} more entries)")
-
-    return f"Directory listing for {config.display_path(target)}:\n" + "\n".join(rendered)
-
-
 def is_probably_text(path: Path) -> bool:
     if path.suffix.lower() in TEXT_FILE_EXTENSIONS:
         return True
@@ -137,21 +97,59 @@ def is_probably_text(path: Path) -> bool:
     return b"\x00" not in sample
 
 
-TOOL_DEFINITIONS = [
-    {
-        "name": "read_file",
-        "description": "Read a UTF-8 text file under the workspace root.",
-        "parameters": {
-            "path": "Workspace-relative file path.",
-        },
-        "function": read_file,
-    },
-    {
-        "name": "list_directory",
-        "description": "List files and folders under the workspace root.",
-        "parameters": {
-            "path": "Workspace-relative directory path. Defaults to '.'.",
-        },
-        "function": list_directory,
-    },
-]
+class ReadFileTool(Tool):
+    name = "read_file"
+    description = "Read a UTF-8 text file under the workspace root."
+    args_schema = {"path": "Workspace-relative file path."}
+
+    def execute(self, **kwargs: object) -> str:
+        path = str(kwargs.get("path", "")).strip()
+        try:
+            target = self.config.resolve_workspace_path(path, must_exist=True)
+        except ValueError as exc:
+            return f"Path error: {exc}"
+
+        if not target.is_file():
+            return f"Not a file: {self.config.display_path(target)}"
+
+        try:
+            preview = read_text_preview(target, self.config.file_preview_chars)
+        except OSError as exc:
+            return f"Unable to read {self.config.display_path(target)}: {exc}"
+
+        return f"File preview for {self.config.display_path(target)}:\n{preview}"
+
+
+class ListDirectoryTool(Tool):
+    name = "list_directory"
+    description = "List files and directories under the workspace root."
+    args_schema = {"path": "Workspace-relative directory path. Defaults to '.'."}
+
+    def execute(self, **kwargs: object) -> str:
+        path = str(kwargs.get("path", ".")).strip() or "."
+        try:
+            target = self.config.resolve_workspace_path(path, must_exist=True)
+        except ValueError as exc:
+            return f"Path error: {exc}"
+
+        if not target.is_dir():
+            return f"Not a directory: {self.config.display_path(target)}"
+
+        try:
+            entries = sorted(target.iterdir(), key=lambda item: item.name.lower())
+        except OSError as exc:
+            return f"Unable to list {self.config.display_path(target)}: {exc}"
+
+        if not entries:
+            return f"Directory listing for {self.config.display_path(target)}:\n(empty directory)"
+
+        rendered = [
+            f"{entry.name}/" if entry.is_dir() else entry.name
+            for entry in entries[: self.config.directory_entry_limit]
+        ]
+        if len(entries) > self.config.directory_entry_limit:
+            rendered.append(
+                f"... ({len(entries) - self.config.directory_entry_limit} more entries)"
+            )
+
+        return f"Directory listing for {self.config.display_path(target)}:\n" + "\n".join(rendered)
